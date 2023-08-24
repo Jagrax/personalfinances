@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <title layout:fragment="page-title">Personal Finances App</title>
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" media="screen" th:href="@{/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" media="screen" th:href="@{/css/bootstrap-icons.min.css}"/>
+    <link rel="stylesheet" media="screen" th:href="@{/css/styles.css}"/>
+    <script th:src="@{/js/jquery-3.7.0.min.js}"></script>
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-md sticky-top bg-body-tertiary shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img class="d-inline-block align-text-top" th:src="@{/images/logo.png}" alt="Personal Finances APP" width="24" height="24">
+                Personal Finances
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav align-items-lg-center">
+                    <li class="nav-item dropdown" th:each="menuItem : ${menu?.items}">
+                        <a class="nav-link" th:classappend="${#lists.isEmpty(menuItem.subItems) ? '' : 'dropdown-toggle'}" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" role="button" data-bs-toggle="dropdown" aria-expanded="false" th:if="${#strings.isEmpty(menuItem.icon)}" th:text="${menuItem.text}"></a>
+                        <a class="nav-link" th:classappend="${#lists.isEmpty(menuItem.subItems) ? '' : 'dropdown-toggle'}" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" role="button" data-bs-toggle="dropdown" aria-expanded="false" th:if="${!#strings.isEmpty(menuItem.icon)}">
+                            <i class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${menuItem.text}"></span>
+                        </a>
+                        <ul class="dropdown-menu" th:if="${!#lists.isEmpty(menuItem.subItems)}">
+                            <li th:each="subItem : ${menuItem.subItems}">
+                                <span th:if="${subItem.url == null}" class="dropdown-header" th:text="${subItem.text}"></span>
+                                <th:block th:if="${subItem.url != null}">
+                                    <a class="dropdown-item" th:href="@{${subItem.url}}" th:if="${#strings.isEmpty(subItem.icon)}" th:text="${subItem.text}"></a>
+                                    <a class="dropdown-item" th:href="@{${subItem.url}}" th:if="${!#strings.isEmpty(subItem.icon)}">
+                                        <i class="bi me-2" th:with="icon=${subItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${subItem.text}"></span>
+                                    </a>
+                                </th:block>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/logout}"><i class="bi bi-box-arrow-left me-2"></i>Cerrar sesión</a>
+                    </li>
+                    <li class="d-lg-none">
+                        <hr>
+                    </li>
+                </ul>
+                <div class="ms-auto d-flex py-2 align-items-center">
+                    <i class="bi bi-person-circle me-2"></i><span th:with="user=${#authentication.principal}" th:text="${user.firstName + ' ' + user.lastName}"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="container-fluid">
+        <div layout:fragment="content">Page content</div>
+    </main>
+</body>
+</html>

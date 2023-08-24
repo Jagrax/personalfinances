@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Cuentas</title>
+</head>
+<body>
+    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+        <form action="#" th:action="@{/accounts}" th:object="${accountSearch}" method="post">
+            <div class="row g-3">
+                <div class="col-9 col-lg-3 col-xxl-2">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="accountFilterName" name="filterAccountName" th:value="*{getName()}" placeholder="Nombre">
+                        <label for="accountFilterName">Nombre</label>
+                    </div>
+                </div>
+                <div class="col-9 col-lg-3 col-xxl-2">
+                    <div class="form-floating">
+                        <select class="form-select" id="accountFilterAccountType" name="categoryId">
+                            <option th:selected="*{accountType == null}"></option>
+                            <option th:each="accountType : ${accountTypes}" th:value="${accountType.name}" th:text="${accountType.value}" th:selected="${accountType == accountSearch.accountType}"></option>
+                        </select>
+                        <label for="accountFilterAccountType">Tipo de cuenta</label>
+                    </div>
+                </div>
+                <div class="col-3 col-lg text-end">
+                    <button type="submit" class="btn btn-primary h-100"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center my-1">
+                <h3>Listado de categor&iacute;as</h3>
+                <div class="d-flex flex-nowrap">
+                    <div class="input-group input-group-sm me-3">
+                        <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${accountsPage.size}">
+                        <span class="input-group-text" th:text="${'/ ' + accountsPage.totalElements}"></span>
+                    </div>
+                    <button id="btnOpenModal" type="button" data-bs-toggle="modal" data-bs-target="#createOrUpdateAccountModal" class="btn btn-sm btn-success text-nowrap"><i class="bi bi-plus me-2"></i>Nuevo registro</button>
+                </div>
+            </div>
+            <table class="table table-sm table-bordered table-striped">
+                <thead class="text-center">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th colspan="2">Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(accountsPage.content)}">
+                    <td colspan="9">No se encontr&oacute; ninguna categor&iacute;a registrada!</td>
+                </tr>
+                <tr th:unless="${#lists.isEmpty(accountsPage.content)}" th:each="account : ${accountsPage.content}">
+                    <td class="text-start" th:text="${account.name}"></td>
+                    <td class="text-start" th:text="${account.type.value}"></td>
+                    <td class="text-center" style="width:35px"><button name="accountIdToEdit" th:value="${account.id}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></button></td>
+                    <td class="text-center" style="width:35px"><a th:href="@{/account/delete/{id}(id=${account.id})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+                </tr>
+                </tbody>
+            </table>
+
+            <nav th:if="${accountsPage.totalPages > 1}">
+                <ul class="pagination pagination-sm justify-content-center">
+                    <th:block th:each="pageNumber : ${pageNumbers}">
+                        <li class="page-item" th:if="${pageNumber == 1}">
+                            <button name="page" class="page-link" th:classappend="${accountsPage.number == 0 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-left"></i></button>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber == 1}">
+                            <button name="page" class="page-link" th:classappend="${accountsPage.number == 0 ? ' disabled' : ''}" th:value="${accountsPage.number}" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+                        </li>
+                        <li class="page-item" th:classappend="${pageNumber==accountsPage.number + 1 ? ' active' : ''}">
+                            <span th:if="${pageNumber == accountsPage.number - 10 or pageNumber == accountsPage.number + 12}" th:class="page-link" th:text="..."></span>
+                            <button name="page" th:if="${pageNumber > accountsPage.number - 10 and pageNumber < accountsPage.number + 12}" th:value="${pageNumber}" th:text="${pageNumber}" th:class="page-link"></button>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber == accountsPage.totalPages}">
+                            <button name="page" class="page-link" th:classappend="${accountsPage.number == accountsPage.totalPages - 1 ? ' disabled' : ''}" th:value="${accountsPage.number + 2}" aria-label="Previous"><i class="bi bi-chevron-right"></i></button>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber == accountsPage.totalPages}">
+                            <button name="page" class="page-link" th:classappend="${accountsPage.number == accountsPage.totalPages - 1 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-right"></i></button>
+                        </li>
+                    </th:block>
+                </ul>
+            </nav>
+        </form>
+
+        <div class="modal fade" id="createOrUpdateAccountModal" tabindex="-1" aria-labelledby="createOrUpdateAccountModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form action="#" th:with="actionUrl=(${accountIdToEdit != null and accountIdToEdit.present} ? '/account/update/' + ${accountIdToEdit.get()} : '/account/add')" th:action="@{${actionUrl}}" th:object="${account}" method="post">
+                        <input type="hidden" th:field="*{owner}"/>
+                        <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="createOrUpdateAccountModalLabel" th:text="${expenseIdToEdit != null ? 'Editando categor&iacute;a' : 'Nueva categor&iacute;a'}"></h1>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label" for="description">Nombre</label>
+                                    <input class="form-control form-control-sm" type="text" th:field="*{name}" id="description" required/>
+                                    <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label" for="accountType">Tipo de cuenta</label>
+                                    <select class="form-select form-select-sm" th:field="*{type}" id="accountType" required>
+                                        <option th:each="accountType : ${accountTypes}" th:value="${accountType.name()}" th:text="${accountType.value}"/>
+                                    </select>
+                                    <span th:if="${#fields.hasErrors('type')}" th:errors="*{type}"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <button th:if="${accountIdToEdit == null}" type="button" class="btn btn-danger" data-bs-dismiss="modal"><i class="bi bi-x-lg me-2"></i>Cancelar</button>
+                            <a th:unless="${accountIdToEdit == null}" class="btn btn-danger" th:href="@{/accounts}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
+                            <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script th:if="${accountIdToEdit != null}">$("#btnOpenModal").click()</script>
+    </div>
+</body>
+</html>

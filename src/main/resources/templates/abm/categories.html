@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Categor&iacute;as</title>
+</head>
+<body>
+    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+        <form action="#" th:action="@{/categories}" method="post">
+            <div class="row g-3">
+                <div class="col-9 col-lg-3 col-xxl-2">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="categoryFilterName" name="filterCategoryName" th:value="${filterCategoryName.present} ? ${filterCategoryName.get()} : ''" placeholder="Nombre">
+                        <label for="categoryFilterName">Nombre</label>
+                    </div>
+                </div>
+                <div class="col-3 col-lg text-end">
+                    <button type="submit" class="btn btn-primary h-100"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center my-1">
+                <h3>Listado de categor&iacute;as</h3>
+                <div class="d-flex flex-nowrap">
+                    <div class="input-group input-group-sm me-3">
+                        <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${categoriesPage.size}">
+                        <span class="input-group-text" th:text="${'/ ' + categoriesPage.totalElements}"></span>
+                    </div>
+                    <button id="btnOpenModal" type="button" data-bs-toggle="modal" data-bs-target="#createOrUpdateCategoryModal" class="btn btn-sm btn-success text-nowrap"><i class="bi bi-plus me-2"></i>Nuevo registro</button>
+                </div>
+            </div>
+            <table class="table table-sm table-bordered table-striped">
+                <thead class="text-center">
+                <tr>
+                    <th>Nombre</th>
+                    <th colspan="2">Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(categoriesPage.content)}">
+                    <td colspan="9">No se encontr&oacute; ninguna categor&iacute;a registrada!</td>
+                </tr>
+                <tr th:unless="${#lists.isEmpty(categoriesPage.content)}" th:each="category : ${categoriesPage.content}">
+                    <td class="text-start" th:text="${category.name}"></td>
+                    <td class="text-center" style="width:35px"><button name="categoryIdToEdit" th:value="${category.id}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></button></td>
+                    <td class="text-center" style="width:35px"><a th:href="@{/category/delete/{id}(id=${category.id})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+                </tr>
+                </tbody>
+            </table>
+
+            <nav th:if="${categoriesPage.totalPages > 1}">
+                <ul class="pagination pagination-sm justify-content-center">
+                    <th:block th:each="pageNumber : ${pageNumbers}">
+                        <li class="page-item" th:if="${pageNumber == 1}">
+                            <button name="page" class="page-link" th:classappend="${categoriesPage.number == 0 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-left"></i></button>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber == 1}">
+                            <button name="page" class="page-link" th:classappend="${categoriesPage.number == 0 ? ' disabled' : ''}" th:value="${categoriesPage.number}" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+                        </li>
+                        <li class="page-item" th:classappend="${pageNumber==categoriesPage.number + 1 ? ' active' : ''}">
+                            <span th:if="${pageNumber == categoriesPage.number - 10 or pageNumber == categoriesPage.number + 12}" th:class="page-link" th:text="..."></span>
+                            <button name="page" th:if="${pageNumber > categoriesPage.number - 10 and pageNumber < categoriesPage.number + 12}" th:value="${pageNumber}" th:text="${pageNumber}" th:class="page-link"></button>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber == categoriesPage.totalPages}">
+                            <button name="page" class="page-link" th:classappend="${categoriesPage.number == categoriesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${categoriesPage.number + 2}" aria-label="Previous"><i class="bi bi-chevron-right"></i></button>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber == categoriesPage.totalPages}">
+                            <button name="page" class="page-link" th:classappend="${categoriesPage.number == categoriesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-right"></i></button>
+                        </li>
+                    </th:block>
+                </ul>
+            </nav>
+        </form>
+
+        <div class="modal fade" id="createOrUpdateCategoryModal" tabindex="-1" aria-labelledby="createOrUpdateCategoryModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form action="#" th:with="actionUrl=(${categoryIdToEdit != null and categoryIdToEdit.present} ? '/category/update/' + ${categoryIdToEdit.get()} : '/category/add')" th:action="@{${actionUrl}}" th:object="${category}" method="post">
+                        <div class="modal-header">
+                            <h1 class="modal-title fs-5" id="createOrUpdateCategoryModalLabel" th:text="${expenseIdToEdit != null ? 'Editando categor&iacute;a' : 'Nueva categor&iacute;a'}"></h1>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label" for="description">Nombre</label>
+                                    <input class="form-control form-control-sm" type="text" th:field="*{name}" id="description" required/>
+                                    <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <button th:if="${categoryIdToEdit == null}" type="button" class="btn btn-danger" data-bs-dismiss="modal"><i class="bi bi-x-lg me-2"></i>Cancelar</button>
+                            <a th:unless="${categoryIdToEdit == null}" class="btn btn-danger" th:href="@{/categories}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
+                            <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script th:if="${categoryIdToEdit != null}">$("#btnOpenModal").click()</script>
+    </div>
+</body>
+</html>

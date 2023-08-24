@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <title id="pageTitle">Personal Finances App - Iniciar sesi&oacute;n</title>
+    <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" media="screen" th:href="@{/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" media="screen" th:href="@{/css/bootstrap-icons.min.css}"/>
+    <script th:src="@{/js/jquery-3.7.0.min.js}"></script>
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        .form-signin {
+            max-width: 500px;
+            padding: 1rem;
+        }
+
+        .form-signin .form-floating:focus-within {
+            z-index: 2;
+        }
+
+        .form-signin input[type="email"] {
+            margin-bottom: -1px;
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .form-signin input[type="password"] {
+            margin-bottom: 10px;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+    </style>
+</head>
+<body class="d-flex align-items-center py-4 bg-body-tertiary">
+    <main class="form-signin w-100 m-auto">
+        <form th:action="@{/login}" method="POST">
+            <div class="mb-3 text-center">
+                <img class="mb-3" th:src="@{/images/logo.png}" alt="Personal Finances APP" width="72" height="72">
+                <h3>Iniciar sesi&oacute;n</h3>
+            </div>
+
+            <div th:if="${param.error}" class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span th:if="${#strings.equals(param.errorType, '1')}">Su usuario no posee un ROL válido.<br>Por favor, comuniquese con el administrador</span>
+                <span th:if="${#strings.equals(param.errorType, '0')}">Email o contrase&ntilde;a inv&aacute;lidos</span>
+            </div>
+            <div class="form-floating">
+                <input type="email" class="form-control" name="email" placeholder="Email" id="email" required>
+                <label for="email">Email</label>
+            </div>
+            <div class="form-floating">
+                <input type="password" class="form-control" name="password" placeholder="Contrase&ntilde;a" id="password" required>
+                <label for="password">Contrase&ntilde;a</label>
+            </div>
+            <button class="btn btn-primary w-100 py-2 my-3" type="submit">Ingresar</button>
+            <hr>
+            <a th:href="@{|/register|}" class="btn btn-outline-success w-100 py-2 mt-3">Registrarse</a>
+        </form>
+    </main>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Error</title>
+</head>
+<body>
+<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+    <div class=" d-flex justify-content-center">
+        <div class="card border-warning w-50">
+            <div class="card-header text-bg-danger">Atenci&oacute;n</div>
+            <div class="card-body">
+                <p class="card-text">Error interno</p>
+            </div>
+            <div class="card-footer">
+                <a th:href="@{|/|}" class="btn btn-sm btn-outline-primary">Inicio</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Movimientos</title>
+</head>
+<body>
+    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+        <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span th:utext="${applicationMessage.message}"></span>
+            <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
+                <ul th:each="data : ${bindingResult.allErrors}">
+                    <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
+                </ul>
+            </th:block>
+        </div>
+
+        <form th:action="@{/expenses/save}" th:object="${expense}" method="post" class="card">
+            <input type="hidden" th:field="*{id}"/>
+            <input type="hidden" th:field="*{user}"/>
+            <input type="hidden" name="backUrl" th:value="${backUrl}" th:if="${!#strings.isEmpty(backUrl)}"/>
+
+            <div class="card-header" th:text="${expense.id != null ? 'Editando registro' : 'Nuevo registro'}"></div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="order-1 col-6 col-md-3">
+                        <label class="form-label" for="date">Fecha</label>
+                        <input class="form-control form-control-sm" type="date" th:field="*{date}" id="date" th:classappend="${#fields.hasErrors('date') ? 'is-invalid' : ''}" required/>
+                        <div th:if="${#fields.hasErrors('date')}" th:errors="*{date}" th:classappend="${#fields.hasErrors('date') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="order-2 order-md-3 col-6 col-md-3">
+                        <label class="form-label" for="amount">Importe</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input class="form-control form-control-sm text-end" type="number" th:field="*{amount}" id="amount" step=".01" th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}" required/>
+                        </div>
+                        <div th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('amount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="order-3 order-md-2 col-md-6">
+                        <label class="form-label" for="description">Descripci&oacute;n</label>
+                        <input class="form-control form-control-sm" type="text" th:field="*{description}" id="description" th:classappend="${#fields.hasErrors('description') ? 'is-invalid' : ''}" required/>
+                        <div th:if="${#fields.hasErrors('description')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('description') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="details">Detalle</label>
+                        <input class="form-control form-control-sm" type="text" th:field="*{details}" id="details" th:classappend="${#fields.hasErrors('details') ? 'is-invalid' : ''}"/>
+                        <div th:if="${#fields.hasErrors('details')}" th:errors="*{details}" th:classappend="${#fields.hasErrors('details') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="comments">Comentarios</label>
+                        <input class="form-control form-control-sm" type="text" th:field="*{comments}" id="comments" th:classappend="${#fields.hasErrors('comments') ? 'is-invalid' : ''}"/>
+                        <div th:if="${#fields.hasErrors('comments')}" th:errors="*{comments}" th:classappend="${#fields.hasErrors('comments') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="categoryId">Categor&iacute;a</label>
+                        <select class="form-select form-select-sm" th:field="*{category}" id="categoryId" th:classappend="${#fields.hasErrors('category') ? 'is-invalid' : ''}" required>
+                            <option th:each="category : ${categories}" th:value="${category.getId()}"
+                                    th:text="${category.name}"/>
+                        </select>
+                        <div th:if="${#fields.hasErrors('category')}" th:errors="*{category}" th:classappend="${#fields.hasErrors('category') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="sourceAccountId">Origen</label>
+                        <select class="form-select form-select-sm" th:field="*{sourceAccount}" id="sourceAccountId" th:classappend="${#fields.hasErrors('sourceAccount') ? 'is-invalid' : ''}" required>
+                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
+                        </select>
+                        <div th:if="${#fields.hasErrors('sourceAccount')}" th:errors="*{sourceAccount}" th:classappend="${#fields.hasErrors('sourceAccount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="targetAccountId">Destino</label>
+                        <select class="form-select form-select-sm" th:field="*{targetAccount}" id="targetAccountId" th:classappend="${#fields.hasErrors('targetAccount') ? 'is-invalid' : ''}"required>
+                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
+                        </select>
+                        <div th:if="${#fields.hasErrors('targetAccount')}" th:errors="*{targetAccount}" th:classappend="${#fields.hasErrors('targetAccount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <a class="btn btn-danger" th:href="@{${!#strings.isEmpty(backUrl)} ? ${backUrl} : '/expenses'}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
+                <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Movimientos</title>
+</head>
+<body>
+<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+    <form th:action="@{${'/expenses' + urlParams}}" th:object="${expenseSearch}" method="post"
+          th:with="urlParams=${#strings.isEmpty(httpServletRequest.queryString) ? '' : '?' + httpServletRequest.queryString},backUrl=${'/expenses' + urlParams}">
+        <div class="row g-3">
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="date" class="form-control" id="expenseFilterDate" name="date" th:value="${#dates.format(expenseSearch.getDate(), 'yyyy-MM-dd')}" placeholder="Fecha">
+                    <label for="expenseFilterDate">Fecha</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="date" class="form-control" id="expenseFilterDateFrom" name="dateFrom" th:value="${#dates.format(expenseSearch.getDateFrom(), 'yyyy-MM-dd')}" placeholder="Fecha desde">
+                    <label for="expenseFilterDateFrom">Fecha desde</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="date" class="form-control" id="expenseFilterDateTo" name="dateTo" th:value="${#dates.format(expenseSearch.getDateTo(), 'yyyy-MM-dd')}" placeholder="Fecha hasta">
+                    <label for="expenseFilterDateTo">Fecha hasta</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="number" step=".01" class="form-control" id="expenseFilterAmount" name="amount" th:value="${expenseSearch.getAmount()}" placeholder="Importe">
+                    <label for="expenseFilterAmount">Importe</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="number" step=".01" class="form-control" id="expenseFilterAmountFrom" name="amountFrom" th:value="${expenseSearch.getAmountFrom()}" placeholder="Importe desde">
+                    <label for="expenseFilterAmountFrom">Importe desde</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="number" step=".01" class="form-control" id="expenseFilterAmountTo" name="amountTo" th:value="${expenseSearch.getAmountTo()}" placeholder="Importe hasta">
+                    <label for="expenseFilterAmountTo">Importe hasta</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="expenseFilterDescription" name="description" th:value="${expenseSearch.getDescription()}" placeholder="Descripci&oacute;n">
+                    <label for="expenseFilterDescription">Descripci&oacute;n</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="expenseFilterDetails" name="details" th:value="${expenseSearch.getDetails()}" placeholder="Detalle">
+                    <label for="expenseFilterDetails">Detalle</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="expenseFilterComments" name="comments" th:value="${expenseSearch.getComments()}" placeholder="Comentario">
+                    <label for="expenseFilterComments">Comentario</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <select class="form-select" id="expenseFilterCategoryId" name="categoryId">
+                        <option th:selected="${expenseSearch.categoryId == null}" th:value="${null}">Todas las categor&iacute;as</option>
+                        <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${category.id == expenseSearch.getCategoryId()}"></option>
+                    </select>
+                    <label for="expenseFilterCategoryId">Categor&iacute;a</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <select class="form-select" id="expenseFilterSourceAccountId" name="sourceAccountId">
+                        <option th:selected="${expenseSearch.sourceAccountId == null}" th:value="${null}">Todas las cuentas</option>
+                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.sourceAccountId}"></option>
+                    </select>
+                    <label for="expenseFilterSourceAccountId">Cuenta origen</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <select class="form-select" id="expenseFilterTargetAccountId" name="targetAccountId">
+                        <option th:selected="${expenseSearch.targetAccountId == null}" th:value="${null}">Todas las cuentas</option>
+                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.targetAccountId}"></option>
+                    </select>
+                    <label for="expenseFilterTargetAccountId">Cuenta destino</label>
+                </div>
+            </div>
+            <div class="col-12 text-lg-end">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+
+        <div class="row g-0 align-items-center my-2">
+            <div class="col-12 col-md me-auto"><h3>Registro de ingresos/egresos</h3></div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm me-3">
+                    <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${expensesPage.size}">
+                    <span class="input-group-text" th:text="${'/ ' + expensesPage.totalElements}"></span>
+                </div>
+            </div>
+            <div class="col-auto">
+                <a th:href="@{/expenses/create(backUrl=${backUrl})}" class="btn btn-sm btn-success text-nowrap">
+                    <i class="bi bi-plus me-2"></i>Nuevo registro
+                </a>
+            </div>
+        </div>
+
+        <table class="table table-sm table-bordered table-striped">
+            <thead class="text-center">
+            <tr>
+                <th>Fecha</th>
+                <th>Descripci&oacute;n</th>
+                <th class="d-none d-lg-table-cell">Detalle</th>
+                <th class="d-none d-lg-table-cell">Categor&iacute;a</th>
+                <th class="d-none d-lg-table-cell">Origen</th>
+                <th class="d-none d-lg-table-cell">Destino</th>
+                <th>Importe</th>
+                <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(expensesPage.content)}">
+                <td colspan="9">No hay registros para mostrar!</td>
+            </tr>
+            <tr th:unless="${#lists.isEmpty(expensesPage.content)}" th:each="expense : ${expensesPage.content}">
+                <td class="text-center" style="width:100px" th:text="${#dates.format(expense.date, 'dd/MM/yyyy')}"></td>
+                <td class="text-start" th:text="${expense.description}"></td>
+                <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${expense.category.name}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${expense.sourceAccount?.name}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${expense.targetAccount?.name}"></td>
+                <td class="text-end" th:text="${#numbers.formatCurrency(expense.amount)}"></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/edit(expenseIdToEdit=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/duplicate(cloneExpenseId=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-files"></i></a></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/delete/{id}(id=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+            </tr>
+            </tbody>
+        </table>
+
+        <nav th:if="${expensesPage.totalPages > 1}">
+            <ul class="pagination pagination-sm justify-content-center">
+                <th:block th:each="pageNumber : ${pageNumbers}">
+                    <li class="page-item" th:if="${pageNumber == 1}">
+                        <button name="page" class="page-link" th:classappend="${expensesPage.number == 0 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-left"></i></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == 1}">
+                        <button name="page" class="page-link" th:classappend="${expensesPage.number == 0 ? ' disabled' : ''}" th:value="${expensesPage.number}" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+                    </li>
+                    <li class="page-item" th:classappend="${pageNumber==expensesPage.number + 1 ? ' active' : ''}">
+                        <span th:if="${pageNumber == expensesPage.number - 10 or pageNumber == expensesPage.number + 12}" th:class="page-link" th:text="..."></span>
+                        <button name="page" th:if="${pageNumber > expensesPage.number - 10 and pageNumber < expensesPage.number + 12}" th:value="${pageNumber}" th:text="${pageNumber}" th:class="page-link"></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == expensesPage.totalPages}">
+                        <button name="page" class="page-link" th:classappend="${expensesPage.number == expensesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${expensesPage.number + 2}" aria-label="Previous"><i class="bi bi-chevron-right"></i></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == expensesPage.totalPages}">
+                        <button name="page" class="page-link" th:classappend="${expensesPage.number == expensesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-right"></i></button>
+                    </li>
+                </th:block>
+            </ul>
+        </nav>
+    </form>
+
+    <script>
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
+        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+    </script>
+</div>
+</body>
+</html>
