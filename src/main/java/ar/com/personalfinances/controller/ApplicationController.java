@@ -210,7 +210,7 @@ public class ApplicationController {
 
     // -------------------------  ACCOUNTS  -------------------------
 
-    @GetMapping("/accounts")
+    @RequestMapping("/accounts")
     public String getAccountsPage(Model model, @ModelAttribute AccountSearch accountSearch,
                                   @RequestParam("page") Optional<Integer> page,
                                   @RequestParam("size") Optional<Integer> size,
