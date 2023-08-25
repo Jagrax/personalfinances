@@ -44,12 +44,12 @@ public class User implements UserDetails {
 
 
     @NotNull(message = "Password cannot be empty")
-    @Length(min = 7, message = "Password should be at least 7 characters long")
+    @Length(min = 7, message = "La contraseña debe tener un largo minimo de 7 caracteres")
     @Column(name = "password")
     private String password;
 
-    @Column(name = "mobile", unique = true)
-    @Length(min = 10, message = "Password should be at least 10 number long")
+    @Column(name = "mobile")
+    @Length(min = 10, message = "El numero de telefono debe tener al menos 10 digitos")
     private String mobile;
 
     @CreationTimestamp
@@ -87,25 +87,21 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired() {
-        log.info("isAccountNonExpired? true");
         return true;
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        log.info("isAccountNonLocked? " + !locked);
         return !locked;
     }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        log.info("isCredentialsNonExpired? true");
         return true;
     }
 
     @Override
     public boolean isEnabled() {
-        log.info("isUserEnabled? " + enabled);
         return enabled;
     }
 

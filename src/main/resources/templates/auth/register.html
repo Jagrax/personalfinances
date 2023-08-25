@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" class="h-100" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
@@ -11,91 +11,50 @@
     <link rel="stylesheet" media="screen" th:href="@{/css/bootstrap-icons.min.css}"/>
     <script th:src="@{/js/jquery-3.7.0.min.js}"></script>
     <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
-
-    <style>
-        html,
-        body {
-            height: 100%;
-        }
-
-        .form-signin {
-            max-width: 500px;
-            padding: 1rem;
-        }
-
-        .form-signin .form-floating:focus-within {
-            z-index: 2;
-        }
-
-        .form-signin input[id="firstName"] {
-            margin-bottom: -1px;
-            border-bottom-right-radius: 0;
-            border-bottom-left-radius: 0;
-        }
-
-        .form-signin input[type="password"] {
-            margin-bottom: 10px;
-            border-top-left-radius: 0;
-            border-top-right-radius: 0;
-        }
-    </style>
 </head>
-<body class="d-flex align-items-center py-4 bg-body-tertiary">
-<main class="form-signin w-100 m-auto">
-    <form th:action="@{/register}" th:object="${user}" method="POST" th:classappend="${#fields.hasAnyErrors() ? 'was-validated' : ''}">
+<body class="d-flex align-items-center py-4 bg-body-tertiary h-100">
+    <form th:action="@{/register}" th:object="${user}" method="POST" style="max-width:500px" class="form-signin p-3 w-100 m-auto needs-validation" th:classappend="${#fields.hasAnyErrors() ? 'was-validated' : ''}" novalidate>
         <div class="mb-3 text-center">
             <img class="mb-3" th:src="@{/images/logo.png}" alt="Personal Finances APP" width="72" height="72">
             <h3>Nuevo usuario</h3>
         </div>
 
-        <div th:if="${!#strings.isEmpty(successMessage) or #fields.hasAnyErrors()}"
-             class="alert alert-info d-flex align-items-center" role="alert">
+        <div th:if="${!#strings.isEmpty(successMessage)}"
+             class="alert alert-warning d-flex align-items-center" role="alert">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             <span th:text="${successMessage}"></span>
-            <ul>
-                <li th:each="error : ${#fields.allDetailedErrors()}">
-                    <b th:text="${error.fieldName}"></b>
-                    <span th:text="${error.message}"></span>
-                </li>
-            </ul>
         </div>
 
-        <div class="form-floating">
-            <input type="text" class="form-control" th:field="*{firstName}" placeholder="Nombre" id="firstName">
-            <label for="firstName">Nombre</label>
+        <div class="row g-3 mb-3">
+            <div class="col-12 position-relative">
+                <label for="firstName" class="form-label">Nombre</label>
+                <input type="text" class="form-control" th:field="*{firstName}" id="firstName" th:classappend="${#fields.hasErrors('firstName') ? 'is-invalid' : ''}" required>
+                <div th:errors="*{firstName}" th:classappend="${#fields.hasErrors('firstName') ? 'invalid-feedback' : ''}"></div>
+            </div>
+            <div class="col-12 position-relative">
+                <label for="lastName" class="form-label">Apellido</label>
+                <input type="text" class="form-control" th:field="*{lastName}" id="lastName" th:classappend="${#fields.hasErrors('lastName') ? 'is-invalid' : ''}" required>
+                <div th:errors="*{lastName}" th:classappend="${#fields.hasErrors('lastName') ? 'invalid-feedback' : ''}"></div>
+            </div>
+            <div class="col-12 position-relative">
+                <label for="mobile" class="form-label">Teléfono</label>
+                <input type="tel" class="form-control" th:field="*{mobile}" id="mobile" th:classappend="${#fields.hasErrors('mobile') ? 'is-invalid' : ''}" required>
+                <div th:errors="*{mobile}" th:classappend="${#fields.hasErrors('mobile') ? 'invalid-feedback' : ''}"></div>
+            </div>
+            <div class="col-12 position-relative">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" th:field="*{email}" id="email" th:classappend="${#fields.hasErrors('email') ? 'is-invalid' : ''}" required>
+                <div th:errors="*{email}" th:classappend="${#fields.hasErrors('email') ? 'invalid-feedback' : ''}"></div>
+            </div>
+            <div class="col-12 position-relative">
+                <label for="password" class="form-label">Contraseña</label>
+                <input type="password" class="form-control" th:field="*{password}" id="password" th:classappend="${#fields.hasErrors('password') ? 'is-invalid' : ''}" required>
+                <div th:errors="*{password}" th:classappend="${#fields.hasErrors('password') ? 'invalid-feedback' : ''}"></div>
+            </div>
         </div>
-        <div th:if="${#fields.hasErrors('firstName')}" th:errors="*{firstName}"
-             th:classappend="${#fields.hasErrors('firstName') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-        <div class="form-floating">
-            <input type="text" class="form-control rounded-0" th:field="*{lastName}" placeholder="Apellido"
-                   id="lastName">
-            <label for="lastName">Apellido</label>
-        </div>
-        <div th:if="${#fields.hasErrors('lastName')}" th:errors="*{lastName}"
-             th:classappend="${#fields.hasErrors('lastName') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-        <div class="form-floating">
-            <input type="tel" class="form-control rounded-0" th:field="*{mobile}" placeholder="Teléono" id="mobile">
-            <label for="mobile">Teléfono</label>
-        </div>
-        <div th:if="${#fields.hasErrors('mobile')}" th:errors="*{mobile}"
-             th:classappend="${#fields.hasErrors('mobile') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-        <div class="form-floating">
-            <input type="email" class="form-control rounded-0" th:field="*{email}" placeholder="Email" id="email">
-            <label for="email">Email</label>
-        </div>
-        <div th:if="${#fields.hasErrors('email')}" th:errors="*{email}"
-             th:classappend="${#fields.hasErrors('email') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-        <div class="form-floating">
-            <input type="password" class="form-control" th:field="*{password}" placeholder="Contrase&ntilde;a"
-                   id="password">
-            <label for="password">Contrase&ntilde;a</label>
-        </div>
-        <div th:if="${#fields.hasErrors('password')}" th:errors="*{password}"
-             th:classappend="${#fields.hasErrors('password') ? 'invalid-feedback' : 'valid-feedback'}"></div>
         <button class="btn btn-primary w-100 py-2 my-3" type="submit">Registrarme</button>
         <hr>
         <a th:href="@{|/login|}" class="btn btn-outline-success w-100 py-2 mt-3">Iniciar sesión</a>
     </form>
-</main>
 </body>
 </html>

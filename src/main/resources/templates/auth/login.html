@@ -48,6 +48,12 @@
                 <h3>Iniciar sesi&oacute;n</h3>
             </div>
 
+            <div th:if="${!#strings.isEmpty(successMessage)}"
+                 class="alert alert-success d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                <span th:text="${successMessage}"></span>
+            </div>
+
             <div th:if="${param.error}" class="alert alert-danger d-flex align-items-center" role="alert">
                 <i class="bi bi-exclamation-triangle-fill me-2"></i>
                 <span th:if="${#strings.equals(param.errorType, '1')}">Su usuario no posee un ROL válido.<br>Por favor, comuniquese con el administrador</span>

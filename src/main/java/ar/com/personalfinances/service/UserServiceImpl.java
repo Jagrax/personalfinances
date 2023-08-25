@@ -41,17 +41,8 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         Optional<User> existingUserEmail = userRepository.findByEmail(user.getEmail());
         if (existingUserEmail.isPresent()) {
             userExists = true;
-            message = "Email Already Present!";
+            message = "Ya existe un usuario con ese email";
         }
-        Optional<User> existingUserMobile = userRepository.findByMobile(user.getMobile());
-        if (existingUserMobile.isPresent()) {
-            userExists = true;
-            message = "Mobile Number Already Present!";
-        }
-        if (existingUserEmail.isPresent() && existingUserMobile.isPresent()) {
-            message = "Email and Mobile Number Both Already Present!";
-        }
-        log.debug("existingUserEmail.isPresent() - " + existingUserEmail.isPresent() + " | existingUserMobile.isPresent() - " + existingUserMobile.isPresent());
         return Arrays.asList(userExists, message);
     }
 

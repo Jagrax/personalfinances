@@ -39,7 +39,6 @@ public class AuthController {
     @RequestMapping(value = {"/register"}, method = RequestMethod.POST)
     public String registerUser(Model model, @Valid User user, BindingResult bindingResult, HttpServletRequest request) {
         if (bindingResult.hasErrors()) {
-            model.addAttribute("successMessage", "Hay datos que no están bien");
             model.addAttribute("bindingResult", bindingResult);
             return "auth/register";
         }
@@ -51,7 +50,7 @@ public class AuthController {
 
         user = userService.saveUser(user);
         alertEventService.saveUserAlert(EntityEvent.CREATED, user.getId(), request.getRemoteAddr(), -1);
-        model.addAttribute("successMessage", "User registered successfully!");
+        model.addAttribute("successMessage", "El usuario " + user.getEmail() + " ha sido registrado correctamente!");
 
         return "auth/login";
     }
