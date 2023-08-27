@@ -124,6 +124,10 @@ public class SpecificationsService {
                 predicates.add(criteriaBuilder.equal(root.get("owner").get("id"), accountSearch.getOwnerId()));
             }
 
+            if (accountSearch.getOwnerIds() != null) {
+                predicates.add(root.get("owner").get("id").in(accountSearch.getOwnerIds()));
+            }
+
             if (StringUtils.hasText(accountSearch.getName())) {
                 predicates.add(criteriaBuilder.like(root.get("name"), "%" + accountSearch.getName() + "%"));
             }
