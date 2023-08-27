@@ -155,7 +155,7 @@ public class ApplicationController {
             if (expenseToClone.isPresent()) {
                 User user = ApplicationUtils.getUserFromSession();
                 if (expenseToClone.get().getUser().getId().equals(user.getId())) {
-                    Expense expense = ApplicationUtils.cloneEntity(expenseToClone.get());
+                    Expense expense = ApplicationUtils.cloneEntity(expenseToClone.get(), true);
                     expense.setUser(user);
                     return getExpensesEditPage(model, expense);
                 } else {
