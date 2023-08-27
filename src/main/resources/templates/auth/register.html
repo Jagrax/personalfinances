@@ -13,7 +13,7 @@
     <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
 </head>
 <body class="d-flex align-items-center py-4 bg-body-tertiary h-100">
-    <form th:action="@{/register}" th:object="${user}" method="POST" style="max-width:500px" class="form-signin p-3 w-100 m-auto needs-validation" th:classappend="${#fields.hasAnyErrors() ? 'was-validated' : ''}" novalidate>
+    <form th:action="@{/register}" th:object="${user}" method="POST" style="max-width:500px" class="p-3 w-100 m-auto needs-validation" th:classappend="${#fields.hasAnyErrors() ? 'was-validated' : ''}" novalidate>
         <div class="mb-3 text-center">
             <img class="mb-3" th:src="@{/images/logo.png}" alt="Personal Finances APP" width="72" height="72">
             <h3>Nuevo usuario</h3>
