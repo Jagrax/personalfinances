@@ -24,7 +24,7 @@ public class GlobalControllerAdvice {
     public void handleRequest(HttpServletRequest httpServletRequest, Model model) {
         model.addAttribute("httpServletRequest", httpServletRequest);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication.isAuthenticated() && authentication.getPrincipal() instanceof User) {
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof User) {
             model.addAttribute("menu", menuService.getMenu((User) authentication.getPrincipal()));
         } else {
             model.addAttribute("menu", new ArrayList<>());
