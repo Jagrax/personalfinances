@@ -202,10 +202,15 @@ public class ApplicationController {
     }
 
     @GetMapping("/expenses/delete/{id}")
-    public String deleteExpense(@PathVariable("id") long id) {
+    public String deleteExpense(@PathVariable("id") long id, Optional<String> backUrl) {
         Expense expense = expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Expense", "id", id));
         expenseRepository.delete(expense);
         alertEventService.saveExpenseAlert(EntityEvent.DELETED, expense.getId(), "", ApplicationUtils.getUserFromSession().getId());
+
+        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
+            return "redirect:" + backUrl.get();
+        }
+
         return "redirect:/expenses";
     }
 
