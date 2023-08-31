@@ -25,6 +25,16 @@ public class ApplicationUtils {
                 Object valorNuevo = field.get(o);
                 Object valorOriginal = field.get(original);
 
+                try {
+                    Field originalId = valorOriginal.getClass().getDeclaredField("id");
+                    Field nuevoId = valorNuevo.getClass().getDeclaredField("id");
+                    originalId.setAccessible(true);
+                    nuevoId.setAccessible(true);
+                    valorOriginal = originalId.get(valorOriginal);
+                    valorNuevo = nuevoId.get(valorNuevo);
+                } catch (NoSuchFieldException e) {
+                }
+
                 if (!Objects.equals(valorNuevo, valorOriginal)) {
                     changeLog.add(field.getName() + "[" + valorOriginal + "] -> [" + valorNuevo + "]");
                 }
