@@ -30,6 +30,9 @@ public class Account {
     @Enumerated(EnumType.STRING)
     private AccountType type;
 
+    @Column(name = "subtype")
+    private String subtype;
+
     @Override
     public String toString() {
         return "Account [" +
