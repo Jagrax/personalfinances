@@ -106,12 +106,14 @@ public class ApplicationController {
         return "abm/expenses";
     }
 
-    private String getExpensesEditPage(Model model, Expense expense) {
+    private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {
         model.addAttribute("expense", expense);
         model.addAttribute("categories", categoryRepository.findAll());
         model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
+
+        backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
         return "abm/expenses-edit";
     }
 
@@ -121,8 +123,7 @@ public class ApplicationController {
         expense.setUser(ApplicationUtils.getUserFromSession());
         expense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
 
-        backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
-        return getExpensesEditPage(model, expense);
+        return getExpensesEditPage(model, expense, backUrl);
     }
 
     @RequestMapping(value = "/expenses/edit", method = RequestMethod.GET)
@@ -133,7 +134,7 @@ public class ApplicationController {
             if (expenseToEdit.isPresent()) {
                 User user = ApplicationUtils.getUserFromSession();
                 if (expenseToEdit.get().getUser().getId().equals(user.getId())) {
-                    return getExpensesEditPage(model, expenseToEdit.get());
+                    return getExpensesEditPage(model, expenseToEdit.get(), backUrl);
                 } else {
                     model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no le pertenece"));
                 }
@@ -157,7 +158,7 @@ public class ApplicationController {
                 if (expenseToClone.get().getUser().getId().equals(user.getId())) {
                     Expense expense = ApplicationUtils.cloneEntity(expenseToClone.get(), true);
                     expense.setUser(user);
-                    return getExpensesEditPage(model, expense);
+                    return getExpensesEditPage(model, expense, backUrl);
                 } else {
                     model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no le pertenece"));
                 }
@@ -193,7 +194,7 @@ public class ApplicationController {
         expense = expenseRepository.save(expense);
         alertEventService.saveExpenseAlert(event, expense.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
 
-        if (backUrl.isPresent() && !StringUtils.hasLength(backUrl.get())) {
+        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
             return "redirect:" + backUrl.get();
         }
 
