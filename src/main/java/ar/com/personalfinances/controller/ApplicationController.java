@@ -5,6 +5,7 @@ import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
+import ar.com.personalfinances.repository.ReportsRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
@@ -24,10 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -41,15 +39,16 @@ public class ApplicationController {
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
-
+    private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
     private final AlertEventService alertEventService;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, SpecificationsService specificationsService, AlertEventService alertEventService) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
+        this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
         this.alertEventService = alertEventService;
     }
@@ -399,8 +398,17 @@ public class ApplicationController {
         return new PageImpl<>(list, PageRequest.of(currentPage, pageSize), itemsToPaginate.size());
     }
 
-    @GetMapping("/dashboard")
-    public String getDashboardPage() {
+    @GetMapping({"/dashboard", "/"})
+    public String getDashboardPage(Model model) {
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (user == null) {
+            throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
+        }
+        List<Object[]> result = reportsRepository.obtenerDatosEspecificosPorUsuario(user.getId());
+        model.addAttribute("accountsBalances", result.stream().collect(Collectors.toMap(
+                array -> (String) array[0],
+                array -> (BigDecimal) array[1]
+        )));
         return "dashboard";
     }
 

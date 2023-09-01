@@ -30,6 +30,8 @@ public class MenuService {
     public Menu getMenu(User user) {
         List<MenuItem> menuItems = new ArrayList<>();
 
+        menuItems.add(new MenuItem("dashboard", "speedometer2", "Dashboard", "/dashboard", null));
+
         List<MenuItem> expensesSubMenu = new ArrayList<>();
         expensesSubMenu.add(new MenuItem(null, "list-columns-reverse", "Unificados", "/expenses", null));
         List<Account> userAccounts = accountRepository.findByOwner(user);
