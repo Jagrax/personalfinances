@@ -25,51 +25,46 @@
 
             <div class="card-header" th:text="${expense.id != null ? 'Editando registro' : 'Nuevo registro'}"></div>
             <div class="card-body">
-                <div class="row g-3 mb-3">
-                    <div class="order-1 col-6 col-md-3">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                    <div class="col">
                         <label class="form-label" for="date">Fecha</label>
                         <input class="form-control form-control-sm" type="date" th:field="*{date}" id="date" th:classappend="${#fields.hasErrors('date') ? 'is-invalid' : ''}" required/>
                         <div th:if="${#fields.hasErrors('date')}" th:errors="*{date}" th:classappend="${#fields.hasErrors('date') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
-                    <div class="order-2 order-md-3 col-6 col-md-3">
+                    <div class="col">
+                        <label class="form-label" for="accountId">Cuenta</label>
+                        <select class="form-select form-select-sm" th:field="*{account}" id="accountId" th:classappend="${#fields.hasErrors('account') ? 'is-invalid' : ''}" required>
+                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
+                        </select>
+                        <div th:if="${#fields.hasErrors('account')}" th:errors="*{account}" th:classappend="${#fields.hasErrors('account') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col">
                         <label class="form-label" for="amount">Importe</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text">$</span>
-                            <input class="form-control form-control-sm text-end" type="number" th:field="*{amount}" id="amount" step=".01" th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}" required/>
-                        </div>
+                        <input class="form-control form-control-sm text-end" type="number" th:field="*{amount}" id="amount" step=".01" th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}" required/>
                         <div th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('amount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
-                    <div class="order-3 order-md-2 col-md-6">
+                    <div class="col">
                         <label class="form-label" for="description">Descripci&oacute;n</label>
                         <input class="form-control form-control-sm" type="text" th:field="*{description}" id="description" th:classappend="${#fields.hasErrors('description') ? 'is-invalid' : ''}" required/>
                         <div th:if="${#fields.hasErrors('description')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('description') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
-                </div>
-                <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col">
                         <label class="form-label" for="details">Detalle</label>
                         <input class="form-control form-control-sm" type="text" th:field="*{details}" id="details" th:classappend="${#fields.hasErrors('details') ? 'is-invalid' : ''}"/>
                         <div th:if="${#fields.hasErrors('details')}" th:errors="*{details}" th:classappend="${#fields.hasErrors('details') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col">
                         <label class="form-label" for="comments">Comentarios</label>
                         <input class="form-control form-control-sm" type="text" th:field="*{comments}" id="comments" th:classappend="${#fields.hasErrors('comments') ? 'is-invalid' : ''}"/>
                         <div th:if="${#fields.hasErrors('comments')}" th:errors="*{comments}" th:classappend="${#fields.hasErrors('comments') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col">
                         <label class="form-label" for="categoryId">Categor&iacute;a</label>
                         <select class="form-select form-select-sm" th:field="*{category}" id="categoryId" th:classappend="${#fields.hasErrors('category') ? 'is-invalid' : ''}" required>
                             <option th:each="category : ${categories}" th:value="${category.getId()}"
                                     th:text="${category.name}"/>
                         </select>
                         <div th:if="${#fields.hasErrors('category')}" th:errors="*{category}" th:classappend="${#fields.hasErrors('category') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="accountId">Cuenta</label>
-                        <select class="form-select form-select-sm" th:field="*{account}" id="accountId" th:classappend="${#fields.hasErrors('account') ? 'is-invalid' : ''}" required>
-                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
-                        </select>
-                        <div th:if="${#fields.hasErrors('account')}" th:errors="*{account}" th:classappend="${#fields.hasErrors('account') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
                 </div>
             </div>
