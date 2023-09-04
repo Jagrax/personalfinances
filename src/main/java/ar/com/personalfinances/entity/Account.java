@@ -33,6 +33,9 @@ public class Account {
     @Column(name = "subtype")
     private String subtype;
 
+    @Column(name = "currency")
+    private String currency = "ARS";
+
     @Override
     public String toString() {
         return "Account [" +
@@ -40,6 +43,8 @@ public class Account {
                 ((owner != null) ? "owner=" + owner + ", " : "") +
                 ((name != null) ? "name='" + name + "', " : "") +
                 ((type != null) ? "type=" + type + ", " : "") +
+                ((subtype != null) ? "subtype='" + subtype + "', " : "") +
+                ((currency != null) ? "currency='" + currency + "', " : "") +
                 "]";
     }
 }

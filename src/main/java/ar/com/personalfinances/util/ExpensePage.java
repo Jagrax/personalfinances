@@ -7,16 +7,17 @@ import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 public class ExpensePage extends PageImpl<Expense> {
 
-    private final BigDecimal totalAmountsAcum;
-    private final BigDecimal onPageTotalAmountsAcum;
+    private final Map<String, BigDecimal> totalAmountsAcumByCurrency;
+    private final Map<String, BigDecimal> onPageTotalAmountsAcumByCurrency;
 
-    public ExpensePage(List<Expense> content, Pageable pageable, long total, BigDecimal totalAmountsAcum, BigDecimal onPageTotalAmountsAcum) {
+    public ExpensePage(List<Expense> content, Pageable pageable, long total, Map<String, BigDecimal> totalAmountsAcumByCurrency, Map<String, BigDecimal> onPageTotalAmountsAcumByCurrency) {
         super(content, pageable, total);
-        this.onPageTotalAmountsAcum = onPageTotalAmountsAcum;
-        this.totalAmountsAcum = totalAmountsAcum;
+        this.onPageTotalAmountsAcumByCurrency = onPageTotalAmountsAcumByCurrency;
+        this.totalAmountsAcumByCurrency = totalAmountsAcumByCurrency;
     }
 }

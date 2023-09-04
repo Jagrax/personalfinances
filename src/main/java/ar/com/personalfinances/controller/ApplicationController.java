@@ -378,8 +378,12 @@ public class ApplicationController {
         }
 
         return new ExpensePage(list, pageable, expensesToPaginate.size(),
-                expensesToPaginate.stream().map(Expense::getAmount).reduce(BigDecimal::add).orElse(BigDecimal.ZERO),
-                list.stream().map(Expense::getAmount).reduce(BigDecimal::add).orElse(BigDecimal.ZERO));
+                expensesToPaginate.stream().collect(Collectors.groupingBy(
+                                expense -> expense.getAccount().getCurrency(),
+                                Collectors.mapping(Expense::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)))),
+                list.stream().collect(Collectors.groupingBy(
+                        expense -> expense.getAccount().getCurrency(),
+                        Collectors.mapping(Expense::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)))));
     }
 
     public <T> Page<T> getItemsPaginated(Pageable pageable, List<T> itemsToPaginate) {

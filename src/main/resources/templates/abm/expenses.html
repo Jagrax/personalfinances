@@ -125,7 +125,12 @@
                 <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
                 <td class="text-center d-none d-lg-table-cell" th:text="${expense.category.name}"></td>
                 <td class="text-center d-none d-lg-table-cell" th:text="${expense.account?.name}"></td>
-                <td class="text-end" th:text="${#numbers.formatCurrency(expense.amount)}"></td>
+                <td class="text-center">
+                    <div class="d-flex flex-nowrap">
+                        <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
+                        <span class="col-auto px-2" th:text="${expense.account?.currency}"></span>
+                    </div>
+                </td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/edit(expenseIdToEdit=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/duplicate(cloneExpenseId=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-files"></i></a></td>
@@ -133,14 +138,24 @@
             </tr>
             </tbody>
             <tfoot>
-            <tr>
-                <td class="text-end" colspan="6">Total en pantalla</td>
-                <td class="text-end" th:text="${#numbers.formatCurrency(expensesPage.onPageTotalAmountsAcum)}"></td>
+            <tr th:each="onPageTotalAmountsAcumByCurrency : ${expensesPage.getOnPageTotalAmountsAcumByCurrency()}">
+                <td class="text-end" colspan="5">Total en pantalla</td>
+                <td class="text-end">
+                    <div class="d-flex flex-nowrap">
+                        <span class="col text-end" th:text="${#numbers.formatDecimal(onPageTotalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
+                        <span class="col-auto px-2" th:text="${onPageTotalAmountsAcumByCurrency.key}"></span>
+                    </div>
+                </td>
                 <td colspan="4"></td>
             </tr>
-            <tr>
-                <td class="text-end" colspan="6">Total de todos los registros</td>
-                <td class="text-end" th:text="${#numbers.formatCurrency(expensesPage.totalAmountsAcum)}"></td>
+            <tr th:each="totalAmountsAcumByCurrency : ${expensesPage.getTotalAmountsAcumByCurrency()}">
+                <td class="text-end" colspan="5">Total de todos los registros</td>
+                <td class="text-end">
+                    <div class="d-flex flex-nowrap">
+                        <span class="col text-end" th:text="${#numbers.formatDecimal(totalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
+                        <span class="col-auto px-2" th:text="${totalAmountsAcumByCurrency.key}"></span>
+                    </div>
+                </td>
                 <td colspan="4"></td>
             </tr>
             </tfoot>
