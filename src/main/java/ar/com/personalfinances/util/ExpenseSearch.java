@@ -26,12 +26,6 @@ public class ExpenseSearch {
     private String comments;
     private Long categoryId;
     private String categoryName;
-    private Long sourceAccountId;
-    private String sourceAccountName;
-    private String sourceAccountType;
-    private Long targetAccountId;
-    private String targetAccountName;
-    private String targetAccountType;
     private Long accountId;
     private String accountName;
     private AccountType accountType;

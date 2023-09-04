@@ -92,7 +92,7 @@ public class ApplicationController {
 
         // Categorias que se muestran en el filtro de Categorias
         model.addAttribute("categories", categoryRepository.findAll());
-        // Cuentas que se muestran en el filtro Cta. Origen y Cta. Destino
+        // Cuentas que se muestran en el filtro Cuentas
         model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";

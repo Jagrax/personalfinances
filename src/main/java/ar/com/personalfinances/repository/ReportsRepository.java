@@ -12,12 +12,13 @@ import java.util.List;
 public interface ReportsRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT a.name, " +
-            "SUM(CASE WHEN e.sourceAccount = a OR e.targetAccount = a THEN e.amount ELSE 0 END) " +
-            "FROM User u " +
-            "JOIN Account a ON a.owner = u " +
-            "JOIN Expense e ON e.user = u " +
-            "WHERE u.id = :userId " +
-            "GROUP BY a.id, a.name, u.id " +
-            "ORDER BY a.name")
+           "       sum(e.amount) " +
+           "FROM Expense e," +
+           "     Account a," +
+           "     User u " +
+           "WHERE u.id = :userId" +
+           "  AND a.owner = u" +
+           "  AND e.account = a " +
+           "GROUP BY a.id")
     List<Object[]> obtenerDatosEspecificosPorUsuario(@Param("userId") Long userId);
 }

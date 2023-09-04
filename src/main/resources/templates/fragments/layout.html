@@ -26,8 +26,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav align-items-lg-center">
                     <li class="nav-item dropdown" th:each="menuItem : ${menu?.items}">
-                        <a class="nav-link" th:classappend="${#lists.isEmpty(menuItem.subItems) ? '' : 'dropdown-toggle'}" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" role="button" data-bs-toggle="dropdown" aria-expanded="false" th:if="${#strings.isEmpty(menuItem.icon)}" th:text="${menuItem.text}"></a>
-                        <a class="nav-link" th:classappend="${#lists.isEmpty(menuItem.subItems) ? '' : 'dropdown-toggle'}" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" role="button" data-bs-toggle="dropdown" aria-expanded="false" th:if="${!#strings.isEmpty(menuItem.icon)}">
+                        <a class="nav-link" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" th:if="${#lists.isEmpty(menuItem.subItems)}">
+                            <i th:if="${!#strings.isEmpty(menuItem.icon)}" class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${menuItem.text}"></span>
+                        </a>
+                        <a class="nav-link" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" role="button" data-bs-toggle="dropdown" aria-expanded="false" th:if="${!#lists.isEmpty(menuItem.subItems)}" th:classappend="${#lists.isEmpty(menuItem.subItems) ? '' : 'dropdown-toggle'}">
                             <i class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${menuItem.text}"></span>
                         </a>
                         <ul class="dropdown-menu" th:if="${!#lists.isEmpty(menuItem.subItems)}">

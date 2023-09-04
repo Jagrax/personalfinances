@@ -76,20 +76,11 @@
             </div>
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
-                    <select class="form-select" id="expenseFilterSourceAccountId" name="sourceAccountId">
-                        <option th:selected="${expenseSearch.sourceAccountId == null}" th:value="${null}">Todas las cuentas</option>
-                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.sourceAccountId}"></option>
+                    <select class="form-select" id="expenseFilterAccountId" name="accountId">
+                        <option th:selected="${expenseSearch.accountId == null}" th:value="${null}">Todas las cuentas</option>
+                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.accountId}"></option>
                     </select>
-                    <label for="expenseFilterSourceAccountId">Cuenta origen</label>
-                </div>
-            </div>
-            <div class="col-12 col-lg-4 col-xxl-2">
-                <div class="form-floating">
-                    <select class="form-select" id="expenseFilterTargetAccountId" name="targetAccountId">
-                        <option th:selected="${expenseSearch.targetAccountId == null}" th:value="${null}">Todas las cuentas</option>
-                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.targetAccountId}"></option>
-                    </select>
-                    <label for="expenseFilterTargetAccountId">Cuenta destino</label>
+                    <label for="expenseFilterAccountId">Cuenta</label>
                 </div>
             </div>
             <div class="col-12 text-lg-end">
@@ -119,8 +110,7 @@
                 <th>Descripci&oacute;n</th>
                 <th class="d-none d-lg-table-cell">Detalle</th>
                 <th class="d-none d-lg-table-cell">Categor&iacute;a</th>
-                <th class="d-none d-lg-table-cell">Origen</th>
-                <th class="d-none d-lg-table-cell">Destino</th>
+                <th class="d-none d-lg-table-cell">Cuenta</th>
                 <th>Importe</th>
                 <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
             </tr>
@@ -134,8 +124,7 @@
                 <td class="text-start" th:text="${expense.description}"></td>
                 <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
                 <td class="text-center d-none d-lg-table-cell" th:text="${expense.category.name}"></td>
-                <td class="text-center d-none d-lg-table-cell" th:text="${expense.sourceAccount?.name}"></td>
-                <td class="text-center d-none d-lg-table-cell" th:text="${expense.targetAccount?.name}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${expense.account?.name}"></td>
                 <td class="text-end" th:text="${#numbers.formatCurrency(expense.amount)}"></td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/edit(expenseIdToEdit=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>

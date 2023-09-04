@@ -63,49 +63,16 @@ public class SpecificationsService {
                 predicates.add(criteriaBuilder.equal(root.get("category").get("name"), expenseSearch.getCategoryName()));
             }
 
-            if (expenseSearch.getSourceAccountId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("sourceAccount").get("id"), expenseSearch.getSourceAccountId()));
-            }
-
-            if (expenseSearch.getSourceAccountName() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("sourceAccount").get("name"), expenseSearch.getSourceAccountName()));
-            }
-
-            if (expenseSearch.getSourceAccountType() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("sourceAccount").get("type"), expenseSearch.getSourceAccountType()));
-            }
-
-            if (expenseSearch.getTargetAccountId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("targetAccount").get("id"), expenseSearch.getTargetAccountId()));
-            }
-
-            if (expenseSearch.getTargetAccountName() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("targetAccount").get("name"), expenseSearch.getTargetAccountName()));
-            }
-
-            if (expenseSearch.getTargetAccountType() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("targetAccount").get("type"), expenseSearch.getTargetAccountType()));
-            }
-
             if (expenseSearch.getAccountId() != null) {
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.equal(root.get("sourceAccount").get("id"), expenseSearch.getAccountId()),
-                        criteriaBuilder.equal(root.get("targetAccount").get("id"), expenseSearch.getAccountId())
-                ));
+                predicates.add(criteriaBuilder.equal(root.get("account").get("id"), expenseSearch.getAccountId()));
             }
 
             if (expenseSearch.getAccountName() != null) {
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.equal(root.get("sourceAccount").get("name"), expenseSearch.getAccountName()),
-                        criteriaBuilder.equal(root.get("targetAccount").get("name"), expenseSearch.getAccountName())
-                        ));
+                predicates.add(criteriaBuilder.equal(root.get("account").get("name"), expenseSearch.getAccountName()));
             }
 
             if (expenseSearch.getAccountType() != null) {
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.equal(root.get("sourceAccount").get("type"), expenseSearch.getAccountType()),
-                        criteriaBuilder.equal(root.get("targetAccount").get("type"), expenseSearch.getAccountType())
-                ));
+                predicates.add(criteriaBuilder.equal(root.get("account").get("type"), expenseSearch.getAccountType()));
             }
 
             if (expenseSearch.getUserId() != null) {

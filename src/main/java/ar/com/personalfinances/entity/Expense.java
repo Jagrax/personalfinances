@@ -41,12 +41,8 @@ public class Expense {
     private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "source_account_id")
-    private Account sourceAccount;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_account_id")
-    private Account targetAccount;
+    @JoinColumn(name = "account_id")
+    private Account account;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -62,8 +58,7 @@ public class Expense {
                 ((details != null) ? "details='" + details + "', " : "") +
                 ((comments != null) ? "comments='" + comments + "', " : "") +
                 ((category != null) ? "category=" + category + ", " : "") +
-                ((sourceAccount != null) ? "sourceAccount=" + sourceAccount + ", " : "") +
-                ((targetAccount != null) ? "targetAccount=" + targetAccount + ", " : "") +
+                ((account != null) ? "account=" + account + ", " : "") +
                 ((user != null) ? "user=" + user + ", " : "") +
                 "]";
     }

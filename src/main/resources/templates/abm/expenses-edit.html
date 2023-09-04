@@ -65,18 +65,11 @@
                         <div th:if="${#fields.hasErrors('category')}" th:errors="*{category}" th:classappend="${#fields.hasErrors('category') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="sourceAccountId">Origen</label>
-                        <select class="form-select form-select-sm" th:field="*{sourceAccount}" id="sourceAccountId" th:classappend="${#fields.hasErrors('sourceAccount') ? 'is-invalid' : ''}" required>
+                        <label class="form-label" for="accountId">Cuenta</label>
+                        <select class="form-select form-select-sm" th:field="*{getAccount}" id="accountId" th:classappend="${#fields.hasErrors('account') ? 'is-invalid' : ''}" required>
                             <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
                         </select>
-                        <div th:if="${#fields.hasErrors('sourceAccount')}" th:errors="*{sourceAccount}" th:classappend="${#fields.hasErrors('sourceAccount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="targetAccountId">Destino</label>
-                        <select class="form-select form-select-sm" th:field="*{targetAccount}" id="targetAccountId" th:classappend="${#fields.hasErrors('targetAccount') ? 'is-invalid' : ''}"required>
-                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
-                        </select>
-                        <div th:if="${#fields.hasErrors('targetAccount')}" th:errors="*{targetAccount}" th:classappend="${#fields.hasErrors('targetAccount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                        <div th:if="${#fields.hasErrors('account')}" th:errors="*{getAccount}" th:classappend="${#fields.hasErrors('account') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
                 </div>
             </div>
