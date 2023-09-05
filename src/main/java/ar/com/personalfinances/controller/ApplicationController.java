@@ -9,8 +9,6 @@ import ar.com.personalfinances.repository.ReportsRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,8 +22,13 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -408,11 +411,13 @@ public class ApplicationController {
         if (user == null) {
             throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
         }
-        List<Object[]> result = reportsRepository.obtenerDatosEspecificosPorUsuario(user.getId());
+        List<Object[]> result = reportsRepository.getSumAmountsByAccount(user.getId());
         model.addAttribute("accountsBalances", result.stream().collect(Collectors.toMap(
                 array -> (String) array[0],
                 array -> (BigDecimal) array[1]
         )));
+
+        model.addAttribute("serviciosReport", reportsRepository.getReporteServicios());
         return "dashboard";
     }
 
