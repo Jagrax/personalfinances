@@ -411,12 +411,8 @@ public class ApplicationController {
         if (user == null) {
             throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
         }
-        List<Object[]> result = reportsRepository.getSumAmountsByAccount(user.getId());
-        model.addAttribute("accountsBalances", result.stream().collect(Collectors.toMap(
-                array -> (String) array[0],
-                array -> (BigDecimal) array[1]
-        )));
 
+        model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(user.getId()));
         model.addAttribute("serviciosReport", reportsRepository.getReporteServicios());
         return "dashboard";
     }

@@ -12,9 +12,12 @@
         <div class="row">
             <div class="col-lg-4 col-xl-3 text-center" th:each="account : ${accountsBalances}">
                 <i class="bi bi-credit-card fs-1"></i>
-                <h3 class="fw-normal" th:text="${account.key}">Account name</h3>
-                <h2 th:text="${#numbers.formatCurrency(account.value)}"></h2>
-                <p><a th:href="@{/expenses(accountName=${account.key})}" class="btn btn-secondary">Ver detalles</a></p>
+                <h3 class="fw-normal" th:text="${account[0]}">Account name</h3>
+                <h2>
+                    <span th:text="${#numbers.formatDecimal(account[2], 1, 'POINT', 2, 'COMMA')}"></span>
+                    <span th:text="${account[1]}"></span>
+                </h2>
+                <p><a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary">Ver detalles</a></p>
             </div>
         </div>
 <!--        <script th:src="@{/js/pivottable_2.23.0_pivot.min.js}"></script>-->
