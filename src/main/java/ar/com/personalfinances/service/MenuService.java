@@ -29,29 +29,30 @@ public class MenuService {
     @CacheEvict(value = "userMenuCache", allEntries = true)
     public Menu getMenu(User user) {
         List<MenuItem> menuItems = new ArrayList<>();
+        if (user != null) {
+            menuItems.add(new MenuItem(null, "speedometer2", "Dashboard", "/dashboard", null));
 
-        menuItems.add(new MenuItem(null, "speedometer2", "Dashboard", "/dashboard", null));
-
-        List<MenuItem> expensesSubMenu = new ArrayList<>();
-        expensesSubMenu.add(new MenuItem(null, "list-columns-reverse", "Unificados", "/expenses", null));
-        List<Account> userAccounts = accountRepository.findByOwner(user);
-        if (!CollectionUtils.isEmpty(userAccounts)) {
-            Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparing(Account::getType).thenComparing(Account::getName)).collect(groupingBy(Account::getType));
-            for (AccountType type : accountsByType.keySet()) {
-                expensesSubMenu.add(new MenuItem(null, null, resolveAccountTypeLabel(type), null, null));
-                for (Account account : accountsByType.get(type)) {
-                    expensesSubMenu.add(new MenuItem(null, null, account.getName(), "/expenses?accountType=" + type.name() + "&accountName=" + account.getName(), null));
+            List<MenuItem> expensesSubMenu = new ArrayList<>();
+            expensesSubMenu.add(new MenuItem(null, "list-columns-reverse", "Unificados", "/expenses", null));
+            List<Account> userAccounts = accountRepository.findByOwner(user);
+            if (!CollectionUtils.isEmpty(userAccounts)) {
+                Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparing(Account::getType).thenComparing(Account::getName)).collect(groupingBy(Account::getType));
+                for (AccountType type : accountsByType.keySet()) {
+                    expensesSubMenu.add(new MenuItem(null, null, resolveAccountTypeLabel(type), null, null));
+                    for (Account account : accountsByType.get(type)) {
+                        expensesSubMenu.add(new MenuItem(null, null, account.getName(), "/expenses?accountType=" + type.name() + "&accountName=" + account.getName(), null));
+                    }
                 }
             }
-        }
-        menuItems.add(new MenuItem("reportes", "cash-coin", "Ingresos/Egresos", "#", expensesSubMenu));
+            menuItems.add(new MenuItem("reportes", "cash-coin", "Ingresos/Egresos", "#", expensesSubMenu));
 
-        List<MenuItem> administracionSubMenu = new ArrayList<>();
-        administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
-        if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ADMIN"))) {
-            administracionSubMenu.add(new MenuItem(null, null, "Categorias",  "/categories", null));
+            List<MenuItem> administracionSubMenu = new ArrayList<>();
+            administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
+            if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ADMIN"))) {
+                administracionSubMenu.add(new MenuItem(null, null, "Categorias", "/categories", null));
+            }
+            menuItems.add(new MenuItem("administracion", "gear", "Administración", "#", administracionSubMenu));
         }
-        menuItems.add(new MenuItem("administracion", "gear", "Administración", "#", administracionSubMenu));
 
         return new Menu(menuItems);
     }

@@ -51,7 +51,7 @@
                         <hr>
                     </li>
                 </ul>
-                <div class="ms-auto d-flex py-2 align-items-center">
+                <div class="ms-auto d-flex py-2 align-items-center" th:if="${#authentication?.principal != null}">
                     <i class="bi bi-person-circle me-2"></i><span th:with="user=${#authentication.principal}" th:text="${user.firstName + ' ' + user.lastName}"></span>
                 </div>
             </div>
