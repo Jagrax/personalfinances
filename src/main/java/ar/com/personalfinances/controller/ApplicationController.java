@@ -25,6 +25,7 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -214,6 +215,32 @@ public class ApplicationController {
         }
 
         return "redirect:/expenses";
+    }
+
+    @RequestMapping("/expenses/report")
+    public String getExpensesReportPage(Model model) {
+        // Intento recuperar el Usuario logueado
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (user == null) {
+            throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
+        }
+
+        // Por defecto, quiero ver siempre mis gastos
+        List<Expense> expenses = expenseRepository.findByUser(user, Sort.by("date", "description"));
+        List<String[]> serviciosReport = new ArrayList<>(Collections.singleton(new String[]{
+                "Fecha", "Descripcion", "Importe", "Detalles", "Comentarios", "Categoria", "Cuenta"
+        }));
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM");
+        serviciosReport.addAll(expenses.stream().map(e -> new String[]{
+                sdf.format(e.getDate()), e.getDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getCategory().getName(), e.getAccount().getName()
+        }).collect(Collectors.toList()));
+        model.addAttribute("serviciosReport", serviciosReport);
+
+        // Categorias que se muestran en el filtro de Categorias
+        model.addAttribute("categories", categoryRepository.findAll());
+        // Cuentas que se muestran en el filtro Cuentas
+        model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
+        return "reports/report";
     }
 
     // -------------------------  ACCOUNTS  -------------------------
@@ -413,7 +440,6 @@ public class ApplicationController {
         }
 
         model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(user.getId()));
-        model.addAttribute("serviciosReport", reportsRepository.getReporteServicios());
         return "dashboard";
     }
 
@@ -447,6 +473,4 @@ public class ApplicationController {
         accountSearch.setOwnerIds(accountSearchOwnerIds);
         return accountRepository.findAll(specificationsService.getAccounts(accountSearch), sort);
     }
-
-
 }

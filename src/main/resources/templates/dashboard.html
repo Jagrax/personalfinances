@@ -20,43 +20,6 @@
                 <p><a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary">Ver detalles</a></p>
             </div>
         </div>
-<!--        <script th:src="@{/js/pivottable_2.23.0_pivot.min.js}"></script>-->
-<!--        <script type="text/javascript" th:inline="javascript">-->
-<!--            google.charts.load('current', {'packages':['bar']});-->
-<!--            google.charts.setOnLoadCallback(drawChart);-->
-
-<!--            function drawChart() {-->
-<!--                var data = new google.visualization.DataTable();-->
-<!--                data.addColumn('string', 'Mes');-->
-<!--                data.addColumn('string', 'Servicio');-->
-<!--                data.addColumn('number', 'Importe');-->
-<!--                /*[# th:each="map : ${serviciosReport}"]*/-->
-<!--                    data.addRow(/*[[${map}]]*/);-->
-<!--                /*[/]*/-->
-
-<!--                var options = {-->
-<!--                    title: 'Progresión Mensual de Servicios',-->
-<!--                    curveType: 'function',-->
-<!--                    legend: { position: 'bottom' },-->
-<!--                    series: {-->
-<!--                        0: { axis: 'month'},-->
-<!--                        1: { axis: 'amount'}-->
-<!--                    },-->
-<!--                    axis: {-->
-<!--                        y: {-->
-<!--                            month: { label: 'Mes'},-->
-<!--                            amount: { label: 'Importe'}-->
-<!--                        }-->
-<!--                    }-->
-<!--                };-->
-
-<!--                // var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));-->
-<!--                var chart = new google.visualization.LineChart(document.getElementById('chart_div'));-->
-
-<!--                chart.draw(data, options);-->
-<!--            }-->
-<!--        </script>-->
-<!--        <div id="chart_div" style="width: 900px; height: 500px"></div>-->
     </div>
 </body>
 </html>

@@ -44,7 +44,11 @@ public class MenuService {
                     }
                 }
             }
-            menuItems.add(new MenuItem("reportes", "cash-coin", "Ingresos/Egresos", "#", expensesSubMenu));
+            menuItems.add(new MenuItem("expenses", "cash-coin", "Ingresos/Egresos", "#", expensesSubMenu));
+
+            List<MenuItem> reportsSubMenu = new ArrayList<>();
+            reportsSubMenu.add(new MenuItem(null, "cash-coin", "Ingresos/Egresos", "/expenses/report", null));
+            menuItems.add(new MenuItem("reports", "bar-chart-line", "Reportes", "#", reportsSubMenu));
 
             List<MenuItem> administracionSubMenu = new ArrayList<>();
             administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
