@@ -26,10 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -69,6 +66,8 @@ public class ApplicationController {
         int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
         int pageSize = size.orElse(DEFAULT_PAGE_SIZE);
 
+        AccountSearch accountSearch = new AccountSearch();
+
         // Intento recuperar el Usuario logueado
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (user == null) {
@@ -79,9 +78,16 @@ public class ApplicationController {
         expenseSearch.setUserId(user.getId());
 
         // Si me vino el tipo de cuenta, lo uso para filtrar
-        accountType.ifPresent(s -> expenseSearch.setAccountType(AccountType.valueOf(s)));
+        accountType.ifPresent(s -> {
+            AccountType accountTypeEnum = AccountType.valueOf(s);
+            expenseSearch.setAccountType(accountTypeEnum);
+            accountSearch.setAccountType(accountTypeEnum);
+        });
         // Y si me vino un accountName, lo uso para filtrar
-        accountName.ifPresent(expenseSearch::setAccountName);
+        accountName.ifPresent(s -> {
+            expenseSearch.setAccountName(s);
+            accountSearch.setName(s);
+        });
 
         // Me traigo las expenses ordenadas por fecha y id desc y las paso por el paginador
         ExpensePage expensesPage = getExpensesPaginated(PageRequest.of(currentPage - 1, pageSize), expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
@@ -97,7 +103,9 @@ public class ApplicationController {
         // Categorias que se muestran en el filtro de Categorias
         model.addAttribute("categories", categoryRepository.findAll());
         // Cuentas que se muestran en el filtro Cuentas
-        model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
+        List<Account> accounts = getUserAccounts(accountSearch, Sort.by(Sort.Direction.ASC,"name"));
+        model.addAttribute("accounts", accounts);
+        if (accounts.size() == 1) expenseSearch.setAccountId(accounts.iterator().next().getId());
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";
         if (accountType.isPresent()) {

@@ -76,8 +76,8 @@
             </div>
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
-                    <select class="form-select" id="expenseFilterAccountId" name="accountId">
-                        <option th:selected="${expenseSearch.accountId == null}" th:value="${null}">Todas las cuentas</option>
+                    <select class="form-select" id="expenseFilterAccountId" name="accountId" th:disabled="${accounts.size() == 1}">
+                        <option th:if="${accounts.size() > 1}" th:selected="${expenseSearch.accountId == null}" th:value="${null}">Todas las cuentas</option>
                         <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.accountId}"></option>
                     </select>
                     <label for="expenseFilterAccountId">Cuenta</label>
