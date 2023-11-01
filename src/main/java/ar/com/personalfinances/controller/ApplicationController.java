@@ -25,6 +25,10 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -134,7 +138,59 @@ public class ApplicationController {
         expense.setUser(ApplicationUtils.getUserFromSession());
         expense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
         expense.setDate(new Date());
+        backUrl.ifPresent(urlString -> {
+            if (urlString.contains("?") && (urlString.contains("accountType") || urlString.contains("accountName"))) {
+                URI url;
+                try {
+                    url = new URI(urlString);
+                } catch (URISyntaxException e) {
+                    throw new RuntimeException(e);
+                }
 
+                // Obtener la cadena de consulta (query)
+                String query = url.getQuery();
+
+                // Decodificar la cadena de consulta
+                String decodedQuery = URLDecoder.decode(query, StandardCharsets.UTF_8);
+                if (!decodedQuery.isEmpty()) {
+                    Map<String, String> paramsMap = new HashMap<>();
+                    for (String param : decodedQuery.split("&")) {
+                        String[] keyValue = param.split("=");
+                        if (keyValue.length == 2) {
+                            String key = keyValue[0];
+                            String value = keyValue[1];
+                            paramsMap.put(key, value);
+                        }
+                    }
+
+                    String accountType = null;
+                    if (paramsMap.containsKey("accountType")) {
+                        accountType = paramsMap.get("accountType");
+                    }
+
+                    String accountName = null;
+                    if (paramsMap.containsKey("accountName")) {
+                        accountName = paramsMap.get("accountName");
+                    }
+
+                    AccountSearch accountSearch = new AccountSearch();
+                    if (StringUtils.hasText(accountType)) {
+                        accountSearch.setAccountType(AccountType.valueOf(accountType));
+                    }
+
+                    if (StringUtils.hasText(accountName)) {
+                        accountSearch.setName(accountName);
+                    }
+
+                    User user = ApplicationUtils.getUserFromSession();
+                    accountSearch.setOwnerIds(Collections.singletonList(user.getId()));
+                    List<Account> accounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch));
+                    if (!accounts.isEmpty()) {
+                        expense.setAccount(accounts.iterator().next());
+                    }
+                }
+            }
+        });
         return getExpensesEditPage(model, expense, backUrl);
     }
 
