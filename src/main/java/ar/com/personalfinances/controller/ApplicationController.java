@@ -125,6 +125,7 @@ public class ApplicationController {
         Expense expense = new Expense();
         expense.setUser(ApplicationUtils.getUserFromSession());
         expense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
+        expense.setDate(new Date());
 
         return getExpensesEditPage(model, expense, backUrl);
     }
