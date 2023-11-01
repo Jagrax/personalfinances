@@ -73,10 +73,7 @@ public class ApplicationController {
         AccountSearch accountSearch = new AccountSearch();
 
         // Intento recuperar el Usuario logueado
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (user == null) {
-            throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
-        }
+        User user = ApplicationUtils.getUserFromSession();
 
         // Por defecto, quiero ver siempre mis gastos
         expenseSearch.setUserId(user.getId());
@@ -283,15 +280,15 @@ public class ApplicationController {
     }
 
     @RequestMapping("/expenses/report")
-    public String getExpensesReportPage(Model model) {
+    public String getExpensesReportPage(Model model, @ModelAttribute ExpenseSearch expenseSearch) {
         // Intento recuperar el Usuario logueado
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (user == null) {
-            throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
-        }
+        User user = ApplicationUtils.getUserFromSession();
 
         // Por defecto, quiero ver siempre mis gastos
-        List<Expense> expenses = expenseRepository.findByUser(user, Sort.by("date", "description"));
+        expenseSearch.setUserId(user.getId());
+
+        // Por defecto, quiero ver siempre mis gastos
+        List<Expense> expenses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by("date", "description"));
         List<String[]> serviciosReport = new ArrayList<>(Collections.singleton(new String[]{
                 "Fecha", "Descripcion", "Importe", "Detalles", "Comentarios", "Categoria", "Cuenta"
         }));
@@ -305,6 +302,8 @@ public class ApplicationController {
         model.addAttribute("categories", categoryRepository.findAll());
         // Cuentas que se muestran en el filtro Cuentas
         model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
+        // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
+        model.addAttribute("expenseSearch", expenseSearch);
         return "reports/report";
     }
 
@@ -499,12 +498,7 @@ public class ApplicationController {
 
     @GetMapping({"/dashboard", "/"})
     public String getDashboardPage(Model model) {
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (user == null) {
-            throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
-        }
-
-        model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(user.getId()));
+        model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId()));
         return "dashboard";
     }
 
@@ -529,7 +523,7 @@ public class ApplicationController {
         List<Long> accountSearchOwnerIds = new ArrayList<>();
         accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
 
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = ApplicationUtils.getUserFromSession(false);
         if (user != null) {
             // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
             accountSearchOwnerIds.add(user.getId());

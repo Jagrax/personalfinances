@@ -77,9 +77,13 @@ public class ApplicationUtils {
     }
 
     public static User getUserFromSession() {
+        return getUserFromSession(true);
+    }
+
+    public static User getUserFromSession(boolean throwExceptionOnNull) {
         // Intento recuperar el Usuario logueado
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (user == null) {
+        if (user == null && throwExceptionOnNull) {
             throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
         }
 
