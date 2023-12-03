@@ -40,7 +40,16 @@ public class MenuService {
                 for (AccountType type : accountsByType.keySet()) {
                     expensesSubMenu.add(new MenuItem(null, null, resolveAccountTypeLabel(type), null, null));
                     for (Account account : accountsByType.get(type)) {
-                        expensesSubMenu.add(new MenuItem(null, null, account.getName(), "/expenses?accountType=" + type.name() + "&accountName=" + account.getName(), null));
+                        String icon = null;
+                        String accountName = account.getName().replaceAll(" ", "");
+                        if (accountName.equalsIgnoreCase("visa")) {
+                            icon = "visa.svg";
+                        } else if (accountName.equalsIgnoreCase("mastercard")) {
+                            icon = "mastercard.svg";
+                        } else if (accountName.equalsIgnoreCase("mercadopago")) {
+                            icon = "mercadopago.svg";
+                        }
+                        expensesSubMenu.add(new MenuItem(null, icon, account.getName(), "/expenses?accountType=" + type.name() + "&accountName=" + account.getName(), null));
                     }
                 }
             }
@@ -52,9 +61,7 @@ public class MenuService {
 
             List<MenuItem> administracionSubMenu = new ArrayList<>();
             administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
-            if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ADMIN"))) {
-                administracionSubMenu.add(new MenuItem(null, null, "Categorias", "/categories", null));
-            }
+            administracionSubMenu.add(new MenuItem(null, "tags", "Categorias", "/categories", null));
             menuItems.add(new MenuItem("administracion", "gear", "Administración", "#", administracionSubMenu));
         }
 

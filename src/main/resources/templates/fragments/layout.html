@@ -42,10 +42,14 @@
                 <ul class="navbar-nav align-items-lg-center">
                     <li class="nav-item dropdown" th:each="menuItem : ${menu?.items}">
                         <a class="nav-link" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" th:if="${#lists.isEmpty(menuItem.subItems)}">
-                            <i th:if="${!#strings.isEmpty(menuItem.icon)}" class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${menuItem.text}"></span>
+                            <i th:if="${!#strings.isEmpty(menuItem.icon) and !menuItem.icon.endsWith('.svg')}" class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i>
+                            <img th:if="${!#strings.isEmpty(menuItem.icon) and menuItem.icon.endsWith('.svg')}" class="me-2" th:src="@{/images/${menuItem.icon}}">
+                            <span th:text="${menuItem.text}"></span>
                         </a>
                         <a class="nav-link" th:href="@{${#strings.isEmpty(menuItem.url) ? '#' : menuItem.url}}" role="button" data-bs-toggle="dropdown" aria-expanded="false" th:if="${!#lists.isEmpty(menuItem.subItems)}" th:classappend="${#lists.isEmpty(menuItem.subItems) ? '' : 'dropdown-toggle'}">
-                            <i class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${menuItem.text}"></span>
+                            <i th:if="${!#strings.isEmpty(menuItem.icon) and !menuItem.icon.endsWith('.svg')}" class="bi me-2" th:with="icon=${menuItem.icon}" th:classappend="${'bi-' + icon}"></i>
+                            <img th:if="${!#strings.isEmpty(menuItem.icon) and menuItem.icon.endsWith('.svg')}" class="me-2" th:src="@{/images/${menuItem.icon}}">
+                            <span th:text="${menuItem.text}"></span>
                         </a>
                         <ul class="dropdown-menu" th:if="${!#lists.isEmpty(menuItem.subItems)}">
                             <li th:each="subItem : ${menuItem.subItems}">
@@ -53,7 +57,9 @@
                                 <th:block th:if="${subItem.url != null}">
                                     <a class="dropdown-item" th:href="@{${subItem.url}}" th:if="${#strings.isEmpty(subItem.icon)}" th:text="${subItem.text}"></a>
                                     <a class="dropdown-item" th:href="@{${subItem.url}}" th:if="${!#strings.isEmpty(subItem.icon)}">
-                                        <i class="bi me-2" th:with="icon=${subItem.icon}" th:classappend="${'bi-' + icon}"></i><span th:text="${subItem.text}"></span>
+                                        <i th:if="${!#strings.isEmpty(subItem.icon) and !subItem.icon.endsWith('.svg')}" class="bi me-2" th:with="icon=${subItem.icon}" th:classappend="${'bi-' + icon}"></i>
+                                        <img th:if="${!#strings.isEmpty(subItem.icon) and subItem.icon.endsWith('.svg')}" class="me-2" th:src="@{/images/{icon}(icon=${subItem.icon})}" width="16">
+                                        <span th:text="${subItem.text}"></span>
                                     </a>
                                 </th:block>
                             </li>
