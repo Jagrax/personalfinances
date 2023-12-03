@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -102,7 +101,7 @@ public class ApplicationController {
         }
 
         // Categorias que se muestran en el filtro de Categorias
-        model.addAttribute("categories", categoryRepository.findAll());
+        model.addAttribute("categories", getUserCategories(new CategorySearch(), Sort.by(Sort.Direction.ASC,"name")));
         // Cuentas que se muestran en el filtro Cuentas
         List<Account> accounts = getUserAccounts(accountSearch, Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", accounts);
@@ -386,19 +385,16 @@ public class ApplicationController {
 
     @RequestMapping("/categories")
     public String getCategoriesPage(Model model,
+                                    @ModelAttribute CategorySearch categorySearch,
                                     @RequestParam("page") Optional<Integer> page,
                                     @RequestParam("size") Optional<Integer> size,
-                                    @RequestParam("filterCategoryName") Optional<String> categoryName,
                                     @RequestParam("categoryIdToEdit") Optional<Long> categoryIdToEdit) {
         int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
         int pageSize = size.orElse(DEFAULT_PAGE_SIZE);
 
-        List<Category> categories;
-        if (categoryName.isPresent() && StringUtils.hasText(categoryName.get())) {
-            categories = categoryRepository.findByNameContainsIgnoreCase(categoryName.get());
-        } else {
-            categories = categoryRepository.findAll();
-        }
+        categorySearch.setOwnerId(ApplicationUtils.getUserFromSession().getId());
+
+        List<Category> categories = getUserCategories(categorySearch, Sort.by(Sort.Direction.ASC, "name"));
         Page<Category> categoriesPage = getItemsPaginated(PageRequest.of(currentPage - 1, pageSize), categories);
 
         model.addAttribute("categoriesPage", categoriesPage);
@@ -413,21 +409,23 @@ public class ApplicationController {
             model.addAttribute("category", categoryRepository.findById(categoryIdToEdit.get()).orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryIdToEdit)));
             model.addAttribute("categoryIdToEdit", categoryIdToEdit);
         } else {
-            model.addAttribute("category", new Category());
+            Category category = new Category();
+            category.setOwner(ApplicationUtils.getUserFromSession());
+            model.addAttribute("category", category);
         }
-        model.addAttribute("filterCategoryName", categoryName);
+        model.addAttribute("categorySearch", categorySearch);
         model.addAttribute("module", "categories");
         return "abm/categories";
     }
 
     @PostMapping("/category/add")
     public String postAddCategory(@Valid Category category, BindingResult result, Model model,
+                                  @ModelAttribute CategorySearch categorySearch,
                                   @RequestParam("page") Optional<Integer> page,
                                   @RequestParam("size") Optional<Integer> size,
-                                  @RequestParam("filterCategoryName") Optional<String> categoryName,
                                   @RequestParam("categoryIdToEdit") Optional<Long> categoryIdToEdit) {
         if (result.hasErrors()) {
-            return getCategoriesPage(model, page, size, categoryName, categoryIdToEdit);
+            return getCategoriesPage(model, categorySearch, page, size, categoryIdToEdit);
         }
 
         categoryRepository.save(category);
@@ -436,13 +434,13 @@ public class ApplicationController {
 
     @PostMapping("/category/update/{id}")
     public String updateCategory(@PathVariable("id") long id, @Valid Category category, BindingResult result, Model model,
+                                 @ModelAttribute CategorySearch categorySearch,
                                  @RequestParam("page") Optional<Integer> page,
                                  @RequestParam("size") Optional<Integer> size,
-                                 @RequestParam("filterCategoryName") Optional<String> filterCategoryName,
                                  @RequestParam("categoryIdToEdit") Optional<Long> categoryIdToEdit) {
         if (result.hasErrors()) {
             category.setId(id);
-            return getCategoriesPage(model, page, size, filterCategoryName, categoryIdToEdit);
+            return getCategoriesPage(model, categorySearch, page, size, categoryIdToEdit);
         }
 
         categoryRepository.save(category);
@@ -531,5 +529,19 @@ public class ApplicationController {
 
         accountSearch.setOwnerIds(accountSearchOwnerIds);
         return accountRepository.findAll(specificationsService.getAccounts(accountSearch), sort);
+    }
+
+    private List<Category> getUserCategories(CategorySearch categorySearch, Sort sort) {
+        List<Long> categorySearchOwnerIds = new ArrayList<>();
+        categorySearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
+
+        User user = ApplicationUtils.getUserFromSession(false);
+        if (user != null) {
+            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
+            categorySearchOwnerIds.add(user.getId());
+        }
+
+        categorySearch.setOwnerIds(categorySearchOwnerIds);
+        return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
     }
 }

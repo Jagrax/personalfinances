@@ -21,8 +21,16 @@ public class Category {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User owner;
+
     @Override
     public String toString() {
-        return "Category [" + ((id != null) ? "id=" + id + ", " : "") + ((name != null) ? "name='" + name + "', " : "") + "]";
+        return "Category [" +
+                ((id != null) ? "id=" + id + ", " : "") +
+                ((name != null) ? "name='" + name + "', " : "") +
+                ((owner != null) ? "user=" + owner + ", " : "") +
+                "]";
     }
 }

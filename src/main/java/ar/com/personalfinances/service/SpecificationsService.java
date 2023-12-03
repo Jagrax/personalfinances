@@ -1,8 +1,10 @@
 package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.entity.Account;
+import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.util.AccountSearch;
+import ar.com.personalfinances.util.CategorySearch;
 import ar.com.personalfinances.util.ExpenseSearch;
 import javax.persistence.criteria.Predicate;
 import org.springframework.util.StringUtils;
@@ -101,6 +103,26 @@ public class SpecificationsService {
 
             if (accountSearch.getAccountType() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), accountSearch.getAccountType()));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public Specification<Category> getCategories(CategorySearch categorySearch) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (categorySearch.getOwnerId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("owner").get("id"), categorySearch.getOwnerId()));
+            }
+
+            if (categorySearch.getOwnerIds() != null) {
+                predicates.add(root.get("owner").get("id").in(categorySearch.getOwnerIds()));
+            }
+
+            if (StringUtils.hasText(categorySearch.getName())) {
+                predicates.add(criteriaBuilder.like(root.get("name"), "%" + categorySearch.getName() + "%"));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
