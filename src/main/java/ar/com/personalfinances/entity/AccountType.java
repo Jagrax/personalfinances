@@ -7,7 +7,8 @@ public enum AccountType {
     CREDIT_CARD("Credit card"),
     BANK_ACCOUNT("Bank account"),
     VIRTUAL_ACCOUNT("Virtual account"),
-    GENERIC_ACCOUNT("");
+    GENERIC_ACCOUNT(""),
+    CASH("Cash");
 
     private final String value;
 
