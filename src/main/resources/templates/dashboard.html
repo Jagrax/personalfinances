@@ -11,8 +11,10 @@
         <h2>Dashboard</h2>
         <div class="row">
             <div class="col-lg-4 col-xl-3 text-center" th:each="account : ${accountsBalances}">
-                <i class="bi bi-credit-card fs-1"></i>
-                <h3 class="fw-normal" th:text="${account[0]}">Account name</h3>
+                <i th:if="${#strings.isEmpty(account[3])}" class="bi bi-credit-card fs-1"></i>
+                <i th:if="${!#strings.isEmpty(account[3]) and !(account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="bi me-2" th:with="icon=${account[3]}" th:classappend="${'bi-' + icon}"></i>
+                <img th:if="${!#strings.isEmpty(account[3]) and (account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="me-2" th:src="@{/images/{icon}(icon=${account[3]})}" height="64">
+                <h3 class="fw-normal d-none" th:text="${account[0]}">Account name</h3>
                 <h2>
                     <span th:text="${#numbers.formatDecimal(account[2], 1, 'POINT', 2, 'COMMA')}"></span>
                     <span th:text="${account[1]}"></span>

@@ -4,15 +4,17 @@ import lombok.Getter;
 
 @Getter
 public enum AccountType {
-    CREDIT_CARD("Credit card"),
-    BANK_ACCOUNT("Bank account"),
-    VIRTUAL_ACCOUNT("Virtual account"),
-    GENERIC_ACCOUNT(""),
-    CASH("Cash");
+    BANK_ACCOUNT("Bank account", 0),
+    CREDIT_CARD("Credit card", 1),
+    VIRTUAL_ACCOUNT("Virtual account", 2),
+    CASH("Cash", 3),
+    GENERIC_ACCOUNT("", 9);
 
     private final String value;
+    private final int order;
 
-    AccountType(String value) {
+    AccountType(String value, int order) {
         this.value = value;
+        this.order = order;
     }
 }

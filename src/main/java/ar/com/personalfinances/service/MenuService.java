@@ -36,18 +36,26 @@ public class MenuService {
             expensesSubMenu.add(new MenuItem(null, "list-columns-reverse", "Unificados", "/expenses", null));
             List<Account> userAccounts = accountRepository.findByOwner(user);
             if (!CollectionUtils.isEmpty(userAccounts)) {
-                Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparing(Account::getType).thenComparing(Account::getName)).collect(groupingBy(Account::getType));
+                Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparingInt((Account a) -> a.getType().getOrder()).thenComparing(Account::getName)).collect(groupingBy(Account::getType));
                 for (AccountType type : accountsByType.keySet()) {
                     expensesSubMenu.add(new MenuItem(null, null, resolveAccountTypeLabel(type), null, null));
                     for (Account account : accountsByType.get(type)) {
                         String icon = null;
                         String accountName = account.getName().replaceAll(" ", "");
-                        if (accountName.equalsIgnoreCase("visa")) {
-                            icon = "visa.svg";
-                        } else if (accountName.equalsIgnoreCase("mastercard")) {
-                            icon = "mastercard.svg";
-                        } else if (accountName.equalsIgnoreCase("mercadopago")) {
-                            icon = "mercadopago.svg";
+                        if (type.equals(AccountType.BANK_ACCOUNT)) {
+                            if (account.getBank() != null) {
+                                icon = account.getBank().getLogo();
+                            }
+                        } else {
+                            if (accountName.equalsIgnoreCase("visa")) {
+                                icon = "visa.svg";
+                            } else if (accountName.equalsIgnoreCase("mastercard")) {
+                                icon = "mastercard.svg";
+                            } else if (accountName.equalsIgnoreCase("mercadopago")) {
+                                icon = "mercadopago.svg";
+                            } else if (accountName.equalsIgnoreCase("sdd")) {
+                                icon = "sdd.png";
+                            }
                         }
                         expensesSubMenu.add(new MenuItem(null, icon, account.getName(), "/expenses?accountType=" + type.name() + "&accountName=" + account.getName(), null));
                     }

@@ -36,6 +36,10 @@ public class Account {
     @Column(name = "currency")
     private String currency = "ARS";
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_id")
+    private Bank bank;
+
     @Override
     public String toString() {
         return "Account [" +
@@ -45,6 +49,7 @@ public class Account {
                 ((type != null) ? "type=" + type + ", " : "") +
                 ((subtype != null) ? "subtype='" + subtype + "', " : "") +
                 ((currency != null) ? "currency='" + currency + "', " : "") +
+                ((bank != null) ? "bank='" + bank + "', " : "") +
                 "]";
     }
 }
