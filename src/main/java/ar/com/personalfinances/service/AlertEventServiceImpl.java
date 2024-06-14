@@ -31,6 +31,11 @@ public class AlertEventServiceImpl implements AlertEventService {
     }
 
     @Override
+    public void saveSharedExpenseAlert(EntityEvent event, long entityId, String details, long userId) {
+        alertEventRepository.save(new AlertEvent(EntityType.SHARED_EXPENSE, entityId, userId, event, details));
+    }
+
+    @Override
     public void saveUserAlert(EntityEvent event, long entityId, String details, long userId) {
         alertEventRepository.save(new AlertEvent(EntityType.USER, entityId, userId, event, details));
     }

@@ -10,5 +10,7 @@ public interface AlertEventService {
 
     void saveExpenseAlert(EntityEvent event, long entityId, String details, long userId);
 
+    void saveSharedExpenseAlert(EntityEvent event, long entityId, String details, long userId);
+
     void saveUserAlert(EntityEvent event, long entityId, String details, long userId);
 }

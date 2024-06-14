@@ -2,10 +2,7 @@ package ar.com.personalfinances.controller;
 
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
-import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.repository.CategoryRepository;
-import ar.com.personalfinances.repository.ExpenseRepository;
-import ar.com.personalfinances.repository.ReportsRepository;
+import ar.com.personalfinances.repository.*;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
@@ -41,20 +38,24 @@ public class ApplicationController {
     private final int DEFAULT_PAGE_SIZE = 10;
 
     private final ExpenseRepository expenseRepository;
+    private final SharedExpenseRepository sharedExpenseRepository;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
     private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
     private final AlertEventService alertEventService;
+    private final UserRepository userRepository;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService) {
+    public ApplicationController(ExpenseRepository expenseRepository, SharedExpenseRepository sharedExpenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService, UserRepository userRepository) {
         this.expenseRepository = expenseRepository;
+        this.sharedExpenseRepository = sharedExpenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
         this.alertEventService = alertEventService;
+        this.userRepository = userRepository;
     }
 
     // ------------------------- EXPENSES -------------------------
@@ -304,6 +305,143 @@ public class ApplicationController {
         // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
         model.addAttribute("expenseSearch", expenseSearch);
         return "reports/report";
+    }
+
+    // ------------------------- EXPENSES -------------------------
+
+    @RequestMapping("/sharedExpenses")
+    public String getSharedExpensesPage(Model model,
+                                        @RequestParam("page") Optional<Integer> page,
+                                        @RequestParam("size") Optional<Integer> size) {
+        int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
+        int pageSize = size.orElse(25); // En SplitWise se muestran 25 items y el botón "Mostrat más"
+
+        // Intento recuperar el Usuario logueado
+        User user = ApplicationUtils.getUserFromSession();
+
+        List<SharedExpense> sharedExpenses = sharedExpenseRepository.findAll(Sort.by(Sort.Direction.DESC, "date", "id"));
+        PageImpl<SharedExpense> sharedExpensePage = new PageImpl<>(sharedExpenses, PageRequest.of(currentPage - 1, pageSize), sharedExpenses.size());
+        model.addAttribute("sharedExpensesPage", sharedExpensePage);
+
+        // Si tengo 1 pagina o mas, entonces calculo los numero de paginas del paginador. Estos se dibujan al pie de la tabla de expenses
+        int totalPages = sharedExpensePage.getTotalPages();
+        if (totalPages > 0) {
+            List<Integer> pageNumbers = IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList());
+            model.addAttribute("pageNumbers", pageNumbers);
+        }
+
+        // Atributo usado para settear la clase 'active' en el item del menu que corresponda
+        model.addAttribute("module", "expenses");
+        return "abm/sharedExpenses";
+    }
+
+    private String getSharedExpensesEditPage(Model model, SharedExpense sharedExpense, Optional<String> backUrl) {
+        model.addAttribute("sharedExpense", sharedExpense);
+        model.addAttribute("categories", categoryRepository.findAll());
+        model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
+        // Atributo usado para settear la clase 'active' en el item del menu que corresponda
+        model.addAttribute("module", "expenses");
+
+        backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
+        return "abm/sharedExpenses-edit";
+    }
+
+    @RequestMapping(value = "/sharedExpenses/create", method = RequestMethod.GET)
+    public String createSharedExpense(Model model, @RequestParam("backUrl") Optional<String> backUrl) {
+        SharedExpense sharedExpense = new SharedExpense();
+        sharedExpense.setUser(ApplicationUtils.getUserFromSession());
+        sharedExpense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
+        sharedExpense.setDate(new Date());
+        return getSharedExpensesEditPage(model, sharedExpense, backUrl);
+    }
+
+    @RequestMapping(value = "/sharedExpenses/edit", method = RequestMethod.GET)
+    public String editSharedExpenses(Model model, @RequestParam(name = "sharedExpenseIdToEdit") Optional<Long> sharedExpenseIdToEdit, @RequestParam("backUrl") Optional<String> backUrl) {
+        Optional<SharedExpense> sharedExpenseToEdit;
+        if (sharedExpenseIdToEdit.isPresent()) {
+            sharedExpenseToEdit = sharedExpenseRepository.findById(sharedExpenseIdToEdit.get());
+            if (sharedExpenseToEdit.isPresent()) {
+                return getSharedExpensesEditPage(model, sharedExpenseToEdit.get(), backUrl);
+//                User user = ApplicationUtils.getUserFromSession();
+//                if (sharedExpenseToEdit.get().getUser().getId().equals(user.getId())) {
+//                    return getSharedExpensesEditPage(model, sharedExpenseToEdit.get(), backUrl);
+//                } else {
+//                    model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no le pertenece"));
+//                }
+            } else {
+                model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no existe"));
+            }
+        } else {
+            model.addAttribute("applicationMessage", ApplicationMessage.warn("No se especifico el id del gasto a editar"));
+        }
+
+        return createSharedExpense(model, backUrl);
+    }
+
+    @RequestMapping(value = "/sharedExpenses/duplicate", method = RequestMethod.GET)
+    public String duplicateSharedExpense(Model model, @RequestParam(name = "cloneSharedExpenseId") Optional<Long> cloneSharedExpenseId, @RequestParam("backUrl") Optional<String> backUrl) {
+        Optional<SharedExpense> sharedExpenseToClone;
+        if (cloneSharedExpenseId.isPresent()) {
+            sharedExpenseToClone = sharedExpenseRepository.findById(cloneSharedExpenseId.get());
+            if (sharedExpenseToClone.isPresent()) {
+                User user = ApplicationUtils.getUserFromSession();
+                if (sharedExpenseToClone.get().getUser().getId().equals(user.getId())) {
+                    SharedExpense expense = ApplicationUtils.cloneEntity(sharedExpenseToClone.get(), true);
+                    expense.setUser(user);
+                    return getSharedExpensesEditPage(model, expense, backUrl);
+                } else {
+                    model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no le pertenece"));
+                }
+            } else {
+                model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no existe"));
+            }
+        } else {
+            model.addAttribute("applicationMessage", ApplicationMessage.warn("No se especifico el id del gasto del cual clonar"));
+        }
+
+        return createSharedExpense(model, backUrl);
+    }
+
+    @RequestMapping(value = "/sharedExpenses/save", method = RequestMethod.POST)
+    public String createOrUpdateSharedExpense(Model model, @Valid SharedExpense sharedExpense, BindingResult result, @RequestParam("backUrl") Optional<String> backUrl) {
+        if (result.hasErrors()) {
+            model.addAttribute("applicationMessage", ApplicationMessage.error("Error de datos en el registro"));
+            model.addAttribute("bindingResult", result);
+
+            model.addAttribute("sharedExpense", sharedExpense);
+            model.addAttribute("categories", categoryRepository.findAll());
+            model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
+            // Atributo usado para settear la clase 'active' en el item del menu que corresponda
+            model.addAttribute("module", "sharedExpenses");
+            return "abm/sharedExpenses-edit";
+        }
+
+        EntityEvent event = sharedExpense.getId() == null ? EntityEvent.CREATED : EntityEvent.UPDATED;
+        String eventDetails = "";
+        if (event.equals(EntityEvent.UPDATED)) {
+            eventDetails = ApplicationUtils.getChangeLog(sharedExpense, sharedExpenseRepository.findById(sharedExpense.getId()).orElseThrow());
+        }
+        sharedExpense = sharedExpenseRepository.save(sharedExpense);
+        alertEventService.saveSharedExpenseAlert(event, sharedExpense.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
+
+        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
+            return "redirect:" + backUrl.get();
+        }
+
+        return "redirect:/sharedExpenses";
+    }
+
+    @GetMapping("/sharedExpenses/delete/{id}")
+    public String deleteSharedExpense(@PathVariable("id") long id, Optional<String> backUrl) {
+        SharedExpense sharedExpense = sharedExpenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("SharedExpense", "id", id));
+        sharedExpenseRepository.delete(sharedExpense);
+        alertEventService.saveSharedExpenseAlert(EntityEvent.DELETED, sharedExpense.getId(), "", ApplicationUtils.getUserFromSession().getId());
+
+        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
+            return "redirect:" + backUrl.get();
+        }
+
+        return "redirect:/sharedExpenses";
     }
 
     // -------------------------  ACCOUNTS  -------------------------

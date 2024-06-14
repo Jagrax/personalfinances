@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Gastos compartidos</title>
+</head>
+<body>
+<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+    <form th:action="@{${'/sharedExpenses' + urlParams}}" method="post"
+          th:with="urlParams=${#strings.isEmpty(httpServletRequest.queryString) ? '' : '?' + httpServletRequest.queryString},backUrl=${'/sharedExpenses' + urlParams}">
+        <div class="row g-0 align-items-center my-2">
+            <div class="col-12 col-md me-auto"><h3>Registro de gastos compartidos</h3></div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm me-3">
+                    <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${sharedExpensesPage.size}">
+                    <span class="input-group-text" th:text="${'/ ' + sharedExpensesPage.totalElements}"></span>
+                </div>
+            </div>
+            <div class="col-auto">
+                <a th:href="@{/sharedExpenses/create(backUrl=${backUrl})}" class="btn btn-sm btn-success text-nowrap">
+                    <i class="bi bi-plus me-2"></i>Añadir un gasto
+                </a>
+            </div>
+        </div>
+
+        <table class="table table-sm table-bordered table-striped">
+            <thead class="text-center">
+            <tr>
+                <th>Fecha</th>
+                <th class="d-none d-lg-table-cell">Categor&iacute;a</th>
+                <th>Descripci&oacute;n</th>
+                <th class="d-none d-lg-table-cell">Detalle</th>
+                <th>Pagado por</th>
+                <th>Importe</th>
+                <th>Prestaste</th>
+                <th>Te prestastaron</th>
+                <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(sharedExpensesPage.content)}">
+                <td colspan="9">No hay registros para mostrar!</td>
+            </tr>
+            <tr th:unless="${#lists.isEmpty(sharedExpensesPage.content)}" th:each="sharedExpense : ${sharedExpensesPage.content}">
+                <td class="text-center" style="width:100px" th:text="${#dates.format(sharedExpense.date, 'dd/MM/yyyy')}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${sharedExpense.category.name}"></td>
+                <td class="text-start" th:text="${sharedExpense.description}"></td>
+                <td class="text-start d-none d-lg-table-cell" th:text="${sharedExpense.details}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${sharedExpense.user.fullName}"></td>
+                <td class="text-end" th:text="${#numbers.formatDecimal(sharedExpense.amount, 1, 'POINT', 2, 'COMMA')}"></td>
+                <td class="text-center">N/A</td>
+                <td class="text-center">N/A</td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(sharedExpense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${sharedExpense.comments}|"><i class="bi bi-chat-text"></i></button></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/edit(sharedExpenseIdToEdit=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/duplicate(cloneSharedExpenseId=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-files"></i></a></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/delete/{id}(id=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+            </tr>
+            </tbody>
+        </table>
+
+        <nav th:if="${sharedExpensesPage.totalPages > 1}">
+            <ul class="pagination pagination-sm justify-content-center">
+                <th:block th:each="pageNumber : ${pageNumbers}">
+                    <li class="page-item" th:if="${pageNumber == 1}">
+                        <button name="page" class="page-link" th:classappend="${sharedExpensesPage.number == 0 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-left"></i></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == 1}">
+                        <button name="page" class="page-link" th:classappend="${sharedExpensesPage.number == 0 ? ' disabled' : ''}" th:value="${sharedExpensesPage.number}" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+                    </li>
+                    <li class="page-item" th:classappend="${pageNumber==sharedExpensesPage.number + 1 ? ' active' : ''}">
+                        <span th:if="${pageNumber == sharedExpensesPage.number - 10 or pageNumber == sharedExpensesPage.number + 12}" th:class="page-link" th:text="..."></span>
+                        <button name="page" th:if="${pageNumber > sharedExpensesPage.number - 10 and pageNumber < sharedExpensesPage.number + 12}" th:value="${pageNumber}" th:text="${pageNumber}" th:class="page-link"></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == sharedExpensesPage.totalPages}">
+                        <button name="page" class="page-link" th:classappend="${sharedExpensesPage.number == sharedExpensesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${sharedExpensesPage.number + 2}" aria-label="Previous"><i class="bi bi-chevron-right"></i></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == sharedExpensesPage.totalPages}">
+                        <button name="page" class="page-link" th:classappend="${sharedExpensesPage.number == sharedExpensesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-right"></i></button>
+                    </li>
+                </th:block>
+            </ul>
+        </nav>
+    </form>
+
+    <script>
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
+        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+    </script>
+</div>
+</body>
+</html>

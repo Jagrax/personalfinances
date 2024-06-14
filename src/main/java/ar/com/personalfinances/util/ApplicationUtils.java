@@ -2,6 +2,7 @@ package ar.com.personalfinances.util;
 
 import ar.com.personalfinances.entity.User;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -26,6 +27,10 @@ public class ApplicationUtils {
                 Object valorOriginal = field.get(original);
 
                 try {
+                    // Me aseguro de tener el objeto real y no un Hibernate Proxy en la mano
+                    valorOriginal = Hibernate.unproxy(valorOriginal);
+                    valorNuevo = Hibernate.unproxy(valorNuevo);
+                    // Intento obtener el atributo id si lo tiene
                     Field originalId = valorOriginal.getClass().getDeclaredField("id");
                     Field nuevoId = valorNuevo.getClass().getDeclaredField("id");
                     originalId.setAccessible(true);

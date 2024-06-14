@@ -34,6 +34,7 @@ public class MenuService {
 
             List<MenuItem> expensesSubMenu = new ArrayList<>();
             expensesSubMenu.add(new MenuItem(null, "list-columns-reverse", "Unificados", "/expenses", null));
+            expensesSubMenu.add(new MenuItem(null, "people-fill", "Compartidos", "/sharedExpenses", null));
             List<Account> userAccounts = accountRepository.findByOwner(user);
             if (!CollectionUtils.isEmpty(userAccounts)) {
                 Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparingInt((Account a) -> a.getType().getOrder()).thenComparing(Account::getName)).collect(groupingBy(Account::getType));
