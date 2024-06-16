@@ -22,6 +22,8 @@ public class CustomLogoutHandler implements LogoutHandler {
 
     @Override
     public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        alertEventService.saveUserAlert(EntityEvent.LOGOUT, ((User) authentication.getPrincipal()).getId(), request.getRemoteAddr(), -1);
+        if (authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() != null) {
+            alertEventService.saveUserAlert(EntityEvent.LOGOUT, ((User) authentication.getPrincipal()).getId(), request.getRemoteAddr(), -1);
+        }
     }
 }
