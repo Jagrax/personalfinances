@@ -7,25 +7,25 @@
     <title layout:fragment="page-title">Personal Finances App - Error</title>
 </head>
 <body>
-    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
-        <div class=" d-flex justify-content-center">
-                            <div class="card border-warning w-50">
-                                <div class="card-header text-bg-danger">Atenci&oacute;n</div>
-                                <div class="card-body">
-                                    <p class="card-text" th:if="${url}"><b>Page:</b> <span th:text="${url}">Page URL</span></p>
-                                    <p class="card-text" th:if="${timestamp}" id='created'><b>Occurred:</b> <span th:text="${timestamp}">Timestamp</span></p>
-                                    <p class="card-text" th:if="${status}"><b>Response Status:</b> <span th:text="${status}">status-code</span> <span th:if="${error}" th:text="'('+${error}+')'">error ...</span></p>
-                                    <p class="card-text">Application has encountered an error.</p>
-                                    <div th:text="'Exception: ' + ${exception?.message}"></div>
-                                    <ul>
-                                        <li th:each="ste : ${exception?.stackTrace}"><span th:text="${ste}"></span></li>
-                                    </ul>
-                                </div>
-                                <div class="card-footer">
-                                    <a th:href="@{|/|}" class="btn btn-sm btn-outline-primary">Inicio</a>
-                                </div>
-                            </div>
-                        </div>
+<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+    <div class=" d-flex justify-content-center">
+        <div class="card border-warning w-50">
+            <div class="card-header text-bg-danger">Atenci&oacute;n</div>
+            <div class="card-body">
+                <p class="card-text" th:if="${url}"><b>Page:</b> <span th:text="${url}">Page URL</span></p>
+                <p class="card-text" th:if="${timestamp}" id='created'><b>Occurred:</b> <span th:text="${timestamp}">Timestamp</span></p>
+                <p class="card-text" th:if="${status}"><b>Response Status:</b> <span th:text="${status}">status-code</span> <span th:if="${error}" th:text="'('+${error}+')'">error ...</span></p>
+                <p class="card-text">Application has encountered an error.</p>
+                <div th:text="'Exception: ' + ${exception?.message}"></div>
+                <ul>
+                    <li th:each="ste : ${exception?.stackTrace}"><span th:text="${ste}"></span></li>
+                </ul>
+            </div>
+            <div class="card-footer">
+                <a th:href="@{|/|}" class="btn btn-sm btn-outline-primary">Inicio</a>
+            </div>
+        </div>
     </div>
+</div>
 </body>
 </html>
