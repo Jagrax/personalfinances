@@ -2,6 +2,7 @@ package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountType;
+import ar.com.personalfinances.entity.Role;
 import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.util.Menu;
@@ -71,6 +72,9 @@ public class MenuService {
             List<MenuItem> administracionSubMenu = new ArrayList<>();
             administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
             administracionSubMenu.add(new MenuItem(null, "tags", "Categorias", "/categories", null));
+            if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name()))) {
+                administracionSubMenu.add(new MenuItem(null, "people", "Grupos", "/expensesGroups", null));
+            }
             menuItems.add(new MenuItem("administracion", "gear", "Administración", "#", administracionSubMenu));
         }
 

@@ -42,17 +42,19 @@ public class ApplicationController {
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
     private final ReportsRepository reportsRepository;
+    private final ExpensesGroupRepository expensesGroupRepository;
     private final SpecificationsService specificationsService;
     private final AlertEventService alertEventService;
     private final UserRepository userRepository;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, SharedExpenseRepository sharedExpenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService, UserRepository userRepository) {
+    public ApplicationController(ExpenseRepository expenseRepository, SharedExpenseRepository sharedExpenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService, UserRepository userRepository, ExpensesGroupRepository expensesGroupRepository) {
         this.expenseRepository = expenseRepository;
         this.sharedExpenseRepository = sharedExpenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
+        this.expensesGroupRepository = expensesGroupRepository;
         this.specificationsService = specificationsService;
         this.alertEventService = alertEventService;
         this.userRepository = userRepository;
@@ -594,6 +596,84 @@ public class ApplicationController {
         return "redirect:/categories";
     }
 
+    // -------------------------  EXPENSES GROUPS  -------------------------
+
+    @GetMapping("/expensesGroups")
+    public String getExpensesGroupsPage(Model model,
+                                        @ModelAttribute ExpensesGroupSearch expensesGroupSearch,
+                                        @RequestParam("page") Optional<Integer> page,
+                                        @RequestParam("size") Optional<Integer> size,
+                                        @RequestParam("expensesGroupIdToEdit") Optional<Long> expensesGroupIdToEdit) {
+        int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
+        int pageSize = size.orElse(DEFAULT_PAGE_SIZE);
+
+        List<ExpensesGroup> expensesGroups = getExpenseGroups(expensesGroupSearch, Sort.by(Sort.Direction.ASC, "name"));
+        Page<ExpensesGroup> expensesGroupsPage = getItemsPaginated(PageRequest.of(currentPage - 1, pageSize), expensesGroups);
+
+        model.addAttribute("expensesGroupsPage", expensesGroupsPage);
+
+        int totalPages = expensesGroupsPage.getTotalPages();
+        if (totalPages > 0) {
+            List<Integer> pageNumbers = IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList());
+            model.addAttribute("pageNumbers", pageNumbers);
+        }
+
+        if (expensesGroupIdToEdit.isPresent()) {
+            model.addAttribute("expensesGroup", expensesGroupRepository.findById(expensesGroupIdToEdit.get()).orElseThrow(() -> new ResourceNotFoundException("ExpensesGroup", "id", expensesGroupIdToEdit)));
+            model.addAttribute("expensesGroupIdToEdit", expensesGroupIdToEdit);
+        } else {
+            ExpensesGroup expensesGroup = new ExpensesGroup();
+            expensesGroup.setCreationUser(ApplicationUtils.getUserFromSession());
+            model.addAttribute("expensesGroup", expensesGroup);
+        }
+        model.addAttribute("expensesGroupSearch", expensesGroupSearch);
+        model.addAttribute("module", "expensesGroups");
+        return "abm/expensesGroups";
+    }
+
+    @PostMapping("/expensesGroups/add")
+    public String createExpensesGroup(@Valid ExpensesGroup expensesGroup, BindingResult result, Model model,
+                                      @ModelAttribute ExpensesGroupSearch expensesGroupSearch,
+                                      @RequestParam("page") Optional<Integer> page,
+                                      @RequestParam("size") Optional<Integer> size,
+                                      @RequestParam("expensesGroupIdToEdit") Optional<Long> expensesGroupIdToEdit) {
+        if (result.hasErrors()) {
+            return getExpensesGroupsPage(model, expensesGroupSearch, page, size, expensesGroupIdToEdit);
+        }
+
+        if (expensesGroupRepository.existsByNameAndCreationUser(expensesGroup.getName(), expensesGroup.getCreationUser())) {
+            result.rejectValue("name", "duplicate.group", "Ya existe un grupo con este nombre.");
+            return getExpensesGroupsPage(model, expensesGroupSearch, page, size, expensesGroupIdToEdit);
+        }
+
+        expensesGroupRepository.save(expensesGroup);
+        return "redirect:/groups";
+    }
+
+    @PostMapping("/expensesGroups/update/{id}")
+    public String updateExpensesGroup(@PathVariable("id") long id, @Valid ExpensesGroup expensesGroup, BindingResult result, Model model,
+                                      @ModelAttribute ExpensesGroupSearch expensesGroupSearch,
+                                      @RequestParam("page") Optional<Integer> page,
+                                      @RequestParam("size") Optional<Integer> size,
+                                      @RequestParam("expensesGroupIdToEdit") Optional<Long> expensesGroupIdToEdit) {
+        if (result.hasErrors()) {
+            expensesGroup.setId(id);
+            return getExpensesGroupsPage(model, expensesGroupSearch, page, size, expensesGroupIdToEdit);
+        }
+
+        expensesGroupRepository.save(expensesGroup);
+
+        return "redirect:/groups";
+    }
+
+    @GetMapping("/expensesGroups/delete/{id}")
+    public String deleteExpensesGroup(@PathVariable("id") long id) {
+        ExpensesGroup expensesGroup = expensesGroupRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Group", "id", id));
+        expensesGroupRepository.delete(expensesGroup);
+
+        return "redirect:/groups";
+    }
+
     public ExpensePage getExpensesPaginated(Pageable pageable, List<Expense> expensesToPaginate) {
         int pageSize = pageable.getPageSize();
         int currentPage = pageable.getPageNumber();
@@ -609,10 +689,10 @@ public class ApplicationController {
 
         return new ExpensePage(list, pageable, expensesToPaginate.size(),
                 expensesToPaginate.stream().collect(Collectors.groupingBy(
-                                expense -> expense.getAccount().getCurrency(),
+                                expense -> expense.getAccount() != null && expense.getAccount().getCurrency() != null? expense.getAccount().getCurrency() : "ARS",
                                 Collectors.mapping(Expense::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)))),
                 list.stream().collect(Collectors.groupingBy(
-                        expense -> expense.getAccount().getCurrency(),
+                        expense -> expense.getAccount() != null && expense.getAccount().getCurrency() != null? expense.getAccount().getCurrency() : "ARS",
                         Collectors.mapping(Expense::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)))));
     }
 
@@ -681,5 +761,20 @@ public class ApplicationController {
 
         categorySearch.setOwnerIds(categorySearchOwnerIds);
         return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
+    }
+
+    private List<ExpensesGroup> getExpenseGroups(ExpensesGroupSearch expensesGroupSearch, Sort sort) {
+        // Obtengo los grupos filtrados en pantalla
+        List<Long> expenseGroupSearchUserIds = expensesGroupSearch.getUserIds();
+        if (expenseGroupSearchUserIds == null) expenseGroupSearchUserIds = new ArrayList<>();
+
+        // Filtro para ver solamente los grupos a los que pertenezco y los que cree
+        User user = ApplicationUtils.getUserFromSession();
+        expenseGroupSearchUserIds.add(user.getId());
+        expensesGroupSearch.setUserIds(expenseGroupSearchUserIds);
+
+        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findByCreationUser(user);
+        expensesGroups.addAll(expensesGroupRepository.findAll(specificationsService.getExpensesGroups(expensesGroupSearch), sort));
+        return expensesGroups;
     }
 }

@@ -1,9 +1,7 @@
 package ar.com.personalfinances.repository;
 
 import ar.com.personalfinances.entity.ExpensesGroup;
-import ar.com.personalfinances.entity.SharedExpense;
 import ar.com.personalfinances.entity.User;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
@@ -11,7 +9,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface SharedExpenseRepository extends JpaRepository<SharedExpense, Long>, JpaSpecificationExecutor<SharedExpense> {
+public interface ExpensesGroupRepository extends JpaRepository<ExpensesGroup, Long>, JpaSpecificationExecutor<ExpensesGroup> {
 
-    List<SharedExpense> findByExpensesGroup(ExpensesGroup expensesGroup, Sort sort);
+    List<ExpensesGroup> findByCreationUser(User user);
+
+    boolean existsByNameAndCreationUser(String name, User creationUSer);
 }

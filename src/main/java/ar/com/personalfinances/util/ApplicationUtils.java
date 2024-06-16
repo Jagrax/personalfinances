@@ -31,12 +31,16 @@ public class ApplicationUtils {
                     valorOriginal = Hibernate.unproxy(valorOriginal);
                     valorNuevo = Hibernate.unproxy(valorNuevo);
                     // Intento obtener el atributo id si lo tiene
-                    Field originalId = valorOriginal.getClass().getDeclaredField("id");
-                    Field nuevoId = valorNuevo.getClass().getDeclaredField("id");
-                    originalId.setAccessible(true);
-                    nuevoId.setAccessible(true);
-                    valorOriginal = originalId.get(valorOriginal);
-                    valorNuevo = nuevoId.get(valorNuevo);
+                    Field originalId = valorOriginal != null ? valorOriginal.getClass().getDeclaredField("id") : null;
+                    Field nuevoId = valorNuevo != null ? valorNuevo.getClass().getDeclaredField("id") : null;
+                    if (originalId != null) {
+                        originalId.setAccessible(true);
+                        valorOriginal = originalId.get(valorOriginal);
+                    }
+                    if (nuevoId != null) {
+                        nuevoId.setAccessible(true);
+                        valorNuevo = nuevoId.get(valorNuevo);
+                    }
                 } catch (NoSuchFieldException e) {
                 }
 

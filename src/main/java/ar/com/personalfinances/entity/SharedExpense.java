@@ -43,6 +43,10 @@ public class SharedExpense {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "expenses_group_id")
+    private ExpensesGroup expensesGroup;
+
     @Override
     public String toString() {
         return "SharedExpense [" +

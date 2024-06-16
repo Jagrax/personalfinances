@@ -124,11 +124,11 @@
                 <td class="text-start" th:text="${expense.description}"></td>
                 <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
                 <td class="text-center d-none d-lg-table-cell" th:text="${expense.category.name}"></td>
-                <td class="text-center d-none d-lg-table-cell" th:text="${expense.account?.name}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${expense.account != null ? expense.account.name : ''}"></td>
                 <td class="text-center">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
-                        <span class="col-auto px-2" th:text="${expense.account?.currency}"></span>
+                        <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
                     </div>
                 </td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
