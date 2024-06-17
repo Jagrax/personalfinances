@@ -15,6 +15,7 @@ import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 @Setter
 @Getter
@@ -66,6 +67,12 @@ public class User implements UserDetails {
 
     @Column(name = "enabled")
     private Boolean enabled = true;
+
+    @ManyToMany(mappedBy = "members")
+    private List<SharedExpense> sharedExpenses;
+
+    @ManyToMany(mappedBy = "members")
+    private List<ExpensesGroup> expensesGroups;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -136,18 +136,18 @@ public class SpecificationsService {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            Join<ExpensesGroup, ExpensesGroupMember> membersJoin = root.join("members", JoinType.LEFT);
+            //Join<ExpensesGroup, ExpensesGroupMember> membersJoin = root.join("members", JoinType.LEFT);
 
             if (expensesGroupSearch.getCreationUserId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("creationUser").get("id"), expensesGroupSearch.getCreationUserId()));
             }
 
             if (expensesGroupSearch.getUserId() != null) {
-                predicates.add(criteriaBuilder.equal(membersJoin.get("user").get("id"), expensesGroupSearch.getUserId()));
+//                predicates.add(criteriaBuilder.equal(membersJoin.get("user").get("id"), expensesGroupSearch.getUserId()));
             }
 
             if (expensesGroupSearch.getUserIds() != null) {
-                predicates.add(membersJoin.get("user").get("id").in(expensesGroupSearch.getUserIds()));
+//                predicates.add(membersJoin.get("user").get("id").in(expensesGroupSearch.getUserIds()));
             }
 
             if (StringUtils.hasText(expensesGroupSearch.getName())) {

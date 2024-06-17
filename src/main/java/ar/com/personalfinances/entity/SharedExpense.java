@@ -7,6 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import javax.persistence.*;
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -46,6 +47,14 @@ public class SharedExpense {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "expenses_group_id")
     private ExpensesGroup expensesGroup;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "shared_expense_members",
+            joinColumns = @JoinColumn(name = "shared_expense_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private List<User> members;
 
     @Override
     public String toString() {

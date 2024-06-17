@@ -31,8 +31,13 @@ public class ExpensesGroup {
     @JoinColumn(name = "creation_user")
     private User creationUser;
 
-    @OneToMany(mappedBy = "expensesGroup")
-    private List<ExpensesGroupMember> members;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "expenses_group_members",
+            joinColumns = @JoinColumn(name = "expenses_group_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private List<User> members;
 
     @Override
     public String toString() {

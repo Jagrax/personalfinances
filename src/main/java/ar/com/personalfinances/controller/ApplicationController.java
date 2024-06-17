@@ -313,6 +313,7 @@ public class ApplicationController {
 
     @RequestMapping("/sharedExpenses")
     public String getSharedExpensesPage(Model model,
+                                        @RequestParam("sharedExpensesGroupId") Optional<Long> sharedExpensesGroupId,
                                         @RequestParam("page") Optional<Integer> page,
                                         @RequestParam("size") Optional<Integer> size) {
         int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
@@ -321,7 +322,13 @@ public class ApplicationController {
         // Intento recuperar el Usuario logueado
         User user = ApplicationUtils.getUserFromSession();
 
-        List<SharedExpense> sharedExpenses = sharedExpenseRepository.findAll(Sort.by(Sort.Direction.DESC, "date", "id"));
+        final Sort sort = Sort.by(Sort.Direction.DESC, "date", "id");
+        List<SharedExpense> sharedExpenses;
+        if (sharedExpensesGroupId.isEmpty()) {
+            sharedExpenses = sharedExpenseRepository.findAllByUserOrMember(user, sort);
+        } else {
+            sharedExpenses = sharedExpenseRepository.findByExpensesGroupId(sharedExpensesGroupId.get(), sort);
+        }
         PageImpl<SharedExpense> sharedExpensePage = new PageImpl<>(sharedExpenses, PageRequest.of(currentPage - 1, pageSize), sharedExpenses.size());
         model.addAttribute("sharedExpensesPage", sharedExpensePage);
 
@@ -331,6 +338,9 @@ public class ApplicationController {
             List<Integer> pageNumbers = IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList());
             model.addAttribute("pageNumbers", pageNumbers);
         }
+
+        List<ExpensesGroup> expensesGroups = getExpenseGroups(new ExpensesGroupSearch(), Sort.by(Sort.Direction.ASC, "name"));
+        model.addAttribute("expensesGroups", expensesGroups);
 
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
@@ -773,8 +783,9 @@ public class ApplicationController {
         expenseGroupSearchUserIds.add(user.getId());
         expensesGroupSearch.setUserIds(expenseGroupSearchUserIds);
 
-        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findByCreationUser(user);
-        expensesGroups.addAll(expensesGroupRepository.findAll(specificationsService.getExpensesGroups(expensesGroupSearch), sort));
-        return expensesGroups;
+        return expensesGroupRepository.findAllByCreationUserOrMember(user, sort);
+//        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findByCreationUser(user);
+//        expensesGroups.addAll(expensesGroupRepository.findAll(specificationsService.getExpensesGroups(expensesGroupSearch), sort));
+//        return expensesGroups;
     }
 }
