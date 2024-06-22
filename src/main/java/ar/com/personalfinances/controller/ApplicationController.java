@@ -8,17 +8,13 @@ import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.ModelAndView;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -324,13 +320,22 @@ public class ApplicationController {
 
         final Sort sort = Sort.by(Sort.Direction.DESC, "date", "id");
         List<SharedExpense> sharedExpenses;
+        String sharedExpensesGroupTitle;
         if (sharedExpensesGroupId.isEmpty()) {
             sharedExpenses = sharedExpenseRepository.findAllByUserOrMember(user, sort);
+            sharedExpensesGroupTitle = "Todos los gastos";
         } else {
             sharedExpenses = sharedExpenseRepository.findByExpensesGroupId(sharedExpensesGroupId.get(), sort);
+            Optional<ExpensesGroup> expensesGroup = expensesGroupRepository.findById(sharedExpensesGroupId.get());
+            if (expensesGroup.isPresent()) {
+                sharedExpensesGroupTitle = expensesGroup.get().getName();
+            } else {
+                sharedExpensesGroupTitle = "";
+            }
         }
         PageImpl<SharedExpense> sharedExpensePage = new PageImpl<>(sharedExpenses, PageRequest.of(currentPage - 1, pageSize), sharedExpenses.size());
         model.addAttribute("sharedExpensesPage", sharedExpensePage);
+        model.addAttribute("sharedExpensesGroupTitle", sharedExpensesGroupTitle);
 
         // Si tengo 1 pagina o mas, entonces calculo los numero de paginas del paginador. Estos se dibujan al pie de la tabla de expenses
         int totalPages = sharedExpensePage.getTotalPages();
@@ -340,7 +345,7 @@ public class ApplicationController {
         }
 
         List<ExpensesGroup> expensesGroups = getExpenseGroups(new ExpensesGroupSearch(), Sort.by(Sort.Direction.ASC, "name"));
-        model.addAttribute("expensesGroups", expensesGroups);
+        model.addAttribute("expensesGroups", expensesGroups.stream().filter(g -> g.getId() != -1).collect(Collectors.toList()));
 
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
@@ -353,6 +358,8 @@ public class ApplicationController {
         model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
+        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAll();
+        model.addAttribute("expensesGroups", expensesGroups);
 
         backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
         return "abm/sharedExpenses-edit";
@@ -364,6 +371,48 @@ public class ApplicationController {
         sharedExpense.setUser(ApplicationUtils.getUserFromSession());
         sharedExpense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
         sharedExpense.setDate(new Date());
+        backUrl.ifPresent(urlString -> {
+            if (urlString.contains("?") && urlString.contains("sharedExpensesGroupId")) {
+                URI url;
+                try {
+                    url = new URI(urlString);
+                } catch (URISyntaxException e) {
+                    throw new RuntimeException(e);
+                }
+
+                // Obtener la cadena de consulta (query)
+                String query = url.getQuery();
+
+                // Decodificar la cadena de consulta
+                String decodedQuery = URLDecoder.decode(query, StandardCharsets.UTF_8);
+                if (!decodedQuery.isEmpty()) {
+                    Map<String, String> paramsMap = new HashMap<>();
+                    for (String param : decodedQuery.split("&")) {
+                        String[] keyValue = param.split("=");
+                        if (keyValue.length == 2) {
+                            String key = keyValue[0];
+                            String value = keyValue[1];
+                            paramsMap.put(key, value);
+                        }
+                    }
+
+                    String paramSharedExpensesGroupId = null;
+                    if (paramsMap.containsKey("sharedExpensesGroupId")) {
+                        paramSharedExpensesGroupId = paramsMap.get("sharedExpensesGroupId");
+                    }
+
+                    if (paramSharedExpensesGroupId != null) {
+                        long sharedExpensesGroupId = Long.parseLong(paramSharedExpensesGroupId);
+                        expensesGroupRepository.findById(sharedExpensesGroupId).ifPresent(expensesGroup -> {
+                            User user = ApplicationUtils.getUserFromSession();
+                            if (expensesGroup.getCreationUser().equals(user) || expensesGroup.getMembers().contains(user)) {
+                                sharedExpense.setExpensesGroup(expensesGroup);
+                            }
+                        });
+                    }
+                }
+            }
+        });
         return getSharedExpensesEditPage(model, sharedExpense, backUrl);
     }
 
@@ -728,23 +777,6 @@ public class ApplicationController {
         return "dashboard";
     }
 
-    @ResponseStatus(value = HttpStatus.CONFLICT, reason = "Data integrity violation")
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public void conflict() {
-        // Nothing to do
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ModelAndView handleException(HttpServletRequest req, Exception ex) {
-        log.error("[" + ApplicationUtils.getCacheSafeValue() + "]:" + ex.getMessage());
-
-        ModelAndView mav = new ModelAndView();
-        mav.addObject("exception", ex);
-        mav.addObject("url", req.getRequestURL());
-        mav.setViewName("error/error");
-        return mav;
-    }
-
     private List<Account> getUserAccounts(AccountSearch accountSearch, Sort sort) {
         List<Long> accountSearchOwnerIds = new ArrayList<>();
         accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
@@ -784,8 +816,5 @@ public class ApplicationController {
         expensesGroupSearch.setUserIds(expenseGroupSearchUserIds);
 
         return expensesGroupRepository.findAllByCreationUserOrMember(user, sort);
-//        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findByCreationUser(user);
-//        expensesGroups.addAll(expensesGroupRepository.findAll(specificationsService.getExpensesGroups(expensesGroupSearch), sort));
-//        return expensesGroups;
     }
 }

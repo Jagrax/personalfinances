@@ -2,17 +2,15 @@ package ar.com.personalfinances.entity;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
-import java.util.Date;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "shared_expense_participants")
-public class SharedExpenseParticipant {
+@Table(name = "shared_expense_members")
+public class SharedExpenseMember {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,11 +18,11 @@ public class SharedExpenseParticipant {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shared_expense_id")
+    @JoinColumn(name = "shared_expense_id", nullable = false)
     private SharedExpense sharedExpense;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(name = "amount", nullable = false)

@@ -48,13 +48,8 @@ public class SharedExpense {
     @JoinColumn(name = "expenses_group_id")
     private ExpensesGroup expensesGroup;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "shared_expense_members",
-            joinColumns = @JoinColumn(name = "shared_expense_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private List<User> members;
+    @OneToMany(mappedBy = "sharedExpense", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SharedExpenseMember> members;
 
     @Override
     public String toString() {

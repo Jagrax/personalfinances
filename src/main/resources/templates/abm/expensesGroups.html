@@ -45,7 +45,7 @@
                 <tr th:unless="${#lists.isEmpty(expensesGroupsPage.content)}" th:each="expensesGroup : ${expensesGroupsPage.content}">
                     <td class="text-start" th:text="${expensesGroup.name}"></td>
                     <td class="text-start" th:text="${expensesGroup.description}"></td>
-                    <td class="text-center" style="width:35px"><button name="expensesGroupIdToEdit" th:value="${expensesGroup.id}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></button></td>
+                    <td class="text-center" style="width:35px"><a th:href="@{/expensesGroups/edit(expensesGroupIdToEdit=${expensesGroup.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
                     <td class="text-center" style="width:35px"><a th:href="@{/expensesGroups/delete/{id}(id=${expensesGroup.id})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
                 </tr>
                 </tbody>

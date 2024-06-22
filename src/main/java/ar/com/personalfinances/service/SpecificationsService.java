@@ -1,19 +1,16 @@
 package ar.com.personalfinances.service;
 
-import ar.com.personalfinances.entity.*;
+import ar.com.personalfinances.entity.Account;
+import ar.com.personalfinances.entity.Category;
+import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.util.AccountSearch;
 import ar.com.personalfinances.util.CategorySearch;
 import ar.com.personalfinances.util.ExpenseSearch;
-
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.JoinType;
-import javax.persistence.criteria.Predicate;
-
-import ar.com.personalfinances.util.ExpensesGroupSearch;
-import org.springframework.util.StringUtils;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
+import javax.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -126,36 +123,6 @@ public class SpecificationsService {
 
             if (StringUtils.hasText(categorySearch.getName())) {
                 predicates.add(criteriaBuilder.like(root.get("name"), "%" + categorySearch.getName() + "%"));
-            }
-
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-        };
-    }
-
-    public Specification<ExpensesGroup> getExpensesGroups(ExpensesGroupSearch expensesGroupSearch) {
-        return (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-
-            //Join<ExpensesGroup, ExpensesGroupMember> membersJoin = root.join("members", JoinType.LEFT);
-
-            if (expensesGroupSearch.getCreationUserId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("creationUser").get("id"), expensesGroupSearch.getCreationUserId()));
-            }
-
-            if (expensesGroupSearch.getUserId() != null) {
-//                predicates.add(criteriaBuilder.equal(membersJoin.get("user").get("id"), expensesGroupSearch.getUserId()));
-            }
-
-            if (expensesGroupSearch.getUserIds() != null) {
-//                predicates.add(membersJoin.get("user").get("id").in(expensesGroupSearch.getUserIds()));
-            }
-
-            if (StringUtils.hasText(expensesGroupSearch.getName())) {
-                predicates.add(criteriaBuilder.like(root.get("name"), "%" + expensesGroupSearch.getName() + "%"));
-            }
-
-            if (StringUtils.hasText(expensesGroupSearch.getDescription())) {
-                predicates.add(criteriaBuilder.like(root.get("description"), "%" + expensesGroupSearch.getDescription() + "%"));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

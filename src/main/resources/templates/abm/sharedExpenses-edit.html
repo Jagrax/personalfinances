@@ -65,6 +65,13 @@
                         </select>
                         <div th:if="${#fields.hasErrors('user')}" th:errors="*{user}" th:classappend="${#fields.hasErrors('user') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
+                    <div class="col">
+                        <label class="form-label" for="expensesGroupId">Grupo</label>
+                        <select class="form-select form-select-sm" th:field="*{expensesGroup}" id="expensesGroupId" th:classappend="${#fields.hasErrors('expensesGroup') ? 'is-invalid' : ''}" required>
+                            <option th:each="expensesGroup : ${expensesGroups}" th:value="${expensesGroup.id}" th:text="${expensesGroup.name}"/>
+                        </select>
+                        <div th:if="${#fields.hasErrors('expensesGroup')}" th:errors="*{expensesGroup}" th:classappend="${#fields.hasErrors('expensesGroup') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
                 </div>
             </div>
             <div class="card-footer d-flex justify-content-between">

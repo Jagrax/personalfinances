@@ -11,22 +11,22 @@
     <form th:action="@{${'/sharedExpenses' + urlParams}}" method="post"
           th:with="urlParams=${#strings.isEmpty(httpServletRequest.queryString) ? '' : '?' + httpServletRequest.queryString},backUrl=${'/sharedExpenses' + urlParams}">
         <div class="row">
-            <div class="col-12 col-lg-3">
+            <div class="col-12 col-lg-3 col-xl-2">
                 <div class="d-grid mb-1">
-                    <button th:name="sharedExpensesGroupId" th:value="${null}" th:text="${'Todos los gastos'}" type="submit" class="btn btn-outline-secondary btn-sm rounded-0 border-0 text-start"></button>
-                    <button th:name="sharedExpensesGroupId" th:value="${-1}" th:text="${'Gastos sin grupo'}" type="submit" class="btn btn-outline-secondary btn-sm rounded-0 border-0 text-start"></button>
+                    <a th:href="@{/sharedExpenses}" class="btn btn-outline-secondary btn-sm rounded-0 border-0 text-start">Todos los gastos</a>
+                    <a th:href="@{/sharedExpenses(sharedExpensesGroupId=${-1})}" class="btn btn-outline-secondary btn-sm rounded-0 border-0 text-start">Gastos sin grupo</a>
                 </div>
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <span class="ps-2">GRUPOS</span>
-                    <a th:href="@{/sharedExpenses/create(backUrl=${backUrl})}" class="btn btn-outline-secondary py-0 px-1"><i class="bi bi-plus me-2"></i>añadir</a>
+                    <a th:href="@{/expensesGroups/create(backUrl=${backUrl})}" class="btn btn-outline-secondary py-0 px-1"><i class="bi bi-plus me-2"></i>añadir</a>
                 </div>
                 <div class="d-grid">
-                    <button th:unless="${#lists.isEmpty(expensesGroups)}" th:each="expensesGroup : ${expensesGroups}" th:name="sharedExpensesGroupId" th:value="${expensesGroup.id}" th:text="${expensesGroup.name}" type="submit" class="btn btn-outline-secondary btn-sm rounded-0 border-0 text-start"></button>
+                    <a th:unless="${#lists.isEmpty(expensesGroups)}" th:each="expensesGroup : ${expensesGroups}" th:href="@{/sharedExpenses(sharedExpensesGroupId=${expensesGroup.id})}" class="btn btn-outline-secondary btn-sm rounded-0 border-0 text-start" th:text="${expensesGroup.name}"/>
                 </div>
             </div>
-            <div class="col-12 col-lg-9">
+            <div class="col-12 col-lg-6 col-xl-8">
                 <div class="row g-0 align-items-center my-2">
-                    <div class="col-12 col-md me-auto"><h3>Registro de gastos compartidos</h3></div>
+                    <div class="col-12 col-md me-auto"><h3 th:text="${sharedExpensesGroupTitle}"/></div>
                     <div class="col-auto">
                         <div class="input-group input-group-sm me-3">
                             <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${sharedExpensesPage.size}">
@@ -41,36 +41,29 @@
                 </div>
 
                 <table class="table table-sm table-bordered table-striped">
-                    <thead class="text-center">
-                    <tr>
-                        <th>Fecha</th>
-                        <th class="d-none d-lg-table-cell">Categor&iacute;a</th>
-                        <th>Descripci&oacute;n</th>
-                        <th class="d-none d-lg-table-cell">Detalle</th>
-                        <th>Pagado por</th>
-                        <th>Importe</th>
-                        <th>Prestaste</th>
-                        <th>Te prestastaron</th>
-                        <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
-                    </tr>
-                    </thead>
                     <tbody>
                     <tr th:if="${#lists.isEmpty(sharedExpensesPage.content)}">
                         <td colspan="9">No hay registros para mostrar!</td>
                     </tr>
                     <tr th:unless="${#lists.isEmpty(sharedExpensesPage.content)}" th:each="sharedExpense : ${sharedExpensesPage.content}">
-                        <td class="text-center" style="width:100px" th:text="${#dates.format(sharedExpense.date, 'dd/MM/yyyy')}"></td>
-                        <td class="text-center d-none d-lg-table-cell" th:text="${sharedExpense.category.name}"></td>
-                        <td class="text-start" th:text="${sharedExpense.description}"></td>
-                        <td class="text-start d-none d-lg-table-cell" th:text="${sharedExpense.details}"></td>
-                        <td class="text-center d-none d-lg-table-cell" th:text="${sharedExpense.user.fullName}"></td>
-                        <td class="text-end" th:text="${#numbers.formatDecimal(sharedExpense.amount, 1, 'POINT', 2, 'COMMA')}"></td>
-                        <td class="text-center">N/A</td>
-                        <td class="text-center">N/A</td>
-                        <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(sharedExpense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${sharedExpense.comments}|"><i class="bi bi-chat-text"></i></button></td>
-                        <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/edit(sharedExpenseIdToEdit=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
-                        <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/duplicate(cloneSharedExpenseId=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-files"></i></a></td>
-                        <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/delete/{id}(id=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+                        <td class="text-center align-middle" style="width:60px">
+                            <smal th:text="${#dates.format(sharedExpense.date, 'MMM')}"/>
+                            <div th:text="${#dates.format(sharedExpense.date, 'dd')}"/>
+                        </td>
+                        <td class="text-center align-middle d-none d-xxl-table-cell" style="width:100px" th:text="${sharedExpense.category.name}"></td>
+                        <td class="text-start align-middle">
+                            <div th:text="${sharedExpense.description}"/>
+                            <small th:if="${#strings.isEmpty(param.sharedExpensesGroupId) && sharedExpense.expensesGroup != null}" th:text="${sharedExpense.expensesGroup.name}" class="badge text-bg-light border border-dark-subtle "/>
+                        </td>
+                        <td class="text-end align-middle" style="width:200px">
+                            <small class="text-secondary" th:with="user=${#authentication.principal}" th:text="${sharedExpense.user == user ? 'pagaste' : sharedExpense.user.fullName + ' pagó'}"/>
+                            <div th:text="${#numbers.formatDecimal(sharedExpense.amount, 1, 'POINT', 2, 'COMMA')}"/>
+                        </td>
+                        <td class="text-center align-middle" style="width:200px">N/A</td>
+                        <td class="text-center align-middle d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(sharedExpense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${sharedExpense.comments}|"><i class="bi bi-chat-text"></i></button></td>
+                        <td class="text-center align-middle d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/edit(sharedExpenseIdToEdit=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
+                        <td class="text-center align-middle d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/duplicate(cloneSharedExpenseId=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-files"></i></a></td>
+                        <td class="text-center align-middle d-none d-lg-table-cell" style="width:35px"><a th:href="@{/sharedExpenses/delete/{id}(id=${sharedExpense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
                     </tr>
                     </tbody>
                 </table>
@@ -97,6 +90,9 @@
                         </th:block>
                     </ul>
                 </nav>
+            </div>
+            <div class="col-12 col-lg-3 col-xl-2">
+                <div th:text="${#strings.isEmpty(param.sharedExpensesGroupId) ? 'TU SALDO TOTAL' : 'SALDOS DEL GRUPO'}"/>
             </div>
         </div>
     </form>

@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Setter
 @Getter
@@ -71,8 +72,8 @@ public class User implements UserDetails {
     @ManyToMany(mappedBy = "members")
     private List<SharedExpense> sharedExpenses;
 
-    @ManyToMany(mappedBy = "members")
-    private List<ExpensesGroup> expensesGroups;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SharedExpenseMember> expensesGroups;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -129,5 +130,18 @@ public class User implements UserDetails {
                 ((locked != null) ? "locked=" + locked + ", " : "") +
                 ((enabled != null) ? "enabled=" + enabled + ", " : "") +
                 "]";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(id, user.id) && Objects.equals(firstName, user.firstName) && Objects.equals(lastName, user.lastName) && Objects.equals(email, user.email) && Objects.equals(password, user.password) && Objects.equals(mobile, user.mobile) && Objects.equals(createdAt, user.createdAt) && Objects.equals(updatedAt, user.updatedAt) && role == user.role && Objects.equals(locked, user.locked) && Objects.equals(enabled, user.enabled);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, firstName, lastName, email, password, mobile, createdAt, updatedAt, role, locked, enabled, sharedExpenses, expensesGroups);
     }
 }
