@@ -80,11 +80,11 @@ public class ExpensesGroupsController {
             expensesGroupToEdit = expensesGroupRepository.findById(expensesGroupIdToEdit.get());
             if (expensesGroupToEdit.isPresent()) {
                 ExpensesGroup expensesGroup = expensesGroupToEdit.get();
-                User currentUser = ApplicationUtils.getUserFromSession();
-                if (currentUser.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name())) || expensesGroup.getCreationUser().equals(currentUser)) {
+                User user = ApplicationUtils.getUserFromSession();
+                if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name())) || expensesGroup.getCreationUser().equals(user)) {
                     model.addAttribute("canEdit", true); // TODO: Implementar un esquema de ver/editar los datos del grupo segun si soy el dueño del mismo o si soy ADMIN
                     return getExpensesGroupEditPage(model, expensesGroupToEdit.get(), backUrl);
-                } else if (expensesGroup.getMembers().contains(currentUser)) {
+                } else if (expensesGroup.getMembers().contains(user)) {
                     model.addAttribute("canEdit", false); // TODO: Implementar un esquema de ver/editar los datos del grupo segun si soy el dueño del mismo o si soy ADMIN
                     return getExpensesGroupEditPage(model, expensesGroupToEdit.get(), backUrl);
                 } else {
@@ -112,7 +112,13 @@ public class ExpensesGroupsController {
             return getExpensesGroupEditPage(model, expensesGroup, backUrl);
         }
 
+        EntityEvent event = expensesGroup.getId() == null ? EntityEvent.CREATED : EntityEvent.UPDATED;
+        String eventDetails = "";
+        if (event.equals(EntityEvent.UPDATED)) {
+            eventDetails = ApplicationUtils.getChangeLog(expensesGroup, expensesGroupRepository.findById(expensesGroup.getId()).orElseThrow());
+        }
         expensesGroupRepository.save(expensesGroup);
+        alertEventService.saveExpensesGroupAlert(event, expensesGroup.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
 
         if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
             return "redirect:" + backUrl.get();
@@ -125,7 +131,7 @@ public class ExpensesGroupsController {
     public String deleteExpensesGroup(@PathVariable("id") long id, Optional<String> backUrl) {
         ExpensesGroup expensesGroup = expensesGroupRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("ExpensesGroup", "id", id));
         expensesGroupRepository.delete(expensesGroup);
-        alertEventService.saveExpenseAlert(EntityEvent.DELETED, expensesGroup.getId(), "", ApplicationUtils.getUserFromSession().getId());
+        alertEventService.saveExpensesGroupAlert(EntityEvent.DELETED, expensesGroup.getId(), "", ApplicationUtils.getUserFromSession().getId());
 
         if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
             return "redirect:" + backUrl.get();

@@ -7,10 +7,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Slf4j
 public class ApplicationUtils {
@@ -45,6 +42,11 @@ public class ApplicationUtils {
                 }
 
                 if (!Objects.equals(valorNuevo, valorOriginal)) {
+                    // Caso particular, si edito los miembros de un grupo o de un gasto, tendria que tener la lista como IDs, pero es medio incomprensible de leer a nivel AlertEvent. Por ahora dejamos anotado como cambio el size de la List
+                    if (valorOriginal instanceof List && valorNuevo instanceof List) {
+                        valorOriginal = "size=" + ((List<?>) valorOriginal).size();
+                        valorNuevo = "size=" + ((List<?>) valorNuevo).size();
+                    }
                     changeLog.add(field.getName() + "[" + valorOriginal + "] -> [" + valorNuevo + "]");
                 }
             }

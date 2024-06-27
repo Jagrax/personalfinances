@@ -21,6 +21,7 @@
         <form th:action="@{/expensesGroups/save}" th:object="${expensesGroup}" method="post" class="card">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{creationUser}"/>
+            <input type="hidden" th:field="*{creationDate}"/><!-- TODO: Aca no estan los nano segundos y eso hace que el changeLog del AlertEvent diga que son diferentes cuando en realidad no cambia este dato -->
             <input type="hidden" name="backUrl" th:value="${backUrl}" th:if="${!#strings.isEmpty(backUrl)}"/>
 
             <div class="card-header" th:text="${expensesGroup.id != null ? 'Editando grupo' : 'Nuevo grupo'}"></div>

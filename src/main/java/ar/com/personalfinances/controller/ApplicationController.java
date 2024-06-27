@@ -34,26 +34,20 @@ public class ApplicationController {
     public final static int DEFAULT_PAGE_SIZE = 10;
 
     private final ExpenseRepository expenseRepository;
-    private final SharedExpenseRepository sharedExpenseRepository;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
     private final ReportsRepository reportsRepository;
-    private final ExpensesGroupRepository expensesGroupRepository;
     private final SpecificationsService specificationsService;
     private final AlertEventService alertEventService;
-    private final UserRepository userRepository;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, SharedExpenseRepository sharedExpenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService, UserRepository userRepository, ExpensesGroupRepository expensesGroupRepository) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, AlertEventService alertEventService) {
         this.expenseRepository = expenseRepository;
-        this.sharedExpenseRepository = sharedExpenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
-        this.expensesGroupRepository = expensesGroupRepository;
         this.specificationsService = specificationsService;
         this.alertEventService = alertEventService;
-        this.userRepository = userRepository;
     }
 
     // ------------------------- EXPENSES -------------------------
@@ -303,215 +297,6 @@ public class ApplicationController {
         // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
         model.addAttribute("expenseSearch", expenseSearch);
         return "reports/report";
-    }
-
-    // ------------------------- EXPENSES -------------------------
-
-    @RequestMapping("/sharedExpenses")
-    public String getSharedExpensesPage(Model model,
-                                        @RequestParam("sharedExpensesGroupId") Optional<Long> sharedExpensesGroupId,
-                                        @RequestParam("page") Optional<Integer> page,
-                                        @RequestParam("size") Optional<Integer> size) {
-        int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
-        int pageSize = size.orElse(25); // En SplitWise se muestran 25 items y el botón "Mostrat más"
-
-        // Intento recuperar el Usuario logueado
-        User user = ApplicationUtils.getUserFromSession();
-
-        final Sort sort = Sort.by(Sort.Direction.DESC, "date", "id");
-        List<SharedExpense> sharedExpenses;
-        String sharedExpensesGroupTitle;
-        if (sharedExpensesGroupId.isEmpty()) {
-            sharedExpenses = sharedExpenseRepository.findAllByUserOrMember(user, sort);
-            sharedExpensesGroupTitle = "Todos los gastos";
-        } else {
-            sharedExpenses = sharedExpenseRepository.findByExpensesGroupId(sharedExpensesGroupId.get(), sort);
-            Optional<ExpensesGroup> expensesGroup = expensesGroupRepository.findById(sharedExpensesGroupId.get());
-            if (expensesGroup.isPresent()) {
-                sharedExpensesGroupTitle = expensesGroup.get().getName();
-            } else {
-                sharedExpensesGroupTitle = "";
-            }
-        }
-        PageImpl<SharedExpense> sharedExpensePage = new PageImpl<>(sharedExpenses, PageRequest.of(currentPage - 1, pageSize), sharedExpenses.size());
-        model.addAttribute("sharedExpensesPage", sharedExpensePage);
-        model.addAttribute("sharedExpensesGroupTitle", sharedExpensesGroupTitle);
-
-        // Si tengo 1 pagina o mas, entonces calculo los numero de paginas del paginador. Estos se dibujan al pie de la tabla de expenses
-        int totalPages = sharedExpensePage.getTotalPages();
-        if (totalPages > 0) {
-            List<Integer> pageNumbers = IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList());
-            model.addAttribute("pageNumbers", pageNumbers);
-        }
-
-        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAllByCreationUserOrMember(user, Sort.by(Sort.Direction.ASC, "name"));
-        model.addAttribute("expensesGroups", expensesGroups.stream().filter(g -> g.getId() != -1).collect(Collectors.toList()));
-
-        // Atributo usado para settear la clase 'active' en el item del menu que corresponda
-        model.addAttribute("module", "expenses");
-        return "abm/sharedExpenses";
-    }
-
-    private String getSharedExpensesEditPage(Model model, SharedExpense sharedExpense, Optional<String> backUrl) {
-        model.addAttribute("sharedExpense", sharedExpense);
-        model.addAttribute("categories", categoryRepository.findAll());
-        model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
-        // Atributo usado para settear la clase 'active' en el item del menu que corresponda
-        model.addAttribute("module", "expenses");
-        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAll();
-        model.addAttribute("expensesGroups", expensesGroups);
-
-        backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
-        return "abm/sharedExpenses-edit";
-    }
-
-    @RequestMapping(value = "/sharedExpenses/create", method = RequestMethod.GET)
-    public String createSharedExpense(Model model, @RequestParam("backUrl") Optional<String> backUrl) {
-        SharedExpense sharedExpense = new SharedExpense();
-        sharedExpense.setUser(ApplicationUtils.getUserFromSession());
-        sharedExpense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
-        sharedExpense.setDate(new Date());
-        backUrl.ifPresent(urlString -> {
-            if (urlString.contains("?") && urlString.contains("sharedExpensesGroupId")) {
-                URI url;
-                try {
-                    url = new URI(urlString);
-                } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
-                }
-
-                // Obtener la cadena de consulta (query)
-                String query = url.getQuery();
-
-                // Decodificar la cadena de consulta
-                String decodedQuery = URLDecoder.decode(query, StandardCharsets.UTF_8);
-                if (!decodedQuery.isEmpty()) {
-                    Map<String, String> paramsMap = new HashMap<>();
-                    for (String param : decodedQuery.split("&")) {
-                        String[] keyValue = param.split("=");
-                        if (keyValue.length == 2) {
-                            String key = keyValue[0];
-                            String value = keyValue[1];
-                            paramsMap.put(key, value);
-                        }
-                    }
-
-                    String paramSharedExpensesGroupId = null;
-                    if (paramsMap.containsKey("sharedExpensesGroupId")) {
-                        paramSharedExpensesGroupId = paramsMap.get("sharedExpensesGroupId");
-                    }
-
-                    if (paramSharedExpensesGroupId != null) {
-                        long sharedExpensesGroupId = Long.parseLong(paramSharedExpensesGroupId);
-                        expensesGroupRepository.findById(sharedExpensesGroupId).ifPresent(expensesGroup -> {
-                            User user = ApplicationUtils.getUserFromSession();
-                            if (expensesGroup.getCreationUser().equals(user) || expensesGroup.getMembers().contains(user)) {
-                                sharedExpense.setExpensesGroup(expensesGroup);
-                                List<SharedExpenseMember> sharedExpenseMembers = new ArrayList<>();
-                                for (User expensesGroupMember : expensesGroup.getMembers()) {
-                                    SharedExpenseMember sharedExpenseMember = new SharedExpenseMember();
-                                    sharedExpenseMember.setSharedExpense(sharedExpense);
-                                    sharedExpenseMember.setUser(expensesGroupMember);
-                                    sharedExpenseMember.setAmount(BigDecimal.ZERO);
-                                    sharedExpenseMembers.add(sharedExpenseMember);
-                                }
-                                sharedExpense.setMembers(sharedExpenseMembers);
-                            }
-                        });
-                    }
-                }
-            }
-        });
-        return getSharedExpensesEditPage(model, sharedExpense, backUrl);
-    }
-
-    @RequestMapping(value = "/sharedExpenses/edit", method = RequestMethod.GET)
-    public String editSharedExpenses(Model model, @RequestParam(name = "sharedExpenseIdToEdit") Optional<Long> sharedExpenseIdToEdit, @RequestParam("backUrl") Optional<String> backUrl) {
-        Optional<SharedExpense> sharedExpenseToEdit;
-        if (sharedExpenseIdToEdit.isPresent()) {
-            sharedExpenseToEdit = sharedExpenseRepository.findById(sharedExpenseIdToEdit.get());
-            if (sharedExpenseToEdit.isPresent()) {
-                return getSharedExpensesEditPage(model, sharedExpenseToEdit.get(), backUrl);
-//                User user = ApplicationUtils.getUserFromSession();
-//                if (sharedExpenseToEdit.get().getUser().getId().equals(user.getId())) {
-//                    return getSharedExpensesEditPage(model, sharedExpenseToEdit.get(), backUrl);
-//                } else {
-//                    model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no le pertenece"));
-//                }
-            } else {
-                model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no existe"));
-            }
-        } else {
-            model.addAttribute("applicationMessage", ApplicationMessage.warn("No se especifico el id del gasto a editar"));
-        }
-
-        return createSharedExpense(model, backUrl);
-    }
-
-    @RequestMapping(value = "/sharedExpenses/duplicate", method = RequestMethod.GET)
-    public String duplicateSharedExpense(Model model, @RequestParam(name = "cloneSharedExpenseId") Optional<Long> cloneSharedExpenseId, @RequestParam("backUrl") Optional<String> backUrl) {
-        Optional<SharedExpense> sharedExpenseToClone;
-        if (cloneSharedExpenseId.isPresent()) {
-            sharedExpenseToClone = sharedExpenseRepository.findById(cloneSharedExpenseId.get());
-            if (sharedExpenseToClone.isPresent()) {
-                User user = ApplicationUtils.getUserFromSession();
-                if (sharedExpenseToClone.get().getUser().getId().equals(user.getId())) {
-                    SharedExpense expense = ApplicationUtils.cloneEntity(sharedExpenseToClone.get(), true);
-                    expense.setUser(user);
-                    return getSharedExpensesEditPage(model, expense, backUrl);
-                } else {
-                    model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no le pertenece"));
-                }
-            } else {
-                model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no existe"));
-            }
-        } else {
-            model.addAttribute("applicationMessage", ApplicationMessage.warn("No se especifico el id del gasto del cual clonar"));
-        }
-
-        return createSharedExpense(model, backUrl);
-    }
-
-    @RequestMapping(value = "/sharedExpenses/save", method = RequestMethod.POST)
-    public String createOrUpdateSharedExpense(Model model, @Valid SharedExpense sharedExpense, BindingResult result, @RequestParam("backUrl") Optional<String> backUrl) {
-        if (result.hasErrors()) {
-            model.addAttribute("applicationMessage", ApplicationMessage.error("Error de datos en el registro"));
-            model.addAttribute("bindingResult", result);
-
-            model.addAttribute("sharedExpense", sharedExpense);
-            model.addAttribute("categories", categoryRepository.findAll());
-            model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
-            // Atributo usado para settear la clase 'active' en el item del menu que corresponda
-            model.addAttribute("module", "sharedExpenses");
-            return "abm/sharedExpenses-edit";
-        }
-
-        EntityEvent event = sharedExpense.getId() == null ? EntityEvent.CREATED : EntityEvent.UPDATED;
-        String eventDetails = "";
-        if (event.equals(EntityEvent.UPDATED)) {
-            eventDetails = ApplicationUtils.getChangeLog(sharedExpense, sharedExpenseRepository.findById(sharedExpense.getId()).orElseThrow());
-        }
-        sharedExpense = sharedExpenseRepository.save(sharedExpense);
-        alertEventService.saveSharedExpenseAlert(event, sharedExpense.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
-
-        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
-            return "redirect:" + backUrl.get();
-        }
-
-        return "redirect:/sharedExpenses";
-    }
-
-    @GetMapping("/sharedExpenses/delete/{id}")
-    public String deleteSharedExpense(@PathVariable("id") long id, Optional<String> backUrl) {
-        SharedExpense sharedExpense = sharedExpenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("SharedExpense", "id", id));
-        sharedExpenseRepository.delete(sharedExpense);
-        alertEventService.saveSharedExpenseAlert(EntityEvent.DELETED, sharedExpense.getId(), "", ApplicationUtils.getUserFromSession().getId());
-
-        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
-            return "redirect:" + backUrl.get();
-        }
-
-        return "redirect:/sharedExpenses";
     }
 
     // -------------------------  ACCOUNTS  -------------------------
