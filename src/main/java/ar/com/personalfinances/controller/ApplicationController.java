@@ -30,8 +30,8 @@ import java.util.stream.IntStream;
 @Controller
 public class ApplicationController {
 
-    private final int DEFAULT_PAGE_INDEX = 1;
-    private final int DEFAULT_PAGE_SIZE = 10;
+    public final static int DEFAULT_PAGE_INDEX = 1;
+    public final static int DEFAULT_PAGE_SIZE = 10;
 
     private final ExpenseRepository expenseRepository;
     private final SharedExpenseRepository sharedExpenseRepository;
@@ -344,7 +344,7 @@ public class ApplicationController {
             model.addAttribute("pageNumbers", pageNumbers);
         }
 
-        List<ExpensesGroup> expensesGroups = getExpenseGroups(new ExpensesGroupSearch(), Sort.by(Sort.Direction.ASC, "name"));
+        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAllByCreationUserOrMember(user, Sort.by(Sort.Direction.ASC, "name"));
         model.addAttribute("expensesGroups", expensesGroups.stream().filter(g -> g.getId() != -1).collect(Collectors.toList()));
 
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
@@ -407,6 +407,15 @@ public class ApplicationController {
                             User user = ApplicationUtils.getUserFromSession();
                             if (expensesGroup.getCreationUser().equals(user) || expensesGroup.getMembers().contains(user)) {
                                 sharedExpense.setExpensesGroup(expensesGroup);
+                                List<SharedExpenseMember> sharedExpenseMembers = new ArrayList<>();
+                                for (User expensesGroupMember : expensesGroup.getMembers()) {
+                                    SharedExpenseMember sharedExpenseMember = new SharedExpenseMember();
+                                    sharedExpenseMember.setSharedExpense(sharedExpense);
+                                    sharedExpenseMember.setUser(expensesGroupMember);
+                                    sharedExpenseMember.setAmount(BigDecimal.ZERO);
+                                    sharedExpenseMembers.add(sharedExpenseMember);
+                                }
+                                sharedExpense.setMembers(sharedExpenseMembers);
                             }
                         });
                     }
@@ -655,84 +664,6 @@ public class ApplicationController {
         return "redirect:/categories";
     }
 
-    // -------------------------  EXPENSES GROUPS  -------------------------
-
-    @GetMapping("/expensesGroups")
-    public String getExpensesGroupsPage(Model model,
-                                        @ModelAttribute ExpensesGroupSearch expensesGroupSearch,
-                                        @RequestParam("page") Optional<Integer> page,
-                                        @RequestParam("size") Optional<Integer> size,
-                                        @RequestParam("expensesGroupIdToEdit") Optional<Long> expensesGroupIdToEdit) {
-        int currentPage = page.orElse(DEFAULT_PAGE_INDEX);
-        int pageSize = size.orElse(DEFAULT_PAGE_SIZE);
-
-        List<ExpensesGroup> expensesGroups = getExpenseGroups(expensesGroupSearch, Sort.by(Sort.Direction.ASC, "name"));
-        Page<ExpensesGroup> expensesGroupsPage = getItemsPaginated(PageRequest.of(currentPage - 1, pageSize), expensesGroups);
-
-        model.addAttribute("expensesGroupsPage", expensesGroupsPage);
-
-        int totalPages = expensesGroupsPage.getTotalPages();
-        if (totalPages > 0) {
-            List<Integer> pageNumbers = IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList());
-            model.addAttribute("pageNumbers", pageNumbers);
-        }
-
-        if (expensesGroupIdToEdit.isPresent()) {
-            model.addAttribute("expensesGroup", expensesGroupRepository.findById(expensesGroupIdToEdit.get()).orElseThrow(() -> new ResourceNotFoundException("ExpensesGroup", "id", expensesGroupIdToEdit)));
-            model.addAttribute("expensesGroupIdToEdit", expensesGroupIdToEdit);
-        } else {
-            ExpensesGroup expensesGroup = new ExpensesGroup();
-            expensesGroup.setCreationUser(ApplicationUtils.getUserFromSession());
-            model.addAttribute("expensesGroup", expensesGroup);
-        }
-        model.addAttribute("expensesGroupSearch", expensesGroupSearch);
-        model.addAttribute("module", "expensesGroups");
-        return "abm/expensesGroups";
-    }
-
-    @PostMapping("/expensesGroups/add")
-    public String createExpensesGroup(@Valid ExpensesGroup expensesGroup, BindingResult result, Model model,
-                                      @ModelAttribute ExpensesGroupSearch expensesGroupSearch,
-                                      @RequestParam("page") Optional<Integer> page,
-                                      @RequestParam("size") Optional<Integer> size,
-                                      @RequestParam("expensesGroupIdToEdit") Optional<Long> expensesGroupIdToEdit) {
-        if (result.hasErrors()) {
-            return getExpensesGroupsPage(model, expensesGroupSearch, page, size, expensesGroupIdToEdit);
-        }
-
-        if (expensesGroupRepository.existsByNameAndCreationUser(expensesGroup.getName(), expensesGroup.getCreationUser())) {
-            result.rejectValue("name", "duplicate.group", "Ya existe un grupo con este nombre.");
-            return getExpensesGroupsPage(model, expensesGroupSearch, page, size, expensesGroupIdToEdit);
-        }
-
-        expensesGroupRepository.save(expensesGroup);
-        return "redirect:/groups";
-    }
-
-    @PostMapping("/expensesGroups/update/{id}")
-    public String updateExpensesGroup(@PathVariable("id") long id, @Valid ExpensesGroup expensesGroup, BindingResult result, Model model,
-                                      @ModelAttribute ExpensesGroupSearch expensesGroupSearch,
-                                      @RequestParam("page") Optional<Integer> page,
-                                      @RequestParam("size") Optional<Integer> size,
-                                      @RequestParam("expensesGroupIdToEdit") Optional<Long> expensesGroupIdToEdit) {
-        if (result.hasErrors()) {
-            expensesGroup.setId(id);
-            return getExpensesGroupsPage(model, expensesGroupSearch, page, size, expensesGroupIdToEdit);
-        }
-
-        expensesGroupRepository.save(expensesGroup);
-
-        return "redirect:/groups";
-    }
-
-    @GetMapping("/expensesGroups/delete/{id}")
-    public String deleteExpensesGroup(@PathVariable("id") long id) {
-        ExpensesGroup expensesGroup = expensesGroupRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Group", "id", id));
-        expensesGroupRepository.delete(expensesGroup);
-
-        return "redirect:/groups";
-    }
-
     public ExpensePage getExpensesPaginated(Pageable pageable, List<Expense> expensesToPaginate) {
         int pageSize = pageable.getPageSize();
         int currentPage = pageable.getPageNumber();
@@ -755,7 +686,7 @@ public class ApplicationController {
                         Collectors.mapping(Expense::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)))));
     }
 
-    public <T> Page<T> getItemsPaginated(Pageable pageable, List<T> itemsToPaginate) {
+    public static <T> Page<T> getItemsPaginated(Pageable pageable, List<T> itemsToPaginate) {
         int pageSize = pageable.getPageSize();
         int currentPage = pageable.getPageNumber();
         int startItem = currentPage * pageSize;
@@ -805,16 +736,5 @@ public class ApplicationController {
         return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
     }
 
-    private List<ExpensesGroup> getExpenseGroups(ExpensesGroupSearch expensesGroupSearch, Sort sort) {
-        // Obtengo los grupos filtrados en pantalla
-        List<Long> expenseGroupSearchUserIds = expensesGroupSearch.getUserIds();
-        if (expenseGroupSearchUserIds == null) expenseGroupSearchUserIds = new ArrayList<>();
 
-        // Filtro para ver solamente los grupos a los que pertenezco y los que cree
-        User user = ApplicationUtils.getUserFromSession();
-        expenseGroupSearchUserIds.add(user.getId());
-        expensesGroupSearch.setUserIds(expenseGroupSearchUserIds);
-
-        return expensesGroupRepository.findAllByCreationUserOrMember(user, sort);
-    }
 }

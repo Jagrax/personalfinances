@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import javax.persistence.*;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -31,6 +32,9 @@ public class ExpensesGroup {
     @JoinColumn(name = "creation_user")
     private User creationUser;
 
+    @Column(name = "creation_date", nullable = false, updatable = false)
+    private LocalDateTime creationDate;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "expenses_group_members",
@@ -38,6 +42,11 @@ public class ExpensesGroup {
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private List<User> members;
+
+    @PrePersist
+    protected void onCreate() {
+        this.creationDate = LocalDateTime.now();
+    }
 
     @Override
     public String toString() {

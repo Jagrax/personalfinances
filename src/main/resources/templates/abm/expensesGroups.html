@@ -20,14 +20,18 @@
                     <button type="submit" class="btn btn-primary h-100"><i class="bi bi-search"></i></button>
                 </div>
             </div>
-            <div class="d-flex justify-content-between align-items-center my-1">
-                <h3>Listado de grupos de gastos</h3>
-                <div class="d-flex flex-nowrap">
+            <div class="row g-0 align-items-center my-2">
+                <div class="col-12 col-md me-auto"><h3>Listado de grupos de gastos</h3></div>
+                <div class="col-auto">
                     <div class="input-group input-group-sm me-3">
                         <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${expensesGroupsPage.size}">
                         <span class="input-group-text" th:text="${'/ ' + expensesGroupsPage.totalElements}"></span>
                     </div>
-                    <button id="btnOpenModal" type="button" data-bs-toggle="modal" data-bs-target="#createOrUpdateExpensesGroupModal" class="btn btn-sm btn-success text-nowrap"><i class="bi bi-plus me-2"></i>Nuevo registro</button>
+                </div>
+                <div class="col-auto">
+                    <a th:href="@{/expensesGroups/create(backUrl=${backUrl})}" class="btn btn-sm btn-success text-nowrap">
+                        <i class="bi bi-plus me-2"></i>Agregar grupo
+                    </a>
                 </div>
             </div>
             <table class="table table-sm table-bordered table-striped">
@@ -35,6 +39,8 @@
                 <tr>
                     <th>Nombre</th>
                     <th>Descripci&oacute;n</th>
+                    <th>Fecha de creaci&oacute;n</th>
+                    <th>Cant. miembros</th>
                     <th colspan="3">Acciones</th>
                 </tr>
                 </thead>
@@ -45,6 +51,8 @@
                 <tr th:unless="${#lists.isEmpty(expensesGroupsPage.content)}" th:each="expensesGroup : ${expensesGroupsPage.content}">
                     <td class="text-start" th:text="${expensesGroup.name}"></td>
                     <td class="text-start" th:text="${expensesGroup.description}"></td>
+                    <td class="text-center" style="width:200px" th:text="${#temporals.format(expensesGroup.creationDate, 'dd/MM/yyyy HH:mm:ss')}"></td>
+                    <td class="text-center" style="width:150px" th:text="${expensesGroup.members.size()}"></td>
                     <td class="text-center" style="width:35px"><a th:href="@{/expensesGroups/edit(expensesGroupIdToEdit=${expensesGroup.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
                     <td class="text-center" style="width:35px"><a th:href="@{/expensesGroups/delete/{id}(id=${expensesGroup.id})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
                 </tr>
@@ -74,42 +82,6 @@
                 </ul>
             </nav>
         </form>
-
-        <div class="modal fade" id="createOrUpdateExpensesGroupModal" tabindex="-1" aria-labelledby="createOrUpdateExpensesGroupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form action="#" th:with="actionUrl=(${expensesGroupIdToEdit != null and expensesGroupIdToEdit.present} ? '/expensesGroups/update/' + ${expensesGroupIdToEdit.get()} : '/expensesGroups/add')" th:action="@{${actionUrl}}" th:object="${expensesGroup}" method="post">
-                        <input type="hidden" th:field="*{creationUser}"/>
-                        <div class="modal-header">
-                            <h1 class="modal-title fs-5" id="createOrUpdateExpensesGroupModalLabel" th:text="${expenseIdToEdit != null ? 'Editando grupo' : 'Nuevo grupo'}"></h1>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label class="form-label" for="description">Nombre</label>
-                                    <input class="form-control form-control-sm" type="text" th:field="*{name}" id="name" required/>
-                                    <span th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></span>
-                                </div>
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label class="form-label" for="description">Descripci&oacute;n</label>
-                                    <input class="form-control form-control-sm" type="text" th:field="*{description}" id="description"/>
-                                    <span th:if="${#fields.hasErrors('description')}" th:errors="*{description}"></span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer justify-content-between">
-                            <button th:if="${expensesGroupIdToEdit == null}" type="button" class="btn btn-danger" data-bs-dismiss="modal"><i class="bi bi-x-lg me-2"></i>Cancelar</button>
-                            <a th:unless="${expensesGroupIdToEdit == null}" class="btn btn-danger" th:href="@{/expensesGroups}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
-                            <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <script th:if="${expensesGroupIdToEdit != null}">$("#btnOpenModal").click()</script>
     </div>
 </body>
 </html>

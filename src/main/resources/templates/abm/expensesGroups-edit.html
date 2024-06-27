@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Grupos de gastos</title>
+</head>
+<body>
+    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+        <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span th:utext="${applicationMessage.message}"></span>
+            <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
+                <ul th:each="data : ${bindingResult.allErrors}">
+                    <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
+                </ul>
+            </th:block>
+        </div>
+
+        <form th:action="@{/expensesGroups/save}" th:object="${expensesGroup}" method="post" class="card">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{creationUser}"/>
+            <input type="hidden" name="backUrl" th:value="${backUrl}" th:if="${!#strings.isEmpty(backUrl)}"/>
+
+            <div class="card-header" th:text="${expensesGroup.id != null ? 'Editando grupo' : 'Nuevo grupo'}"></div>
+            <div class="card-body">
+                <div class="row row-cols-1 g-3">
+                    <div class="col">
+                        <label class="form-label" for="name">Nombre</label>
+                        <input class="form-control form-control-sm" type="text" th:field="*{name}" id="name" th:classappend="${#fields.hasErrors('name') ? 'is-invalid' : ''}" required/>
+                        <div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" th:classappend="${#fields.hasErrors('name') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="description">Descripci&oacute;n</label>
+                        <input class="form-control form-control-sm" type="text" th:field="*{description}" id="description" th:classappend="${#fields.hasErrors('description') ? 'is-invalid' : ''}"/>
+                        <span th:if="${#fields.hasErrors('description')}" th:errors="*{description}" th:classappend="${#fields.hasErrors('description') ? 'invalid-feedback' : 'valid-feedback'}"></span>
+                    </div>
+                    <div class="col">
+                        <label class="form-label">Miembros</label>
+                        <div th:each="user, iterStat : ${users}" class="form-check">
+                            <input type="checkbox" class="form-check-input" th:field="*{members}" th:value="${user.id}"
+                                   th:checked="${#lists.contains(expensesGroup.members, user)}"
+                                   th:id="${'memberCheckBox_' + iterStat.index}"/>
+                            <label class="form-check-label" th:for="|memberCheckBox_${iterStat.index}|" th:text="${user.fullName}">User Name</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <a class="btn btn-danger" th:href="@{${!#strings.isEmpty(backUrl)} ? ${backUrl} : '/expensesGroups'}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
+                <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
