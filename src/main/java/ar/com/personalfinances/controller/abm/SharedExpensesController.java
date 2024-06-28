@@ -10,10 +10,13 @@ import ar.com.personalfinances.repository.UserRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.util.ApplicationMessage;
 import ar.com.personalfinances.util.ApplicationUtils;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -27,6 +30,7 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -103,6 +107,7 @@ public class SharedExpensesController {
         sharedExpense.setUser(ApplicationUtils.getUserFromSession());
         sharedExpense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
         sharedExpense.setDate(new Date());
+        AtomicLong sharedExpensesGroupId = new AtomicLong(-1L);
         backUrl.ifPresent(urlString -> {
             if (urlString.contains("?") && urlString.contains("sharedExpensesGroupId")) {
                 URI url;
@@ -134,25 +139,30 @@ public class SharedExpensesController {
                     }
 
                     if (paramSharedExpensesGroupId != null) {
-                        long sharedExpensesGroupId = Long.parseLong(paramSharedExpensesGroupId);
-                        expensesGroupRepository.findById(sharedExpensesGroupId).ifPresent(expensesGroup -> {
-                            User user = ApplicationUtils.getUserFromSession();
-                            if (expensesGroup.getCreationUser().equals(user) || (expensesGroup.getMembers() != null && expensesGroup.getMembers().contains(user))) {
-                                sharedExpense.setExpensesGroup(expensesGroup);
-                                List<SharedExpenseMember> sharedExpenseMembers = new ArrayList<>();
-                                for (User expensesGroupMember : expensesGroup.getMembers()) {
-                                    SharedExpenseMember sharedExpenseMember = new SharedExpenseMember();
-                                    sharedExpenseMember.setSharedExpense(sharedExpense);
-                                    sharedExpenseMember.setUser(expensesGroupMember);
-                                    sharedExpenseMember.setAmount(BigDecimal.ZERO);
-                                    sharedExpenseMembers.add(sharedExpenseMember);
-                                }
-                                sharedExpense.setMembers(sharedExpenseMembers);
-                            }
-                        });
+                        sharedExpensesGroupId.set(Long.parseLong(paramSharedExpensesGroupId));
                     }
                 }
             }
+        });
+        expensesGroupRepository.findById(sharedExpensesGroupId.get()).ifPresent(expensesGroup -> {
+            if (expensesGroup.getId() == -1L) {
+                sharedExpense.setExpensesGroup(expensesGroup);
+            } else {
+                User user = ApplicationUtils.getUserFromSession();
+                if (expensesGroup.getCreationUser().equals(user) || (expensesGroup.getMembers() != null && expensesGroup.getMembers().contains(user))) {
+                    sharedExpense.setExpensesGroup(expensesGroup);
+                    List<SharedExpenseMember> sharedExpenseMembers = new ArrayList<>();
+                    for (User expensesGroupMember : expensesGroup.getMembers()) {
+                        SharedExpenseMember sharedExpenseMember = new SharedExpenseMember();
+                        sharedExpenseMember.setSharedExpense(sharedExpense);
+                        sharedExpenseMember.setUser(expensesGroupMember);
+                        sharedExpenseMember.setAmount(BigDecimal.ZERO);
+                        sharedExpenseMembers.add(sharedExpenseMember);
+                    }
+                    sharedExpense.setMembers(sharedExpenseMembers);
+                }
+            }
+            model.addAttribute("expensesGroupMembers", getSharedExpensesGroupMembers(sharedExpensesGroupId.get()));
         });
         return getSharedExpensesEditPage(model, sharedExpense, backUrl);
     }
@@ -255,10 +265,48 @@ public class SharedExpensesController {
         model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
-        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAll();
+        List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAllByCreationUserOrMember(ApplicationUtils.getUserFromSession(), Sort.by(Sort.Direction.ASC, "name"));
+        expensesGroupRepository.findById(-1L).ifPresent(expensesGroups::add);
         model.addAttribute("expensesGroups", expensesGroups);
 
         backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
         return "abm/sharedExpenses-edit";
+    }
+
+    @GetMapping("/sharedExpenses/groupMembers")
+    public ResponseEntity<List<UserDTO>> getSharedExpensesGroupMembersAjax(@RequestParam(name = "groupId") Optional<Long> paramGroupId) {
+        List<UserDTO> members = new ArrayList<>();
+        if (paramGroupId.isPresent()) {
+            long groupId = paramGroupId.get();
+            members = getSharedExpensesGroupMembers(groupId).stream().map(user -> new UserDTO(user.getId(), user.getFullName())).collect(Collectors.toList());
+        }
+
+        return ResponseEntity.ok(members);
+    }
+
+    public List<User> getSharedExpensesGroupMembers(long groupId) {
+        if (groupId == -1) {
+            return userRepository.findAllByEnabledTrueAndLockedFalse();
+        } else {
+            Optional<ExpensesGroup> expensesGroup = expensesGroupRepository.findById(groupId);
+            if (expensesGroup.isPresent()) {
+                return expensesGroup.get().getMembers();
+            } else {
+                return new ArrayList<>();
+            }
+        }
+    }
+}
+
+
+@Setter
+@Getter
+class UserDTO {
+    private Long id;
+    private String fullName;
+
+    public UserDTO(Long id, String fullName) {
+        this.id = id;
+        this.fullName = fullName;
     }
 }
