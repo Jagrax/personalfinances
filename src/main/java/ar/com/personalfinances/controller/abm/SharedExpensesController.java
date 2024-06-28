@@ -285,16 +285,21 @@ public class SharedExpensesController {
     }
 
     public List<User> getSharedExpensesGroupMembers(long groupId) {
+        List<User> members = new ArrayList<>();
         if (groupId == -1) {
-            return userRepository.findAllByEnabledTrueAndLockedFalse();
+            members = userRepository.findAllByEnabledTrueAndLockedFalse();
         } else {
             Optional<ExpensesGroup> expensesGroup = expensesGroupRepository.findById(groupId);
             if (expensesGroup.isPresent()) {
-                return expensesGroup.get().getMembers();
-            } else {
-                return new ArrayList<>();
+                members = expensesGroup.get().getMembers();
             }
         }
+
+        if (!members.isEmpty()) {
+            members = members.stream().sorted(Comparator.comparing(User::getFullName)).collect(Collectors.toList());
+        }
+
+        return members;
     }
 }
 
