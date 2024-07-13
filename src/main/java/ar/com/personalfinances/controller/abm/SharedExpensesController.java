@@ -68,13 +68,18 @@ public class SharedExpensesController {
         AtomicReference<List<SharedExpense>> sharedExpenses = new AtomicReference<>(new ArrayList<>());
         AtomicReference<String> sharedExpensesGroupTitle = new AtomicReference<>("");
         sharedExpensesGroupId.ifPresentOrElse(expensesGroupId -> {
-            // sino, busco los gastos de ese grupo en particular, asegurandome de que sea uno creado por mi o del cual soy parte
-            expensesGroupRepository.findById(expensesGroupId).ifPresent(expensesGroup -> {
-                if (expensesGroup.getCreationUser().equals(user) || (expensesGroup.getMembers() != null && expensesGroup.getMembers().contains(user))) {
-                    sharedExpensesGroupTitle.set(expensesGroup.getName());
-                    sharedExpenses.set(sharedExpenseRepository.findByExpensesGroupId(expensesGroupId, sort));
-                }
-            });
+            if (expensesGroupId.equals(-1L)) {
+                sharedExpensesGroupTitle.set("Gastos sin grupo");
+                sharedExpenses.set(sharedExpenseRepository.findAllWithoutGroupByUserOrMember(user, sort));
+            } else {
+                // sino, busco los gastos de ese grupo en particular, asegurandome de que sea uno creado por mi o del cual soy parte
+                expensesGroupRepository.findById(expensesGroupId).ifPresent(expensesGroup -> {
+                    if (expensesGroup.getCreationUser().equals(user) || (expensesGroup.getMembers() != null && expensesGroup.getMembers().contains(user))) {
+                        sharedExpensesGroupTitle.set(expensesGroup.getName());
+                        sharedExpenses.set(sharedExpenseRepository.findByExpensesGroupId(expensesGroupId, sort));
+                    }
+                });
+            }
         }, () -> {
             // Traigo todos los gastos creados por mi o en los que participo
             sharedExpenses.set(sharedExpenseRepository.findAllByUserOrMember(user, sort));
