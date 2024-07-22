@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>ar.com</groupId>
 	<artifactId>personalfinances</artifactId>
-	<version>0.0.1</version>
+	<version>0.2.3</version>
 	<packaging>war</packaging>
 	<name>personalfinances</name>
 	<description>Application to register income and expenses of money in different accounts</description>

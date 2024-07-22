@@ -37,15 +37,15 @@ public class SharedExpense {
     private String comments;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
+    @JoinColumn(name = "category_id", foreignKey = @ForeignKey(name = "fk_shared_expense_category"))
     private Category category;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "fk_shared_expense_user"))
+    private User payer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "expenses_group_id")
+    @JoinColumn(name = "expenses_group_id", foreignKey = @ForeignKey(name = "fk_shared_expense_expenses_group"))
     private ExpensesGroup expensesGroup;
 
     @OneToMany(mappedBy = "sharedExpense", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -61,7 +61,7 @@ public class SharedExpense {
                 ((amount != null) ? "amount=" + amount + ", " : "") +
                 ((comments != null) ? "comments='" + comments + "', " : "") +
                 ((category != null) ? "category=" + category + ", " : "") +
-                ((user != null) ? "user=" + user + ", " : "") +
+                ((payer != null) ? "user=" + payer + ", " : "") +
                 "]";
     }
 }

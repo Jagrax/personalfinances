@@ -20,7 +20,7 @@ public class Account {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id")
+    @JoinColumn(name = "owner_id", foreignKey = @ForeignKey(name = "fk_account_user"))
     @NotNull
     private User owner;
 
@@ -37,7 +37,7 @@ public class Account {
     private String currency = "ARS";
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "bank_id")
+    @JoinColumn(name = "bank_id", foreignKey = @ForeignKey(name = "fk_account_bank"))
     private Bank bank;
 
     @Override

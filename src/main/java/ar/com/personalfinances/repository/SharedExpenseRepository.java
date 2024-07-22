@@ -16,12 +16,12 @@ public interface SharedExpenseRepository extends JpaRepository<SharedExpense, Lo
 
     List<SharedExpense> findByExpensesGroupId(Long expensesGroupId, Sort sort);
 
-    @Query("SELECT se FROM SharedExpense se LEFT JOIN se.members sem WHERE se.user = :user OR sem.user = :user")
+    @Query("SELECT se FROM SharedExpense se LEFT JOIN se.members sem WHERE se.payer = :user OR sem.user = :user")
     List<SharedExpense> findAllByUserOrMember(@Param("user") User user, Sort sort);
 
-    @Query("SELECT se FROM SharedExpense se LEFT JOIN se.members sem WHERE se.expensesGroup IS NULL AND (se.user = :user OR sem.user = :user)")
+    @Query("SELECT se FROM SharedExpense se LEFT JOIN se.members sem WHERE se.expensesGroup IS NULL AND (se.payer = :user OR sem.user = :user)")
     List<SharedExpense> findAllWithoutGroupByUserOrMember(@Param("user") User user, Sort sort);
 
-    @Query("SELECT se FROM SharedExpense se LEFT JOIN se.members m WHERE se.user.id = :userId OR m.user.id = :userId")
+    @Query("SELECT se FROM SharedExpense se LEFT JOIN se.members m WHERE se.payer.id = :userId OR m.user.id = :userId")
     List<SharedExpense> findAllByUserOrMember(@Param("userId") Long userId, Sort sort);
 }

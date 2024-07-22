@@ -29,7 +29,7 @@ public class ExpensesGroup {
     private String configurations;
 
     @ManyToOne
-    @JoinColumn(name = "creation_user")
+    @JoinColumn(name = "creation_user", foreignKey = @ForeignKey(name = "fk_expenses_group_user"))
     private User creationUser;
 
     @Column(name = "creation_date", nullable = false, updatable = false)

@@ -18,11 +18,11 @@ public class SharedExpenseMember {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shared_expense_id", nullable = false)
+    @JoinColumn(name = "shared_expense_id", nullable = false, foreignKey = @ForeignKey(name = "fk_shared_expense_member_shared_expense"))
     private SharedExpense sharedExpense;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_shared_expense_member_user"))
     private User user;
 
     @Column(name = "amount", nullable = false)
@@ -30,7 +30,7 @@ public class SharedExpenseMember {
 
     @Override
     public String toString() {
-        return "SharedExpenseParticipant [" +
+        return "SharedExpenseMember [" +
                 ((id != null) ? "id=" + id + ", " : "") +
                 ((sharedExpense != null) ? "sharedExpense=" + sharedExpense + ", " : "") +
                 ((user != null) ? "user=" + user + ", " : "") +
