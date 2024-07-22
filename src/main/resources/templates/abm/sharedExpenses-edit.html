@@ -7,131 +7,201 @@
     <title layout:fragment="page-title">Personal Finances App - Gastos compartidos</title>
 </head>
 <body>
-    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
-        <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <span th:utext="${applicationMessage.message}"></span>
-            <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
-                <ul th:each="data : ${bindingResult.allErrors}">
-                    <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
-                </ul>
-            </th:block>
-        </div>
+<div class="container p-4 overflow-y-auto" layout:fragment="content">
+    <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span th:utext="${applicationMessage.message}"></span>
+        <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
+            <ul th:each="data : ${bindingResult.allErrors}">
+                <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
+            </ul>
+        </th:block>
+    </div>
 
-        <form th:action="@{/sharedExpenses/save}" th:object="${sharedExpense}" method="post" class="card">
-            <input type="hidden" th:field="*{id}"/>
-            <input type="hidden" name="backUrl" th:value="${backUrl}" th:if="${!#strings.isEmpty(backUrl)}"/>
+    <form th:action="@{/sharedExpenses/save}" th:object="${sharedExpense}" method="post" class="card" id="expenseForm">
+        <input type="hidden" th:field="*{id}"/>
+        <input type="hidden" th:field="*{payer}"/>
+        <input type="hidden" name="backUrl" th:value="${backUrl}" th:if="${!#strings.isEmpty(backUrl)}"/>
 
-            <div class="card-header" th:text="${sharedExpense.id != null ? 'Editando gasto' : 'Añadir un gasto'}"></div>
-            <div class="card-body">
-                <div class="row g-3 mb-3">
-                    <div class="col-12 col-md-8">
-                        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-                            <div class="col">
-                                <label class="form-label" for="date">Fecha</label>
-                                <input class="form-control form-control-sm" type="date" th:field="*{date}" id="date" th:classappend="${#fields.hasErrors('date') ? 'is-invalid' : ''}" required/>
-                                <div th:if="${#fields.hasErrors('date')}" th:errors="*{date}" th:classappend="${#fields.hasErrors('date') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
-                            <div class="col">
-                                <label class="form-label" for="description">Descripci&oacute;n</label>
-                                <input class="form-control form-control-sm" type="text" th:field="*{description}" id="description" th:classappend="${#fields.hasErrors('description') ? 'is-invalid' : ''}" required/>
-                                <div th:if="${#fields.hasErrors('description')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('description') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
-                            <div class="col">
-                                <label class="form-label" for="amount">Importe</label>
-                                <input class="form-control form-control-sm text-end" type="number" th:field="*{amount}" id="amount" step=".01" th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}" required/>
-                                <div th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('amount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
-                            <div class="col">
-                                <label class="form-label" for="details">Detalle</label>
-                                <input class="form-control form-control-sm" type="text" th:field="*{details}" id="details" th:classappend="${#fields.hasErrors('details') ? 'is-invalid' : ''}"/>
-                                <div th:if="${#fields.hasErrors('details')}" th:errors="*{details}" th:classappend="${#fields.hasErrors('details') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
-                            <div class="col">
-                                <label class="form-label" for="comments">Comentarios</label>
-                                <input class="form-control form-control-sm" type="text" th:field="*{comments}" id="comments" th:classappend="${#fields.hasErrors('comments') ? 'is-invalid' : ''}"/>
-                                <div th:if="${#fields.hasErrors('comments')}" th:errors="*{comments}" th:classappend="${#fields.hasErrors('comments') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
-                            <div class="col">
-                                <label class="form-label" for="categoryId">Categor&iacute;a</label>
-                                <select class="form-select form-select-sm" th:field="*{category}" id="categoryId" th:classappend="${#fields.hasErrors('category') ? 'is-invalid' : ''}" required>
-                                    <option th:each="category : ${categories}" th:value="${category.getId()}"
-                                            th:text="${category.name}"/>
-                                </select>
-                                <div th:if="${#fields.hasErrors('category')}" th:errors="*{category}" th:classappend="${#fields.hasErrors('category') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
-                            <div class="col">
-                                <label class="form-label" for="userId">¿Quién pagó?</label>
-                                <select class="form-select form-select-sm" th:field="*{user}" id="userId" th:classappend="${#fields.hasErrors('user') ? 'is-invalid' : ''}" required>
-                                    <option th:each="user : ${users}" th:value="${user.getId()}" th:text="${user.fullName}"/>
-                                </select>
-                                <div th:if="${#fields.hasErrors('user')}" th:errors="*{user}" th:classappend="${#fields.hasErrors('user') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                            </div>
+        <div class="card-header" th:text="${sharedExpense.id != null ? 'Editando gasto' : 'Añadir un gasto'}"></div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-12 col-md-8">
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                        <div class="col">
+                            <label class="form-label" for="date">Fecha</label>
+                            <input class="form-control form-control-sm" type="date" th:field="*{date}" id="date" th:classappend="${#fields.hasErrors('date') ? 'is-invalid' : ''}" required/>
+                            <div th:if="${#fields.hasErrors('date')}" th:errors="*{date}" th:classappend="${#fields.hasErrors('date') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <label class="form-label" for="expensesGroupId">Grupo</label>
-                        <select class="form-select form-select-sm" th:field="*{expensesGroup}" id="expensesGroupId" th:classappend="${#fields.hasErrors('expensesGroup') ? 'is-invalid' : ''}" required>
-                            <option th:each="expensesGroup : ${expensesGroups}" th:value="${expensesGroup.id}" th:text="${expensesGroup.name}"/>
-                        </select>
-                        <div th:if="${#fields.hasErrors('expensesGroup')}" th:errors="*{expensesGroup}" th:classappend="${#fields.hasErrors('expensesGroup') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                        <div class="mt-3 overflow-y-auto" style="max-height: 161px" id="membersContainer">
-                            <div class="form-check" th:each="user : ${expensesGroupMembers}">
-                                <input class="form-check-input" type="checkbox" name="members" th:id="${'member_' + user.id}" th:value="${user.id}" th:checked="${sharedExpense.expensesGroup.id != -1}">
-                                <label class="form-check-label" th:text="${user.fullName}" th:for="${'member_' + user.id}"/>
-                            </div>
+                        <div class="col">
+                            <label class="form-label" for="description">Descripci&oacute;n</label>
+                            <input class="form-control form-control-sm" type="text" th:field="*{description}" id="description" th:classappend="${#fields.hasErrors('description') ? 'is-invalid' : ''}" required/>
+                            <div th:if="${#fields.hasErrors('description')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('description') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                        </div>
+                        <div class="col">
+                            <label class="form-label" for="amount">Importe</label>
+                            <input class="form-control form-control-sm text-end" type="number" th:field="*{amount}" id="amount" step=".01" th:classappend="${#fields.hasErrors('amount') ? 'is-invalid' : ''}" required/>
+                            <div th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}" th:classappend="${#fields.hasErrors('amount') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                        </div>
+                        <div class="col">
+                            <label class="form-label" for="details">Detalle</label>
+                            <input class="form-control form-control-sm" type="text" th:field="*{details}" id="details" th:classappend="${#fields.hasErrors('details') ? 'is-invalid' : ''}"/>
+                            <div th:if="${#fields.hasErrors('details')}" th:errors="*{details}" th:classappend="${#fields.hasErrors('details') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                        </div>
+                        <div class="col">
+                            <label class="form-label" for="comments">Comentarios</label>
+                            <input class="form-control form-control-sm" type="text" th:field="*{comments}" id="comments" th:classappend="${#fields.hasErrors('comments') ? 'is-invalid' : ''}"/>
+                            <div th:if="${#fields.hasErrors('comments')}" th:errors="*{comments}" th:classappend="${#fields.hasErrors('comments') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                        </div>
+                        <div class="col">
+                            <label class="form-label" for="categoryId">Categor&iacute;a</label>
+                            <select class="form-select form-select-sm" th:field="*{category}" id="categoryId" th:classappend="${#fields.hasErrors('category') ? 'is-invalid' : ''}" required>
+                                <option th:each="category : ${categories}" th:value="${category.getId()}"
+                                        th:text="${category.name}"/>
+                            </select>
+                            <div th:if="${#fields.hasErrors('category')}" th:errors="*{category}" th:classappend="${#fields.hasErrors('category') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                        </div>
+                        <div class="col">
+                            <label class="form-label" for="userId">¿Quién pagó?</label>
+                            <select class="form-select form-select-sm" th:field="*{payer}" id="userId" th:classappend="${#fields.hasErrors('payer') ? 'is-invalid' : ''}" required>
+                                <option th:each="user : ${users}" th:value="${user.id}" th:text="${user.fullName}"/>
+                            </select>
+                            <div th:if="${#fields.hasErrors('payer')}" th:errors="*{payer}" th:classappend="${#fields.hasErrors('payer') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                         </div>
                     </div>
                 </div>
-<!--                <div class="row">-->
-<!--                    <div class="col">-->
-<!--                        <ul class="nav nav-tabs" id="myTab" role="tablist">-->
-<!--                            <li class="nav-item" role="presentation">-->
-<!--                                <button class="nav-link" id="byAmount-tab" data-bs-toggle="tab" data-bs-target="#byAmount-tab-pane" type="button" role="tab" aria-controls="byAmount-tab-pane" aria-selected="true">Importe</button>-->
-<!--                            </li>-->
-<!--                            <li class="nav-item" role="presentation">-->
-<!--                                <button class="nav-link" id="byPercentage-tab" data-bs-toggle="tab" data-bs-target="#byPercentage-tab-pane" type="button" role="tab" aria-controls="byPercentage-tab-pane" aria-selected="false">Porcentajes</button>-->
-<!--                            </li>-->
-<!--                            <li class="nav-item" role="presentation">-->
-<!--                                <button class="nav-link active" id="byItem-tab" data-bs-toggle="tab" data-bs-target="#byItem-tab-pane" type="button" role="tab" aria-controls="byItem-tab-pane" aria-selected="false">Gasto desglosado</button>-->
-<!--                            </li>-->
-<!--                        </ul>-->
-<!--                        <div class="tab-content" id="myTabContent">-->
-<!--                            <div class="tab-pane fade" id="byAmount-tab-pane" role="tabpanel" aria-labelledby="byAmount-tab" tabindex="0">...</div>-->
-<!--                            <div class="tab-pane fade" id="byPercentage-tab-pane" role="tabpanel" aria-labelledby="byPercentage-tab" tabindex="0">...</div>-->
-<!--                            <div class="tab-pane fade show active" id="byItem-tab-pane" role="tabpanel" aria-labelledby="byItem-tab" tabindex="0">-->
-<!--                                <table class="table table-sm">-->
-<!--                                    <thead>-->
-<!--                                    <tr>-->
-<!--                                        <th class="text-start">Artículo</th>-->
-<!--                                        <th class="text-center">-->
-<!--                                            <select>-->
-<!--                                                <option value="amount" selected>$</option>-->
-<!--                                                <option value="percentage">%</option>-->
-<!--                                            </select>-->
-<!--                                        </th>-->
-<!--                                        <th th:if="${#lists.isEmpty(sharedExpense.members)}" th:each="user : ${users}" th:text="${user.fullName}"/>-->
-<!--                                        <th th:unless="${#lists.isEmpty(sharedExpense.members)}" th:each="members : ${sharedExpense.members}" th:text="${member.user.fullName}"/>-->
-<!--                                        <th></th>-->
-<!--                                    </tr>-->
-<!--                                    </thead>-->
-<!--                                    <tbody>-->
-
-<!--                                    </tbody>-->
-<!--                                </table>-->
-<!--                            </div>-->
-<!--                        </div>-->
-<!--                    </div>-->
-<!--                </div>-->
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="expensesGroupId">Grupo</label>
+                    <select class="form-select form-select-sm" th:field="*{expensesGroup}" id="expensesGroupId" th:classappend="${#fields.hasErrors('expensesGroup') ? 'is-invalid' : ''}" required>
+                        <option th:each="expensesGroup : ${expensesGroups}" th:value="${expensesGroup.id}" th:text="${expensesGroup.name}"/>
+                    </select>
+                    <div th:if="${#fields.hasErrors('expensesGroup')}" th:errors="*{expensesGroup}" th:classappend="${#fields.hasErrors('expensesGroup') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    <div class="mt-3 overflow-y-auto" style="max-height: 161px" id="groupMembersContainer">
+                    </div>
+                </div>
             </div>
-            <div class="card-footer d-flex justify-content-between">
-                <a class="btn btn-danger" th:href="@{${!#strings.isEmpty(backUrl)} ? ${backUrl} : '/sharedExpenses'}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
-                <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
-            </div>
-        </form>
+            <div class="row">
+                <div class="col">
+                    <ul class="nav nav-tabs" id="myTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="byUser-tab" data-bs-toggle="tab" data-bs-target="#byUser-tab-pane" type="button" role="tab" aria-controls="byUser-tab-pane" aria-selected="true">Por miembro</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="byItem-tab" data-bs-toggle="tab" data-bs-target="#byItem-tab-pane" type="button" role="tab" aria-controls="byItem-tab-pane" aria-selected="false">Por ítem</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="myTabContent">
+                        <div class="tab-pane fade p-2 show active" id="byUser-tab-pane" role="tabpanel" aria-labelledby="byUser-tab" tabindex="0">
+                            <div class="mb-3">
+                                <label class="form-check-label me-3">Seleccionar Modo:</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="distributionMode" id="bySameAmount" value="sameAmount" checked>
+                                    <label class="form-check-label" for="bySameAmount">Partes iguales</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="distributionMode" id="byAmount" value="amount">
+                                    <label class="form-check-label" for="byAmount">Cantidades exactas</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="distributionMode" id="byPercentage" value="percentage">
+                                    <label class="form-check-label" for="byPercentage">Porcentajes</label>
+                                </div>
+                            </div>
+                            <div class="row" id="membersContainer">
+                            </div>
+                        </div>
+                        <div class="tab-pane fade p-2" id="byItem-tab-pane" role="tabpanel" aria-labelledby="byItem-tab" tabindex="0">
+                            <table class="table table-sm">
+                                <thead>
+                                <tr>
+                                    <th class="text-start">Artículo</th>
+                                    <th class="text-center">$</th>
+                                    <!--<th th:if="${#lists.isEmpty(sharedExpense.members)}" th:each="user : ${users}" th:text="${user.fullName}"/>-->
+                                    <!--<th th:unless="${#lists.isEmpty(sharedExpense.members)}" th:each="members : ${sharedExpense.members}" th:text="${member.user.fullName}"/>-->
+                                    <th></th>
+                                </tr>
+                                </thead>
+                                <tbody>
 
-        <script>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between">
+            <a class="btn btn-danger" th:href="@{${!#strings.isEmpty(backUrl)} ? ${backUrl} : '/sharedExpenses'}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
+            <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
+        </div>
+    </form>
+
+    <script>
+        $(document).ready(function () {
             const membersContainer = $('#membersContainer');
+            const groupMembersContainer = $('#groupMembersContainer');
+            const amountInput = $('#amount');
+            const distributionModeRadios = $('input[name="distributionMode"]');
+
+            function updateInputs() {
+                const distributionMode = $('input[name="distributionMode"]:checked').val();
+                const amount = parseFloat(amountInput.val()) || 0;
+                const memberCount = membersContainer.find('input[name="members"]:checked').length;
+                let value, min, max, step, inputClass, readonly;
+
+                switch (distributionMode) {
+                    case 'sameAmount':
+                        value = memberCount ? (amount / memberCount).toFixed(2) : '0.00';
+                        min = 0;
+                        max = undefined;
+                        step = 0.01;
+                        inputClass = 'text-bg-light';
+                        readonly = true;
+                        break;
+                    case 'amount':
+                        value = '0.00';
+                        min = 0;
+                        max = undefined;
+                        step = 0.01;
+                        inputClass = '';
+                        readonly = false;
+                        break;
+                    case 'percentage':
+                        value = '0.00';
+                        min = 0;
+                        max = 100;
+                        step = 0.01;
+                        inputClass = '';
+                        readonly = false;
+                        break;
+                }
+
+                membersContainer.find('.input-group').each(function () {
+                    const input = $(this).find('input');
+                    const span = $(this).find('span');
+
+                    if (distributionMode === 'percentage') {
+                        span.text('%');
+                    } else {
+                        span.text('$');
+                    }
+
+                    input.val(value)
+                        .attr('min', min)
+                        .attr('max', max)
+                        .attr('step', step)
+                        .prop('readonly', readonly)
+                        .toggleClass('text-bg-light', readonly);
+                });
+            }
+
+            distributionModeRadios.change(updateInputs);
+            amountInput.on('input', () => updateInputs());
+
+            $('#expensesGroupId').change(function () {
+                const groupId = Number($(this).val());
+                updateGroupMembersList(groupId);
+            });
 
             function updateGroupMembersList(groupId) {
                 $.ajax({
@@ -139,31 +209,165 @@
                     type: 'GET',
                     data: { groupId: groupId },
                     success: function (data) {
+                        // 1) Vacio los 2 divs de miembros: el de grupo y el del gasto
                         membersContainer.empty();
+                        groupMembersContainer.empty();
+
+                        // 2) Dibujo el listado de miembros del grupo elegido
+                        let checked = groupId !== -1 ? 'checked' : '';
+                        let disabled = groupId !== -1 ? 'disabled' : '';
                         $.each(data, function (index, user) {
-                            let checked = groupId !== -1 ? 'checked' : '';
-                            membersContainer.append(`
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="members" id="member_${user.id}" value="${user.id}" ${checked}>
-                                        <label class="form-check-label" for="member_${user.id}">${user.fullName}</label>
+                            groupMembersContainer.append(`
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="groupMembers" id="group_member_${user.id}" value="${user.id}" ${checked} ${disabled}>
+                                    <label class="form-check-label" for="group_member_${user.id}">${user.fullName}</label>
+                                </div>
+                            `);
+                        });
+
+                        // 3) Si elegí un grupo específico, dibujo en la seccion de miembros del gasto, una linea por cada miembro del grupo.
+                        // Sino, agrego la funcion que agregar miembros al gasto en funcion de los miemros elegidos del grupo
+                        if (groupId !== -1) {
+                            $.each(data, function (index, user) {
+                                membersContainer.append(`
+                                    <div class="row mb-2" id="memberRow_${user.id}">
+                                        <div class="col-sm-8 col-md-9 col-lg-10">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="members" id="member_${user.id}" value="${user.id}" checked>
+                                                <label class="form-check-label" for="member_${user.id}">${user.fullName}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-4 col-md-3 col-lg-2">
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control text-end" readonly>
+                                            </div>
+                                        </div>
                                     </div>
                                 `);
-                        });
+                            });
+
+                            membersContainer.find('input[name="members"]').change(() => updateInputs());
+                        } else {
+                            groupMembersContainer.find('input[name="groupMembers"]').change(function () {
+                                const userId = $(this).val();
+                                const userName = $(this).next('label').text();
+
+                                if ($(this).is(':checked')) {
+                                    const newRow = `
+                                        <div class="row mb-2" id="memberRow_${userId}">
+                                            <div class="col-sm-8 col-md-9 col-lg-10">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="members" id="member_${userId}" value="${userId}" checked disabled>
+                                                    <label class="form-check-label" for="member_${userId}">${userName}</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-4 col-md-3 col-lg-2">
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">$</span>
+                                                    <input type="number" class="form-control text-end" readonly>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+
+                                    let added = false;
+                                    membersContainer.find('.row').each(function () {
+                                        const currentName = $(this).find('.form-check-label').text();
+                                        if (userName.localeCompare(currentName) < 0) {
+                                            $(this).before(newRow);
+                                            added = true;
+                                            return false; // break loop
+                                        }
+                                    });
+
+                                    if (!added) {
+                                        membersContainer.append(newRow);
+                                    }
+                                } else {
+                                    $(`#memberRow_${userId}`).remove();
+                                }
+
+                                updateInputs();
+                            });
+                        }
+
+                        // 4) Actualizo los inputs de importes en funcion de la info nueva bajada
+                        updateInputs();
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
                         console.log(jqXHR);
                         console.log(textStatus);
-                        console.log(errorThrown);
+                        alert(errorThrown);
                     }
                 });
             }
-            $(document).ready(function () {
-                $('#expensesGroupId').change(function () {
-                    const groupId = Number($(this).val());
-                    updateGroupMembersList(groupId);
-                });
+
+            // Calcular y mostrar el listado de miembros al cargar la página
+            const initialGroupId = Number($('#expensesGroupId').val());
+            updateGroupMembersList(initialGroupId);
+
+            // Manejo del envío del formulario
+            $("#expenseForm").submit(function () {
+                $('<input>').attr({
+                    type: 'hidden',
+                    name: 'memberExpenses',
+                    value: JSON.stringify(collectMemberExpenses())
+                }).appendTo('#expenseForm');
             });
-        </script>
-    </div>
+
+            function collectMemberExpenses() {
+                const expenses = [];
+                // Recorrer todos los input de tipo number que están dentro de los rows de miembros
+                $("div[id^='memberRow_']").each(function () {
+                    const checkbox = $(this).find("input[name='members']");
+                    const inputNumber = $(this).find("input[type='number']");
+
+                    if (checkbox.is(':checked')) {
+                        const member = checkbox.val();
+                        const value = inputNumber.val();
+                        if (member && value) {
+                            expenses.push({ member: parseInt(member), amount: parseFloat(value) });
+                        }
+                    }
+                });
+                return expenses;
+            }
+        });
+
+        // esta es la funciona que agrega iteams al 4to tab, por ahora no se usa
+        function appendItemsContainer(members) {
+            itemsContainer.append(`
+                    <button type="button" class="btn btn-secondary mb-3" id="addItem">Agregar Item</button>
+                    <div id="itemsList"></div>
+                `);
+
+            $("#addItem").click(function() {
+                const itemIndex = $("#itemsList .item-row").length;
+                const itemRow = $(`
+                        <div class="item-row mb-3">
+                            <div class="input-group">
+                                <span class="input-group-text">Item</span>
+                                <input type="text" class="form-control" name="items[${itemIndex}][name]" placeholder="Descripción del item">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" name="items[${itemIndex}][amount]" placeholder="Importe">
+                            </div>
+                            <div class="mt-2 mb-3">
+                                <label>Miembros</label>
+                                ${members.map(member => `
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="items[${itemIndex}][members]" value="${member.id}">
+                                        <label class="form-check-label">${member.fullName}</label>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `);
+
+                $("#itemsList").append(itemRow);
+            });
+        }
+    </script>
+</div>
 </body>
 </html>

@@ -3,13 +3,13 @@ package ar.com.personalfinances.controller.abm;
 import ar.com.personalfinances.controller.ApplicationController;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
-import ar.com.personalfinances.repository.CategoryRepository;
-import ar.com.personalfinances.repository.ExpensesGroupRepository;
-import ar.com.personalfinances.repository.SharedExpenseRepository;
-import ar.com.personalfinances.repository.UserRepository;
+import ar.com.personalfinances.repository.*;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.util.ApplicationMessage;
 import ar.com.personalfinances.util.ApplicationUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
@@ -44,13 +45,15 @@ public class SharedExpensesController {
     private final AlertEventService alertEventService;
     private final ExpensesGroupRepository expensesGroupRepository;
     private final CategoryRepository categoryRepository;
+    private final SharedExpenseMemberRepository sharedExpenseMemberRepository;
 
-    public SharedExpensesController(SharedExpenseRepository sharedExpenseRepository, UserRepository userRepository, AlertEventService alertEventService, ExpensesGroupRepository expensesGroupRepository, CategoryRepository categoryRepository) {
+    public SharedExpensesController(SharedExpenseRepository sharedExpenseRepository, UserRepository userRepository, AlertEventService alertEventService, ExpensesGroupRepository expensesGroupRepository, CategoryRepository categoryRepository, SharedExpenseMemberRepository sharedExpenseMemberRepository) {
         this.sharedExpenseRepository = sharedExpenseRepository;
         this.userRepository = userRepository;
         this.alertEventService = alertEventService;
         this.expensesGroupRepository = expensesGroupRepository;
         this.categoryRepository = categoryRepository;
+        this.sharedExpenseMemberRepository = sharedExpenseMemberRepository;
     }
 
     @RequestMapping("/sharedExpenses")
@@ -109,7 +112,7 @@ public class SharedExpensesController {
     @RequestMapping(value = "/sharedExpenses/create", method = RequestMethod.GET)
     public String createSharedExpense(Model model, @RequestParam("backUrl") Optional<String> backUrl) {
         SharedExpense sharedExpense = new SharedExpense();
-        sharedExpense.setUser(ApplicationUtils.getUserFromSession());
+        sharedExpense.setPayer(ApplicationUtils.getUserFromSession());
         sharedExpense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
         sharedExpense.setDate(new Date());
         AtomicLong sharedExpensesGroupId = new AtomicLong(-1L);
@@ -181,7 +184,7 @@ public class SharedExpensesController {
                 SharedExpense sharedExpense = sharedExpenseToEdit.get();
                 User user = ApplicationUtils.getUserFromSession();
                 if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name()))
-                        || sharedExpense.getUser().equals(user)
+                        || sharedExpense.getPayer().equals(user)
                         || (sharedExpense.getExpensesGroup() != null && sharedExpense.getExpensesGroup().getMembers() != null && sharedExpense.getExpensesGroup().getMembers().contains(user))) {
                     return getSharedExpensesEditPage(model, sharedExpenseToEdit.get(), backUrl);
                 } else {
@@ -205,9 +208,9 @@ public class SharedExpensesController {
             if (sharedExpenseToClone.isPresent()) {
                 User user = ApplicationUtils.getUserFromSession();
                 // TODO: Pensar si un usuario puede clonar gastos compartidos que no hayan sido creados por el. Por ahora no
-                if (sharedExpenseToClone.get().getUser().getId().equals(user.getId())) {
+                if (sharedExpenseToClone.get().getPayer().getId().equals(user.getId())) {
                     SharedExpense expense = ApplicationUtils.cloneEntity(sharedExpenseToClone.get(), true);
-                    expense.setUser(user);
+                    expense.setPayer(user);
                     return getSharedExpensesEditPage(model, expense, backUrl);
                 } else {
                     model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no le pertenece"));
@@ -223,7 +226,7 @@ public class SharedExpensesController {
     }
 
     @RequestMapping(value = "/sharedExpenses/save", method = RequestMethod.POST)
-    public String createOrUpdateSharedExpense(Model model, @Valid SharedExpense sharedExpense, BindingResult result, @RequestParam("backUrl") Optional<String> backUrl) {
+    public String createOrUpdateSharedExpense(Model model, @Valid SharedExpense sharedExpense, BindingResult result, @RequestParam("backUrl") Optional<String> backUrl, @RequestParam("memberExpenses") Optional<String> sharedExpensesMembersJson) {
         if (result.hasErrors()) {
             model.addAttribute("applicationMessage", ApplicationMessage.error("Error de datos en el registro"));
             model.addAttribute("bindingResult", result);
@@ -236,6 +239,25 @@ public class SharedExpensesController {
             return "abm/sharedExpenses-edit";
         }
 
+        List<SharedExpenseMember> sharedExpenseMembers = null;
+        if (sharedExpensesMembersJson.isPresent()) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            try {
+                List<MemberAmount> memberAmounts = objectMapper.readValue(sharedExpensesMembersJson.get(), new TypeReference<>() {});
+                if (!CollectionUtils.isEmpty(memberAmounts)) {
+                    sharedExpenseMembers = memberAmounts.stream().map(memberAmount -> {
+                        SharedExpenseMember sharedExpenseMember = new SharedExpenseMember();
+                        sharedExpenseMember.setUser(userRepository.findById(memberAmount.getMember()).orElseThrow(() -> new IllegalArgumentException("User not found")));
+                        sharedExpenseMember.setAmount(memberAmount.getAmount());
+                        return sharedExpenseMember;
+                    }).collect(Collectors.toList());
+                }
+            } catch (JsonProcessingException e) {
+                model.addAttribute("applicationMessage", ApplicationMessage.error("Error procesando datos de miembros"));
+                return getSharedExpensesEditPage(model, sharedExpense, backUrl);
+            }
+        }
+
         EntityEvent event = sharedExpense.getId() == null ? EntityEvent.CREATED : EntityEvent.UPDATED;
         String eventDetails = "";
         if (event.equals(EntityEvent.UPDATED)) {
@@ -243,6 +265,13 @@ public class SharedExpensesController {
         }
         sharedExpense = sharedExpenseRepository.save(sharedExpense);
         alertEventService.saveSharedExpenseAlert(event, sharedExpense.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
+
+        if (!CollectionUtils.isEmpty(sharedExpenseMembers)) {
+            for (SharedExpenseMember sharedExpenseMember : sharedExpenseMembers) {
+                sharedExpenseMember.setSharedExpense(sharedExpense);
+                sharedExpenseMemberRepository.save(sharedExpenseMember);
+            }
+        }
 
         if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
             return "redirect:" + backUrl.get();
@@ -308,7 +337,6 @@ public class SharedExpensesController {
     }
 }
 
-
 @Setter
 @Getter
 class UserDTO {
@@ -318,5 +346,20 @@ class UserDTO {
     public UserDTO(Long id, String fullName) {
         this.id = id;
         this.fullName = fullName;
+    }
+}
+
+@Setter
+@Getter
+class MemberAmount {
+    private Long member;
+    private BigDecimal amount;
+
+    public MemberAmount() {
+    }
+
+    public MemberAmount(Long member, BigDecimal amount) {
+        this.member = member;
+        this.amount = amount;
     }
 }
