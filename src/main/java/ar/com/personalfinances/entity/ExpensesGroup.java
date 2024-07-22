@@ -11,7 +11,9 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "expenses_groups", uniqueConstraints = {@UniqueConstraint(columnNames = {"name", "creation_user"})})
+@Table(name = "expenses_groups", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"creation_user", "name"})
+})
 public class ExpensesGroup {
 
     @Id

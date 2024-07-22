@@ -10,7 +10,7 @@ import javax.validation.constraints.NotNull;
 @Setter
 @Entity
 @Table(name = "accounts", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"name", "type"})
+        @UniqueConstraint(columnNames = {"owner_id", "type", "name"})
 })
 public class Account {
 
