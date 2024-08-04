@@ -72,8 +72,8 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label" for="expensesGroupId">Grupo</label>
-                    <select class="form-select form-select-sm" th:field="*{expensesGroup}" id="expensesGroupId" th:classappend="${#fields.hasErrors('expensesGroup') ? 'is-invalid' : ''}" required>
-                        <option th:each="expensesGroup : ${expensesGroups}" th:value="${expensesGroup.id}" th:text="${expensesGroup.name}"/>
+                    <select class="form-select form-select-sm" th:field="*{expensesGroup}" id="expensesGroupId" th:classappend="${#fields.hasErrors('expensesGroup') ? 'is-invalid' : ''}" onchange="handleGroupChange(Number($(this).val()))" required>
+                        <option th:each="expensesGroup : ${expensesGroupsList}" th:value="${expensesGroup.id}" th:text="${expensesGroup.name}"/>
                     </select>
                     <div th:if="${#fields.hasErrors('expensesGroup')}" th:errors="*{expensesGroup}" th:classappend="${#fields.hasErrors('expensesGroup') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     <div class="mt-3 overflow-y-auto" style="max-height: 161px" id="groupMembersContainer">
@@ -95,11 +95,11 @@
                             <div class="mb-3">
                                 <label class="form-check-label me-3">Seleccionar Modo:</label>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="distributionMode" id="bySameAmount" value="sameAmount" checked>
+                                    <input class="form-check-input" type="radio" name="distributionMode" id="bySameAmount" value="sameAmount" th:checked="${distributionMode == 'sameAmount'}">
                                     <label class="form-check-label" for="bySameAmount">Partes iguales</label>
                                 </div>
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="distributionMode" id="byAmount" value="amount">
+                                    <input class="form-check-input" type="radio" name="distributionMode" id="byAmount" value="amount" th:checked="${distributionMode == 'amount'}">
                                     <label class="form-check-label" for="byAmount">Cantidades exactas</label>
                                 </div>
                                 <div class="form-check form-check-inline">
@@ -116,7 +116,7 @@
                                 <tr>
                                     <th class="text-start">Artículo</th>
                                     <th class="text-center">$</th>
-                                    <!--<th th:if="${#lists.isEmpty(sharedExpense.members)}" th:each="user : ${users}" th:text="${user.fullName}"/>-->
+<!--                                    <th th:if="${#lists.isEmpty(sharedExpense.members)}" th:each="member : ${sharedExpense.members}" th:text="${user.fullName}"/>-->
                                     <!--<th th:unless="${#lists.isEmpty(sharedExpense.members)}" th:each="members : ${sharedExpense.members}" th:text="${member.user.fullName}"/>-->
                                     <th></th>
                                 </tr>
@@ -135,101 +135,40 @@
             <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
         </div>
     </form>
+    <script th:inline="javascript">
+        const groupsWithMembers = /*[[${expensesGroupsList}]]*/ [];
+        const initialSharedExpensesMembers = /*[[${sharedExpenseMembers}]]*/ [];
 
-    <script>
-        $(document).ready(function () {
-            const membersContainer = $('#membersContainer');
-            const groupMembersContainer = $('#groupMembersContainer');
-            const amountInput = $('#amount');
-            const distributionModeRadios = $('input[name="distributionMode"]');
+        const selectExpensesGroup = $('select[name="expensesGroup"]');
+        const membersContainer = $('#membersContainer');
+        const groupMembersContainer = $('#groupMembersContainer');
+        const inputAmount = $('#amount');
+        const distributionModeRadios = $('input[name="distributionMode"]');
 
-            function updateInputs() {
-                const distributionMode = $('input[name="distributionMode"]:checked').val();
-                const amount = parseFloat(amountInput.val()) || 0;
-                const memberCount = membersContainer.find('input[name="members"]:checked').length;
-                let value, min, max, step, inputClass, readonly;
+        function handleGroupChange(groupId) {
+            for (let index in groupsWithMembers) {
+                if (groupsWithMembers[index].id === groupId) {
+                    // 1) Vacio los 2 divs de miembros: el de grupo y el del gasto
+                    membersContainer.empty();
+                    groupMembersContainer.empty();
 
-                switch (distributionMode) {
-                    case 'sameAmount':
-                        value = memberCount ? (amount / memberCount).toFixed(2) : '0.00';
-                        min = 0;
-                        max = undefined;
-                        step = 0.01;
-                        inputClass = 'text-bg-light';
-                        readonly = true;
-                        break;
-                    case 'amount':
-                        value = '0.00';
-                        min = 0;
-                        max = undefined;
-                        step = 0.01;
-                        inputClass = '';
-                        readonly = false;
-                        break;
-                    case 'percentage':
-                        value = '0.00';
-                        min = 0;
-                        max = 100;
-                        step = 0.01;
-                        inputClass = '';
-                        readonly = false;
-                        break;
-                }
-
-                membersContainer.find('.input-group').each(function () {
-                    const input = $(this).find('input');
-                    const span = $(this).find('span');
-
-                    if (distributionMode === 'percentage') {
-                        span.text('%');
-                    } else {
-                        span.text('$');
-                    }
-
-                    input.val(value)
-                        .attr('min', min)
-                        .attr('max', max)
-                        .attr('step', step)
-                        .prop('readonly', readonly)
-                        .toggleClass('text-bg-light', readonly);
-                });
-            }
-
-            distributionModeRadios.change(updateInputs);
-            amountInput.on('input', () => updateInputs());
-
-            $('#expensesGroupId').change(function () {
-                const groupId = Number($(this).val());
-                updateGroupMembersList(groupId);
-            });
-
-            function updateGroupMembersList(groupId) {
-                $.ajax({
-                    url: '/personalfinances/sharedExpenses/groupMembers',
-                    type: 'GET',
-                    data: { groupId: groupId },
-                    success: function (data) {
-                        // 1) Vacio los 2 divs de miembros: el de grupo y el del gasto
-                        membersContainer.empty();
-                        groupMembersContainer.empty();
-
-                        // 2) Dibujo el listado de miembros del grupo elegido
-                        let checked = groupId !== -1 ? 'checked' : '';
-                        let disabled = groupId !== -1 ? 'disabled' : '';
-                        $.each(data, function (index, user) {
-                            groupMembersContainer.append(`
+                    // 2) Dibujo el listado de miembros del grupo elegido
+                    let checked = groupId !== -1 ? 'checked' : '';
+                    let disabled = groupId !== -1 ? 'disabled' : '';
+                    $.each(groupsWithMembers[index].members, function (index, user) {
+                        groupMembersContainer.append(`
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="groupMembers" id="group_member_${user.id}" value="${user.id}" ${checked} ${disabled}>
                                     <label class="form-check-label" for="group_member_${user.id}">${user.fullName}</label>
                                 </div>
                             `);
-                        });
+                    });
 
-                        // 3) Si elegí un grupo específico, dibujo en la seccion de miembros del gasto, una linea por cada miembro del grupo.
-                        // Sino, agrego la funcion que agregar miembros al gasto en funcion de los miemros elegidos del grupo
-                        if (groupId !== -1) {
-                            $.each(data, function (index, user) {
-                                membersContainer.append(`
+                    // 3) Si elegí un grupo específico, dibujo en la seccion de miembros del gasto, una linea por cada miembro del grupo.
+                    // Sino, agrego la funcion que agregar miembros al gasto en funcion de los miemros elegidos del grupo
+                    if (groupId !== -1) {
+                        $.each(groupsWithMembers[index].members, function (index, user) {
+                            membersContainer.append(`
                                     <div class="row mb-2" id="memberRow_${user.id}">
                                         <div class="col-sm-8 col-md-9 col-lg-10">
                                             <div class="form-check">
@@ -240,21 +179,24 @@
                                         <div class="col-sm-4 col-md-3 col-lg-2">
                                             <div class="input-group input-group-sm">
                                                 <span class="input-group-text">$</span>
-                                                <input type="number" class="form-control text-end" readonly>
+                                                <input type="number" class="form-control text-end" min="0" step="0.01" readonly>
                                             </div>
                                         </div>
                                     </div>
                                 `);
-                            });
+                        });
 
-                            membersContainer.find('input[name="members"]').change(() => updateInputs());
-                        } else {
-                            groupMembersContainer.find('input[name="groupMembers"]').change(function () {
-                                const userId = $(this).val();
-                                const userName = $(this).next('label').text();
+                        membersContainer.find('input[name="members"]').change(() => updateInputs());
 
-                                if ($(this).is(':checked')) {
-                                    const newRow = `
+                        // 4) Actualizo los inputs de importes en funcion de la info nueva bajada
+                        updateInputs();
+                    } else {
+                        groupMembersContainer.find('input[name="groupMembers"]').change(function () {
+                            const userId = $(this).val();
+                            const userName = $(this).next('label').text();
+
+                            if ($(this).is(':checked')) {
+                                const newRow = `
                                         <div class="row mb-2" id="memberRow_${userId}">
                                             <div class="col-sm-8 col-md-9 col-lg-10">
                                                 <div class="form-check">
@@ -265,108 +207,221 @@
                                             <div class="col-sm-4 col-md-3 col-lg-2">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text">$</span>
-                                                    <input type="number" class="form-control text-end" readonly>
+                                                    <input type="number" class="form-control text-end" min="0" step="0.01" readonly>
                                                 </div>
                                             </div>
                                         </div>
                                     `;
 
-                                    let added = false;
-                                    membersContainer.find('.row').each(function () {
-                                        const currentName = $(this).find('.form-check-label').text();
-                                        if (userName.localeCompare(currentName) < 0) {
-                                            $(this).before(newRow);
-                                            added = true;
-                                            return false; // break loop
-                                        }
-                                    });
-
-                                    if (!added) {
-                                        membersContainer.append(newRow);
+                                let added = false;
+                                membersContainer.find('.row').each(function () {
+                                    const currentName = $(this).find('.form-check-label').text();
+                                    if (userName.localeCompare(currentName) < 0) {
+                                        $(this).before(newRow);
+                                        added = true;
+                                        return false; // break loop
                                     }
-                                } else {
-                                    $(`#memberRow_${userId}`).remove();
+                                });
+
+                                if (!added) {
+                                    membersContainer.append(newRow);
                                 }
+                            } else {
+                                $(`#memberRow_${userId}`).remove();
+                            }
 
-                                updateInputs();
-                            });
-                        }
-
-                        // 4) Actualizo los inputs de importes en funcion de la info nueva bajada
-                        updateInputs();
-                    },
-                    error: function (jqXHR, textStatus, errorThrown) {
-                        console.log(jqXHR);
-                        console.log(textStatus);
-                        alert(errorThrown);
+                            // 4) Actualizo los inputs de importes en funcion de la info nueva bajada
+                            updateInputs();
+                        });
                     }
+                }
+            }
+        }
+
+        function updateInputs() {
+            const prevDistributionMode = currentDistributionMode;
+            updateInputsFormat();
+
+            const memberRows = collectMemberExpenses(false);
+            if (memberRows) {
+                memberRows.forEach((memberRow) => {
+                    let value = memberRow.inputAmount.val();
+                    if (value !== null && value.trim() === '') value = '0.00'; // Si el val es vacio, estoy llenandolo por primera vez, con el default que es 0.00 para todos los modos (salvo para sameAmount)
+                    value = Number(value);
+                    // El value de distributionMode se settea via ${distributionMode}
+                    const distributionMode = $('input[name="distributionMode"]:checked').val();
+                    const amount = parseFloat(inputAmount.val()) || 0;
+                    if (distributionMode === 'sameAmount') {
+                        const memberCount = membersContainer.find('input[name="members"]:checked').length;
+                        if (memberCount && memberCount > 0) {
+                            value = (amount / memberCount);
+                        }
+                    } else if (distributionMode === 'percentage') {
+                        value = ((value * 100) / amount)
+                    } else if (prevDistributionMode != null && prevDistributionMode === 'percentage') {
+                        // Estoy en cantidades exactas. Si vengo de porcentages, calculo el importe en funcion del %
+                        value = ((value / 100) * amount);
+                    }
+
+                    memberRow.inputAmount.val(value.toFixed(2));
                 });
             }
+        }
 
-            // Calcular y mostrar el listado de miembros al cargar la página
-            const initialGroupId = Number($('#expensesGroupId').val());
-            updateGroupMembersList(initialGroupId);
+        let currentDistributionMode = null;
+        let currentGroupId = null;
+        let currentMembersQuantity = null;
 
-            // Manejo del envío del formulario
-            $("#expenseForm").submit(function () {
-                $('<input>').attr({
-                    type: 'hidden',
-                    name: 'memberExpenses',
-                    value: JSON.stringify(collectMemberExpenses())
-                }).appendTo('#expenseForm');
+        function updateInputsFormat() {
+            let needUpdateInputsFormat = false;
+            // El value de distributionMode se settea via ${distributionMode}
+            const distributionMode = $('input[name="distributionMode"]:checked').val();
+            const selectedGroupId = selectExpensesGroup.val();
+            const membersInputGroups = membersContainer.find('.input-group');
+            if (currentDistributionMode == null || currentDistributionMode !== distributionMode || currentGroupId == null || currentGroupId !== selectedGroupId || currentMembersQuantity == null || (membersInputGroups !== null && currentMembersQuantity !== membersInputGroups.length)) {
+                currentDistributionMode = distributionMode;
+                currentMembersQuantity = membersInputGroups.length;
+                needUpdateInputsFormat = true;
+            }
+
+            if (needUpdateInputsFormat) {
+                let max, inputClass, readonly;
+                switch (currentDistributionMode) {
+                    case 'sameAmount':
+                        max = undefined;
+                        inputClass = 'text-bg-light';
+                        readonly = true;
+                        break;
+                    case 'amount':
+                        max = undefined;
+                        inputClass = '';
+                        readonly = false;
+                        break;
+                    case 'percentage':
+                        max = 100;
+                        inputClass = '';
+                        readonly = false;
+                        break;
+                }
+
+                if (membersInputGroups != null) {
+                    membersInputGroups.each(function () {
+                        const input = $(this).find('input');
+                        const span = $(this).find('span');
+
+                        if (distributionMode === 'percentage') {
+                            span.text('%');
+                        } else {
+                            span.text('$');
+                        }
+
+                        input.attr('max', max)
+                            .prop('readonly', readonly)
+                            .toggleClass('text-bg-light', readonly);
+                    });
+                }
+            }
+        }
+
+        function collectMemberExpenses(onlyChecked) {
+            const expenses = [];
+            // Recorrer todos los input de tipo number que están dentro de los rows de miembros
+            $("div[id^='memberRow_']").each(function () {
+                const checkbox = $(this).find("input[name='members']");
+                const inputNumber = $(this).find("input[type='number']");
+
+                if (!onlyChecked) {
+                    const member = checkbox.val();
+                    let value = inputNumber.val();
+                    if (value == null || value.trim() === '') value = '0.00';
+                    expenses.push({ member: parseInt(member), amount: parseFloat(value), inputAmount: inputNumber });
+                } else if (checkbox.is(':checked')) {
+                    const member = checkbox.val();
+                    const value = inputNumber.val();
+                    if (member && value) {
+                        expenses.push({ member: parseInt(member), amount: parseFloat(value)});
+                    }
+                }
+            });
+            return expenses;
+        }
+
+        selectExpensesGroup.on('change', () => handleGroupChange($(this).val()))
+        distributionModeRadios.on('change', () => updateInputs());
+        inputAmount.on('input', () => updateInputs());
+
+        handleGroupChange(Number(selectExpensesGroup.val()));
+
+        if (initialSharedExpensesMembers && initialSharedExpensesMembers.length > 0) {
+            groupMembersContainer.find('input[name="groupMembers"]').each((index, groupMemberInput) => {
+                groupMemberInput = $(groupMemberInput);
+                const memberId = Number(groupMemberInput.val());
+                for (const index in initialSharedExpensesMembers) {
+                    if (initialSharedExpensesMembers[index].member === memberId) {
+                        groupMemberInput.click();
+                        break;
+                    }
+                }
             });
 
-            function collectMemberExpenses() {
-                const expenses = [];
-                // Recorrer todos los input de tipo number que están dentro de los rows de miembros
-                $("div[id^='memberRow_']").each(function () {
-                    const checkbox = $(this).find("input[name='members']");
-                    const inputNumber = $(this).find("input[type='number']");
-
-                    if (checkbox.is(':checked')) {
-                        const member = checkbox.val();
-                        const value = inputNumber.val();
-                        if (member && value) {
-                            expenses.push({ member: parseInt(member), amount: parseFloat(value) });
+            const memberRows = collectMemberExpenses(false);
+            if (memberRows) {
+                memberRows.forEach((memberRow) => {
+                    let value;
+                    let currentMemberAmount = null;
+                    for (const index in initialSharedExpensesMembers) {
+                        if (initialSharedExpensesMembers[index].member === memberRow.member) {
+                            currentMemberAmount = initialSharedExpensesMembers[index].amount;
+                            break;
                         }
                     }
+                    value = currentMemberAmount != null ? currentMemberAmount : '0.00';
+                    memberRow.inputAmount.val(value);
                 });
-                return expenses;
             }
+        }
+
+        // Manejo del envío del formulario
+        $("#expenseForm").submit(function () {
+            $('<input>').attr({
+                type: 'hidden',
+                name: 'memberExpenses',
+                value: JSON.stringify(collectMemberExpenses(true))
+            }).appendTo('#expenseForm');
         });
 
         // esta es la funciona que agrega iteams al 4to tab, por ahora no se usa
-        function appendItemsContainer(members) {
-            itemsContainer.append(`
-                    <button type="button" class="btn btn-secondary mb-3" id="addItem">Agregar Item</button>
-                    <div id="itemsList"></div>
-                `);
-
-            $("#addItem").click(function() {
-                const itemIndex = $("#itemsList .item-row").length;
-                const itemRow = $(`
-                        <div class="item-row mb-3">
-                            <div class="input-group">
-                                <span class="input-group-text">Item</span>
-                                <input type="text" class="form-control" name="items[${itemIndex}][name]" placeholder="Descripción del item">
-                                <span class="input-group-text">$</span>
-                                <input type="number" class="form-control" name="items[${itemIndex}][amount]" placeholder="Importe">
-                            </div>
-                            <div class="mt-2 mb-3">
-                                <label>Miembros</label>
-                                ${members.map(member => `
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="items[${itemIndex}][members]" value="${member.id}">
-                                        <label class="form-check-label">${member.fullName}</label>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `);
-
-                $("#itemsList").append(itemRow);
-            });
-        }
+        // function appendItemsContainer(members) {
+        //     itemsContainer.append(`
+        //             <button type="button" class="btn btn-secondary mb-3" id="addItem">Agregar Item</button>
+        //             <div id="itemsList"></div>
+        //         `);
+        //
+        //     $("#addItem").click(function() {
+        //         const itemIndex = $("#itemsList .item-row").length;
+        //         const itemRow = $(`
+        //                 <div class="item-row mb-3">
+        //                     <div class="input-group">
+        //                         <span class="input-group-text">Item</span>
+        //                         <input type="text" class="form-control" name="items[${itemIndex}][name]" placeholder="Descripción del item">
+        //                         <span class="input-group-text">$</span>
+        //                         <input type="number" class="form-control" name="items[${itemIndex}][amount]" placeholder="Importe">
+        //                     </div>
+        //                     <div class="mt-2 mb-3">
+        //                         <label>Miembros</label>
+        //                         ${members.map(member => `
+        //                             <div class="form-check">
+        //                                 <input class="form-check-input" type="checkbox" name="items[${itemIndex}][members]" value="${member.id}">
+        //                                 <label class="form-check-label">${member.fullName}</label>
+        //                             </div>
+        //                         `).join('')}
+        //                     </div>
+        //                 </div>
+        //             `);
+        //
+        //         $("#itemsList").append(itemRow);
+        //     });
+        // }
     </script>
 </div>
 </body>

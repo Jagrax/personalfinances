@@ -159,15 +159,6 @@ public class SharedExpensesController {
                 User user = ApplicationUtils.getUserFromSession();
                 if (expensesGroup.getCreationUser().equals(user) || (expensesGroup.getMembers() != null && expensesGroup.getMembers().contains(user))) {
                     sharedExpense.setExpensesGroup(expensesGroup);
-                    List<SharedExpenseMember> sharedExpenseMembers = new ArrayList<>();
-                    for (User expensesGroupMember : expensesGroup.getMembers()) {
-                        SharedExpenseMember sharedExpenseMember = new SharedExpenseMember();
-                        sharedExpenseMember.setSharedExpense(sharedExpense);
-                        sharedExpenseMember.setUser(expensesGroupMember);
-                        sharedExpenseMember.setAmount(BigDecimal.ZERO);
-                        sharedExpenseMembers.add(sharedExpenseMember);
-                    }
-                    sharedExpense.setMembers(sharedExpenseMembers);
                 }
             }
             model.addAttribute("expensesGroupMembers", getSharedExpensesGroupMembers(sharedExpensesGroupId.get()));
@@ -258,6 +249,43 @@ public class SharedExpensesController {
             }
         }
 
+        if (!CollectionUtils.isEmpty(sharedExpenseMembers)) {
+            List<SharedExpenseMember> currentMembers = sharedExpenseMemberRepository.findBySharedExpense(sharedExpense);
+            List<SharedExpenseMember> newMembers = new ArrayList<>();
+            // Mapa de los miembros actuales por usuario
+            Map<User, SharedExpenseMember> currentMembersMap = currentMembers.stream()
+                    .collect(Collectors.toMap(SharedExpenseMember::getUser, member -> member));
+
+            // Iterar sobre los miembros actualizados
+            for (SharedExpenseMember updatedMember : sharedExpenseMembers) {
+                SharedExpenseMember currentMember = currentMembersMap.get(updatedMember.getUser());
+
+                if (currentMember != null) {
+                    // Actualizar el importe solo si cambió
+                    if (currentMember.getAmount().compareTo(updatedMember.getAmount()) != 0) {
+                        currentMember.setAmount(updatedMember.getAmount());
+                        sharedExpenseMemberRepository.save(currentMember);
+                    }
+                    // El sharedExpense en este punto no tiene setteado los members porque vinieron en el parametro aparte. Tengo que setearlos nuevamente
+                    newMembers.add(currentMember);
+
+                    // Eliminar el miembro del mapa para identificar los que deben eliminarse
+                    currentMembersMap.remove(updatedMember.getUser());
+                } else {
+                    // Agregar nuevo miembro
+                    updatedMember.setSharedExpense(sharedExpense);
+                    sharedExpenseMemberRepository.save(updatedMember);
+
+                    // El sharedExpense en este punto no tiene setteado los members porque vinieron en el parametro aparte. Tengo que setearlos nuevamente
+                    newMembers.add(updatedMember);
+                }
+            }
+            sharedExpense.setMembers(newMembers);
+
+            // Eliminar miembros que no están en sharedExpenseMembers
+            sharedExpenseMemberRepository.deleteAll(currentMembersMap.values());
+        }
+
         EntityEvent event = sharedExpense.getId() == null ? EntityEvent.CREATED : EntityEvent.UPDATED;
         String eventDetails = "";
         if (event.equals(EntityEvent.UPDATED)) {
@@ -265,13 +293,6 @@ public class SharedExpensesController {
         }
         sharedExpense = sharedExpenseRepository.save(sharedExpense);
         alertEventService.saveSharedExpenseAlert(event, sharedExpense.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
-
-        if (!CollectionUtils.isEmpty(sharedExpenseMembers)) {
-            for (SharedExpenseMember sharedExpenseMember : sharedExpenseMembers) {
-                sharedExpenseMember.setSharedExpense(sharedExpense);
-                sharedExpenseMemberRepository.save(sharedExpenseMember);
-            }
-        }
 
         if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
             return "redirect:" + backUrl.get();
@@ -295,13 +316,45 @@ public class SharedExpensesController {
 
     private String getSharedExpensesEditPage(Model model, SharedExpense sharedExpense, Optional<String> backUrl) {
         model.addAttribute("sharedExpense", sharedExpense);
+        String distributionMode = "sameAmount";
+        List<MemberAmount> memberAmounts = new ArrayList<>();
+        List<SharedExpenseMember> sharedExpenseMembers = sharedExpense.getMembers();
+        if (!CollectionUtils.isEmpty(sharedExpenseMembers)) {
+            Set<BigDecimal> amounts = new HashSet<>();
+            for (SharedExpenseMember sharedExpenseMember : sharedExpenseMembers) {
+                amounts.add(sharedExpenseMember.getAmount());
+                memberAmounts.add(new MemberAmount(sharedExpenseMember.getUser().getId(), sharedExpenseMember.getAmount()));
+            }
+            if (amounts.size() > 1) distributionMode = "amount";
+        }
+        model.addAttribute("distributionMode", distributionMode);
+        model.addAttribute("sharedExpenseMembers", memberAmounts);
         model.addAttribute("categories", categoryRepository.findAll());
         model.addAttribute("users", userRepository.findAllByEnabledTrueAndLockedFalse());
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
         List<ExpensesGroup> expensesGroups = expensesGroupRepository.findAllByCreationUserOrMember(ApplicationUtils.getUserFromSession(), Sort.by(Sort.Direction.ASC, "name"));
-        expensesGroupRepository.findById(-1L).ifPresent(expensesGroups::add);
+        Optional<ExpensesGroup> sinGrupo = expensesGroupRepository.findById(-1L);
+        sinGrupo.ifPresent(expensesGroups::add);
         model.addAttribute("expensesGroups", expensesGroups);
+
+        List<Map<String, Object>> expensesGroupsList = new ArrayList<>();
+        for (ExpensesGroup expensesGroup : expensesGroups) {
+            Map<String, Object> expensesGroupMap = new HashMap<>();
+            expensesGroupMap.put("id", expensesGroup.getId());
+            expensesGroupMap.put("name", expensesGroup.getName());
+            List<Map<String, Object>> expensesGroupMembersList = new ArrayList<>();
+            List<User> expensesGroupMembers = expensesGroup.getId().equals(-1L) ? userRepository.findAllByEnabledTrueAndLockedFalse() : expensesGroup.getMembers();
+            for (User member : expensesGroupMembers) {
+                Map<String, Object> expensesGroupMembersMap = new HashMap<>();
+                expensesGroupMembersMap.put("id", member.getId());
+                expensesGroupMembersMap.put("fullName", member.getFullName());
+                expensesGroupMembersList.add(expensesGroupMembersMap);
+            }
+            expensesGroupMap.put("members", expensesGroupMembersList);
+            expensesGroupsList.add(expensesGroupMap);
+        }
+        model.addAttribute("expensesGroupsList", expensesGroupsList);
 
         backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
         return "abm/sharedExpenses-edit";

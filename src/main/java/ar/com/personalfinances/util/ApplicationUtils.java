@@ -17,6 +17,10 @@ public class ApplicationUtils {
         Field[] fields = clazz.getDeclaredFields();
         List<String> changeLog = new ArrayList<>();
 
+        // Me aseguro de tener el objeto real y no un Hibernate Proxy en la mano
+        o = Hibernate.unproxy(o);
+        original = Hibernate.unproxy(original);
+
         try {
             for (Field field : fields) {
                 field.setAccessible(true);
