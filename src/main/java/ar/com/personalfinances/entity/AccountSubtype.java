@@ -14,7 +14,8 @@ public enum AccountSubtype {
     BANCO_GALICIA("bco_galicia"),
     BANCO_FRANCES("bco_frances"),
     BANCO_SANTANDER_RIO("bco_santander_rio"),
-    BANCO_PATAGONIA("bco_patagonia");
+    BANCO_PATAGONIA("bco_patagonia"),
+    BANCO_PROVINCIA("bco_provincia");
 
     private final String icon;
 
