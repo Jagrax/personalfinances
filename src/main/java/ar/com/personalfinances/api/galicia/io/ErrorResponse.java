@@ -1,6 +1,5 @@
 package ar.com.personalfinances.api.galicia.io;
 
-import ar.com.personalfinances.api.galicia.model.Model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -14,19 +13,15 @@ import java.util.Objects;
 @Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class GetMovimientosCuentaResponse implements Serializable {
+public class ErrorResponse implements Serializable {
 
-    @JsonProperty("IsError")
-    private Boolean isError;
-
-    @JsonProperty("Model")
-    private Model model;
+    @JsonProperty("Message")
+    private String message;
 
     @Override
     public String toString() {
-        return "GetMovimientosCuentaResponse [" +
-                ((isError != null) ? "isError=" + isError + ", " : "") +
-                ((model != null) ? "model=" + model + ", " : "") +
+        return "ErrorResponse [" +
+                ((message != null) ? "message='" + message + "', " : "") +
                 "]";
     }
 
@@ -34,12 +29,12 @@ public class GetMovimientosCuentaResponse implements Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        GetMovimientosCuentaResponse that = (GetMovimientosCuentaResponse) o;
-        return Objects.equals(isError, that.isError) && Objects.equals(model, that.model);
+        ErrorResponse that = (ErrorResponse) o;
+        return Objects.equals(message, that.message);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(isError, model);
+        return Objects.hash(message);
     }
 }

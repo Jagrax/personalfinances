@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Bank Sync</title>
+</head>
+<body>
+    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+<!--        <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">-->
+<!--            <i class="bi bi-exclamation-triangle-fill me-2"></i>-->
+<!--            <span th:utext="${applicationMessage.message}"></span>-->
+<!--            <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">-->
+<!--                <ul th:each="data : ${bindingResult.allErrors}">-->
+<!--                    <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>-->
+<!--                </ul>-->
+<!--            </th:block>-->
+<!--        </div>-->
+
+        <form th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="card">
+
+            <div class="card-header" th:text="${'Sincronizar con banco Galicia'}"></div>
+            <div class="card-body">
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                    <div class="col">
+                        <label class="form-label" for="dateFrom">Fecha desde</label>
+                        <input class="form-control form-control-sm" type="date" th:field="*{dateFrom}" id="dateFrom" th:classappend="${#fields.hasErrors('dateFrom') ? 'is-invalid' : ''}" required/>
+                        <div th:if="${#fields.hasErrors('dateFrom')}" th:errors="*{dateFrom}" th:classappend="${#fields.hasErrors('dateFrom') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="dateTo">Fecha hasta</label>
+                        <input class="form-control form-control-sm" type="date" th:field="*{dateTo}" id="dateTo" th:classappend="${#fields.hasErrors('dateTo') ? 'is-invalid' : ''}" required/>
+                        <div th:if="${#fields.hasErrors('dateTo')}" th:errors="*{dateTo}" th:classappend="${#fields.hasErrors('dateTo') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="accountId">Cuenta</label>
+                        <select class="form-select form-select-sm" th:field="*{accountId}" id="accountId" th:classappend="${#fields.hasErrors('accountId') ? 'is-invalid' : ''}" required>
+                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
+                        </select>
+                        <div th:if="${#fields.hasErrors('accountId')}" th:errors="*{accountId}" th:classappend="${#fields.hasErrors('accountId') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="cookie">Cookie</label>
+                        <input class="form-control form-control-sm" type="text" th:field="*{cookie}" id="cookie" th:classappend="${#fields.hasErrors('cookie') ? 'is-invalid' : ''}" required/>
+                        <div th:if="${#fields.hasErrors('cookie')}" th:errors="*{cookie}" th:classappend="${#fields.hasErrors('cookie') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+                    <div class="col">
+                        <input type="checkbox" class="form-check-input" th:field="*{creditCard}" th:value="${creditCard}" id="creditCard"/>
+                        <label class="form-check-label" for="creditCard">Tarjeta de credito</label>
+                        <div th:if="${#fields.hasErrors('cookie')}" th:errors="*{cookie}" th:classappend="${#fields.hasErrors('cookie') ? 'invalid-feedback' : 'valid-feedback'}"></div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+                <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Sincronizar</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

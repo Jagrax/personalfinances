@@ -3,12 +3,16 @@ package ar.com.personalfinances.api.galicia.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+@Getter
+@Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Model implements Serializable {
@@ -30,57 +34,6 @@ public class Model implements Serializable {
 
     @JsonProperty("NumeroPagina")
     private Long numeroPagina;
-
-    public Model() {
-    }
-
-    public Long getTotalPaginas() {
-        return totalPaginas;
-    }
-
-    public void setTotalPaginas(Long totalPaginas) {
-        this.totalPaginas = totalPaginas;
-    }
-
-    public List<Movimiento> getMovimientos() {
-        return movimientos;
-    }
-
-    public void setMovimientos(List<Movimiento> movimientos) {
-        this.movimientos = movimientos;
-    }
-
-    public List<Movimiento> getMovimientosPendientes() {
-        return movimientosPendientes;
-    }
-
-    public void setMovimientosPendientes(List<Movimiento> movimientosPendientes) {
-        this.movimientosPendientes = movimientosPendientes;
-    }
-
-    public Long getCantidadMovimientosRestantes() {
-        return cantidadMovimientosRestantes;
-    }
-
-    public void setCantidadMovimientosRestantes(Long cantidadMovimientosRestantes) {
-        this.cantidadMovimientosRestantes = cantidadMovimientosRestantes;
-    }
-
-    public Long getCantidadMovimientosPendientesRestantes() {
-        return cantidadMovimientosPendientesRestantes;
-    }
-
-    public void setCantidadMovimientosPendientesRestantes(Long cantidadMovimientosPendientesRestantes) {
-        this.cantidadMovimientosPendientesRestantes = cantidadMovimientosPendientesRestantes;
-    }
-
-    public Long getNumeroPagina() {
-        return numeroPagina;
-    }
-
-    public void setNumeroPagina(Long numeroPagina) {
-        this.numeroPagina = numeroPagina;
-    }
 
     @Override
     public String toString() {
