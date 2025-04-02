@@ -45,12 +45,6 @@
                         <input class="form-control form-control-sm" type="text" th:field="*{cookie}" id="cookie" th:classappend="${#fields.hasErrors('cookie') ? 'is-invalid' : ''}" required/>
                         <div th:if="${#fields.hasErrors('cookie')}" th:errors="*{cookie}" th:classappend="${#fields.hasErrors('cookie') ? 'invalid-feedback' : 'valid-feedback'}"></div>
                     </div>
-                    <div class="col">
-                        <input type="checkbox" class="form-check-input" th:field="*{creditCard}" th:value="${creditCard}" id="creditCard"/>
-                        <label class="form-check-label" for="creditCard">Tarjeta de credito</label>
-                        <div th:if="${#fields.hasErrors('cookie')}" th:errors="*{cookie}" th:classappend="${#fields.hasErrors('cookie') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                    </div>
-
                 </div>
             </div>
             <div class="card-footer d-flex justify-content-between">

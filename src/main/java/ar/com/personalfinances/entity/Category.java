@@ -12,6 +12,7 @@ import javax.persistence.*;
 public class Category {
 
     public final static long GENERIC_CATEGORY_ID = -1L;
+    public final static long AUTOMATIC_CATEGORY_ID = -2L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

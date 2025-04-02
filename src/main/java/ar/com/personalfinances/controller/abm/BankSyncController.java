@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,18 +31,19 @@ import java.util.stream.Collectors;
 @Controller
 public class BankSyncController {
 
+    private final Category automaticCategory;
+
     private final SpecificationsService specificationsService;
     private final AccountRepository accountRepository;
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
-    private final CategoryRepository categoryRepository;
 
     public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
-        this.categoryRepository = categoryRepository;
+        this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -89,176 +89,183 @@ public class BankSyncController {
             if (optionalAccount.isEmpty()) {
                 return "redirect:/expenses";
             }
-            User user = ApplicationUtils.getUserFromSession();
+            final User user = ApplicationUtils.getUserFromSession();
 
-            Account account = optionalAccount.get();
-            GaliciaApiManager galiciaApiManager = new GaliciaApiManagerBean();
-            if (!bankSyncModelAttribute.isCreditCard() && bankSyncModelAttribute.getDateFrom() != null && bankSyncModelAttribute.getDateTo() != null) {
-                CommonResult getMovimientosCuentaResult = galiciaApiManager.getMovimientosCuenta(bankSyncModelAttribute.getCookie(), bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
-                if (getMovimientosCuentaResult.isError()) {
+            final Account account = optionalAccount.get();
 
-                }
+            String applicationMessage = null;
+            ApplicationMessage.ApplicationMessageType applicationMessageType = null;
+            final GaliciaApiManager galiciaApiManager = new GaliciaApiManagerBean();
+            switch (account.getType()) {
+                case CREDIT_CARD: {
+                    CommonResult getMovimientosTarjetaResult = galiciaApiManager.getMovimientosTarjeta(bankSyncModelAttribute.getCookie());
+                    if (getMovimientosTarjetaResult.isError()) {
+                        return "abm/bank-sync";
+                    } else {
+                        List<CreditCardMovement> movimientos = (List<CreditCardMovement>) getMovimientosTarjetaResult.getPayload();
+                        if (!CollectionUtils.isEmpty(movimientos)) {
+                            log.info("[postBankSync] Se procede a filtrar los movimientos ya sincronizados");
+                            // 1) Filtro los movimientos del Galicia que ya existen en la DB
+                            final long galiciaCurrencyARSId = 1;
+                            final List<Long> expensesIdFounded = new ArrayList<>();
+                            movimientos = movimientos.stream().filter(movimiento -> {
+                                if (movimiento.getCurrency().equals(galiciaCurrencyARSId) && movimiento.getTotalInstallment().equals("0")) {
+                                    // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
+                                    if (isValid(movimiento)) {
+                                        // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+                                        final List<Expense> expensesByDateAndAmount = expenseRepository.findByDateAndAmountEquals(movimiento.getDate(), movimiento.getAmount());
+                                        for (Expense expense : expensesByDateAndAmount) {
+                                            if (expensesIdFounded.contains(expense.getId())) {
+                                                continue;
+                                            }
 
-                List<Movimiento> movimientos = (List<Movimiento>) getMovimientosCuentaResult.getPayload();
-                if (!CollectionUtils.isEmpty(movimientos)) {
-                    ExpenseSearch expenseSearch = new ExpenseSearch();
-                    expenseSearch.setAccountId(bankSyncModelAttribute.getAccountId());
-                    Calendar calendar = Calendar.getInstance();
-                    calendar.setTime(bankSyncModelAttribute.getDateFrom());
-                    calendar.add(Calendar.DATE, -7);
-                    expenseSearch.setDateFrom(calendar.getTime()); // Un GAP de 1 semana por si me vinieron movimientos con fechas posteriores a las reales (por fin de semana o feriados)
-                    expenseSearch.setDateTo(bankSyncModelAttribute.getDateTo());
-                    expenseSearch.setUserId(user.getId());
-                    List<Expense> existingExpeses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch));
-                    if (movimientos.size() != existingExpeses.size()) {
-                        // Filtro los que ya existen
-                        movimientos = movimientos.stream().filter(movimiento -> {
-                            for (Expense expense : existingExpeses) {
-                                boolean isSameDay = DateUtils.isSameDay(expense.getDate(), movimiento.getFecha());
-                                if (!isSameDay) {
-                                    Calendar cal = Calendar.getInstance();
-                                    cal.setTime(movimiento.getFecha());
-                                    boolean esDiaHabil = false;
-                                    while (!isSameDay && !esDiaHabil) {
-                                        // Le resto 1 dia
-                                        cal.add(Calendar.DATE, -1);
-                                        // El dia anterior, fue habil?
-                                        esDiaHabil = !(DateUtils.esFeriado(cal.getTime()) || DateUtils.esFinDeSemana(cal));
-                                        // Si no lo fue, puede ser la fecha real (que esta cargada en la DB)
-                                        if (!esDiaHabil) {
-                                            isSameDay = DateUtils.isSameDay(expense.getDate(), cal.getTime());
+                                            expensesIdFounded.add(expense.getId());
+                                            return false;
                                         }
+                                    } else {
+                                        // Si el gasto no es valido, lo descarto
+                                        return false;
                                     }
+                                } else {
+                                    log.info("[postBankSync] Se ignora el {} por moneda invalida: {}", movimiento, movimiento.getCurrencySymbol());
+                                    // Si el gasto no es en pesos (es en USD por ejemplo), hoy no me interesa guardarlo en la DB. Lo descarto
+                                    return false;
                                 }
 
-                                BigDecimal movimientoAmount =
+                                // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
+                                return true;
+                            }).collect(Collectors.toList());
+
+                            log.info("[postBankSync] Luego de filtrar me quedaron {} movimientos", movimientos.size());
+
+                            if (!CollectionUtils.isEmpty(movimientos)) {
+                                movimientos.forEach(movimiento -> {
+                                    String description = movimiento.getDescription();
+                                    if (!StringUtils.hasText(description)) {
+                                        description = movimiento.getMovementDescription();
+                                    } else if (!description.equals(movimiento.getMovementDescription())) {
+                                        description += " | " + movimiento.getMovementDescription();
+                                    }
+                                    createExpense(user, movimiento.getDate(), account, description, movimiento.getAmount());
+                                });
+                                applicationMessage = "Se sincronizaron " + movimientos.size() + " gastos en la cuenta";
+                                applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
+                            } else {
+                                applicationMessage = "Los gastos de la cuenta estan sincronizados!";
+                                applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
+                            }
+                        }
+                    }
+                    break;
+                }
+                case BANK_ACCOUNT: {
+                    if (bankSyncModelAttribute.getDateFrom() != null && bankSyncModelAttribute.getDateTo() != null) {
+                        CommonResult getMovimientosCuentaResult = galiciaApiManager.getMovimientosCuenta(bankSyncModelAttribute.getCookie(), bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
+                        if (getMovimientosCuentaResult.isError()) {
+                            return "abm/bank-sync";
+                        }
+
+                        List<Movimiento> movimientos = (List<Movimiento>) getMovimientosCuentaResult.getPayload();
+                        if (!CollectionUtils.isEmpty(movimientos)) {
+                            // TODO: Ir por el modelo de las tarjetas
+                            ExpenseSearch expenseSearch = new ExpenseSearch();
+                            expenseSearch.setAccountId(bankSyncModelAttribute.getAccountId());
+                            Calendar calendar = Calendar.getInstance();
+                            calendar.setTime(bankSyncModelAttribute.getDateFrom());
+                            calendar.add(Calendar.DATE, -7);
+                            expenseSearch.setDateFrom(calendar.getTime()); // Un GAP de 1 semana por si me vinieron movimientos con fechas posteriores a las reales (por fin de semana o feriados)
+                            expenseSearch.setDateTo(bankSyncModelAttribute.getDateTo());
+                            expenseSearch.setUserId(user.getId());
+                            List<Expense> existingExpeses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch));
+                            if (movimientos.size() != existingExpeses.size()) {
+                                // Filtro los que ya existen
+                                movimientos = movimientos.stream().filter(movimiento -> {
+                                    for (Expense expense : existingExpeses) {
+                                        boolean isSameDay = DateUtils.isSameDay(expense.getDate(), movimiento.getFecha());
+                                        if (!isSameDay) {
+                                            Calendar cal = Calendar.getInstance();
+                                            cal.setTime(movimiento.getFecha());
+                                            boolean esDiaHabil = false;
+                                            while (!isSameDay && !esDiaHabil) {
+                                                // Le resto 1 dia
+                                                cal.add(Calendar.DATE, -1);
+                                                // El dia anterior, fue habil?
+                                                esDiaHabil = !(DateUtils.esFeriado(cal.getTime()) || DateUtils.esFinDeSemana(cal));
+                                                // Si no lo fue, puede ser la fecha real (que esta cargada en la DB)
+                                                if (!esDiaHabil) {
+                                                    isSameDay = DateUtils.isSameDay(expense.getDate(), cal.getTime());
+                                                }
+                                            }
+                                        }
+
+                                        BigDecimal movimientoAmount =
+                                                movimiento.getImporteCredito() != null && !NumberUtils.isZero(movimiento.getImporteCredito())
+                                                        ? movimiento.getImporteCredito()
+                                                        : movimiento.getImporteDebito() != null && !NumberUtils.isZero(movimiento.getImporteDebito())
+                                                        ? movimiento.getImporteDebito()
+                                                        : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                                        if (isSameDay && NumberUtils.bigDecimalIgual(expense.getAmount(), movimientoAmount)) {
+                                            return false;
+                                        }
+                                    }
+
+                                    return true;
+                                }).collect(Collectors.toList());
+                            }
+                            // TODO: Obtener los movimientos de la cuenta y fijarse si hay alguno nuevo sin registrar
+                            movimientos.forEach(movimiento -> {
+                                final BigDecimal importeMovimiento =
                                         movimiento.getImporteCredito() != null && !NumberUtils.isZero(movimiento.getImporteCredito())
                                                 ? movimiento.getImporteCredito()
                                                 : movimiento.getImporteDebito() != null && !NumberUtils.isZero(movimiento.getImporteDebito())
                                                 ? movimiento.getImporteDebito()
                                                 : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                                if (isSameDay && NumberUtils.bigDecimalIgual(expense.getAmount(), movimientoAmount)) {
-                                    return false;
-                                }
-                            }
-
-                            return true;
-                        }).collect(Collectors.toList());
-                    }
-                    // TODO: Obtener los movimientos de la cuenta y fijarse si hay alguno nuevo sin registrar
-                    final Category genericCategory = categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID));
-                    final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-                    movimientos.forEach(movimiento -> {
-                        final BigDecimal importeMovimiento =
-                                movimiento.getImporteCredito() != null && !NumberUtils.isZero(movimiento.getImporteCredito())
-                                        ? movimiento.getImporteCredito()
-                                        : movimiento.getImporteDebito() != null && !NumberUtils.isZero(movimiento.getImporteDebito())
-                                        ? movimiento.getImporteDebito()
-                                        : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                        Expense expense = new Expense();
-                        expense.setUser(user);
-                        expense.setDate(movimiento.getFecha());
-                        expense.setAccount(account);
-                        expense.setAmount(importeMovimiento);
-                        expense.setDescription(movimiento.getDescripcionAMostrar() + " | " + movimiento.getDescripcionSide());
-                        expense.setCategory(genericCategory);
-
-                        expense = expenseRepository.save(expense);
-                        alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
-
-                        String detalleMovimiento = "";
-                        final Date fechaMovimiento = movimiento.getFecha();
-                        if (fechaMovimiento != null) {
-                            detalleMovimiento += sdf.format(fechaMovimiento);
+                                createExpense(user, movimiento.getFecha(), account, movimiento.getDescripcionAMostrar() + " | " + movimiento.getDescripcionSide(), importeMovimiento);
+                            });
                         }
-                        final String descriptionMovimiento = movimiento.getDescripcionSide();
-                        if (StringUtils.hasText(descriptionMovimiento)) {
-                            detalleMovimiento += " " + descriptionMovimiento;
-                        }
-
-                        detalleMovimiento += " " + importeMovimiento + " ARS";
-                        log.info(detalleMovimiento);
-                    });
-                }
-            } else {
-                CommonResult getMovimientosTarjetaResult = galiciaApiManager.getMovimientosTarjeta(bankSyncModelAttribute.getCookie());
-                if (getMovimientosTarjetaResult.isError()) {
-
-                }
-
-                List<CreditCardMovement> movimientos = (List<CreditCardMovement>) getMovimientosTarjetaResult.getPayload();
-                if (!CollectionUtils.isEmpty(movimientos)) {
-                    // TODO: Obtener los movimientos de la cuenta y fijarse si hay alguno nuevo sin registrar
-                    ExpenseSearch expenseSearch = new ExpenseSearch();
-                    expenseSearch.setAccountId(bankSyncModelAttribute.getAccountId());
-                    expenseSearch.setDateFrom(bankSyncModelAttribute.getDateFrom());
-                    expenseSearch.setDateTo(bankSyncModelAttribute.getDateTo());
-                    expenseSearch.setUserId(user.getId());
-                    List<Expense> existingExpeses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch));
-                    if (movimientos.size() != existingExpeses.size()) {
-                        // Filtro los que ya existen
-                        movimientos = movimientos.stream().filter(movimiento -> {
-                            if (movimiento.getCurrency().equals(1L)) {
-                                for (Expense expense : existingExpeses) {
-                                    boolean isSameDay = DateUtils.isSameDay(expense.getDate(), movimiento.getDate());
-                                    Calendar calendar = Calendar.getInstance();
-                                    calendar.setTime(movimiento.getDate());
-                                    boolean esDiaHabil = false;
-                                    while (!isSameDay && !esDiaHabil) {
-                                        calendar.add(Calendar.DATE, -1);
-                                        esDiaHabil = !(DateUtils.esFeriado(calendar.getTime()) || DateUtils.esFinDeSemana(calendar));
-                                        if (!esDiaHabil) {
-                                            isSameDay = DateUtils.isSameDay(expense.getDate(), calendar.getTime());
-                                        }
-                                    }
-                                    BigDecimal movimientoAmount = movimiento.getAmount() != null ? movimiento.getAmount() : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                                    if (isSameDay && NumberUtils.bigDecimalIgual(expense.getAmount(), movimientoAmount)) {
-                                        return false;
-                                    }
-                                }
-                            } else {
-                                return false;
-                            }
-
-
-                            return true;
-                        }).collect(Collectors.toList());
+                    } else {
+                        return "redirect:/expenses";
                     }
-
-                    if (!CollectionUtils.isEmpty(movimientos)) {
-                        final Category genericCategory = categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID));
-                        final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-                        movimientos.forEach(movimiento -> {
-
-                            Expense expense = new Expense();
-                            expense.setUser(user);
-                            expense.setDate(movimiento.getDate());
-                            expense.setAccount(account);
-                            expense.setAmount(movimiento.getAmount());
-                            expense.setDescription(movimiento.getDescription() + " | " + movimiento.getMovementDescription());
-                            expense.setCategory(genericCategory);
-
-                            expense = expenseRepository.save(expense);
-                            alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
-
-
-                            String detalleMovimiento = "";
-                            final Date fechaMovimiento = movimiento.getDate();
-                            if (fechaMovimiento != null) {
-                                detalleMovimiento += sdf.format(fechaMovimiento);
-                            }
-                            final String descriptionMovimiento = movimiento.getDescription();
-                            if (StringUtils.hasText(descriptionMovimiento)) {
-                                detalleMovimiento += " " + descriptionMovimiento;
-                            }
-                            final BigDecimal importeMovimiento = movimiento.getAmount() != null ? movimiento.getAmount() : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                            detalleMovimiento += " " + importeMovimiento + " " + movimiento.getCurrencySymbol();
-                            log.info(detalleMovimiento);
-                        });
-                    }
+                    break;
                 }
+                default:
+                    return "redirect:/expenses";
             }
-            return "redirect:/expenses?accountType=" + account.getType().name() + "&accountName=" + account.getName();
+
+            String redirectUrl = "/expenses?accountType=" + account.getType().name() + "&accountName=" + account.getName();
+            if (applicationMessage != null) redirectUrl += "&applicationMessage=" + applicationMessage;
+            if (applicationMessageType != null) redirectUrl += "&applicationMessageType=" + applicationMessageType.name();
+            return "redirect:" + redirectUrl;
         }
+    }
+
+    private boolean isValid(CreditCardMovement creditCardMovement) {
+        if (creditCardMovement.getDate() == null) {
+            log.info("[isValid] Invalid {}: fecha is null", creditCardMovement);
+            return false;
+        } else if (creditCardMovement.getDescription() == null && creditCardMovement.getMovementDescription() == null) {
+            log.info("[isValid] Invalid {}: description & movementDescription is null", creditCardMovement);
+            return false;
+        } else if (creditCardMovement.getAmount() == null) {
+            log.info("[isValid] Invalid {}: amount is null", creditCardMovement);
+            return false;
+        }
+
+        return true;
+    }
+
+    private Expense createExpense(User user, Date date, Account account, String description, BigDecimal amount) {
+        Expense expense = new Expense();
+        expense.setUser(user);
+        expense.setDate(date);
+        expense.setAccount(account);
+        expense.setAmount(amount);
+        expense.setDescription(description);
+        expense.setCategory(automaticCategory);
+
+        expense = expenseRepository.save(expense);
+        log.info("[createExpense] Expense created: {}", expense.getId());
+        alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
+        return expense;
     }
 }

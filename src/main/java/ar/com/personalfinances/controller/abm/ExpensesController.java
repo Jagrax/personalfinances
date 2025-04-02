@@ -53,9 +53,21 @@ public class ExpensesController {
                                   @RequestParam("page") Optional<Integer> page,
                                   @RequestParam("size") Optional<Integer> size,
                                   @RequestParam("accountType") Optional<String> accountType,
-                                  @RequestParam("accountName") Optional<String> accountName) {
+                                  @RequestParam("accountName") Optional<String> accountName,
+                                  @RequestParam("applicationMessage") Optional<String> applicationMessage,
+                                  @RequestParam("applicationMessageType") Optional<ApplicationMessage.ApplicationMessageType> applicationMessageType) {
         int currentPage = page.orElse(ApplicationController.DEFAULT_PAGE_INDEX);
         int pageSize = size.orElse(ApplicationController.DEFAULT_PAGE_SIZE);
+
+        if (applicationMessage.isPresent()) {
+            String message = applicationMessage.get();
+            ApplicationMessage.ApplicationMessageType type = ApplicationMessage.ApplicationMessageType.PRIMARY;
+            if (applicationMessageType.isPresent()) {
+                type = applicationMessageType.get();
+            }
+
+            model.addAttribute("applicationMessage", new ApplicationMessage(message, type));
+        }
 
         AccountSearch accountSearch = new AccountSearch();
 
