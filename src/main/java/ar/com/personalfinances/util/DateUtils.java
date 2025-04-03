@@ -4,6 +4,7 @@ import de.jollyday.Holiday;
 import de.jollyday.HolidayCalendar;
 import de.jollyday.HolidayManager;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Calendar;
@@ -11,6 +12,12 @@ import java.util.Date;
 import java.util.Set;
 
 public class DateUtils {
+
+    private final static SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+
+    public static String format(Date date) {
+        return sdf.format(date);
+    }
 
     public static boolean isSameDay(Date date1, Date date2) {
         LocalDate localDate1 = date1.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();

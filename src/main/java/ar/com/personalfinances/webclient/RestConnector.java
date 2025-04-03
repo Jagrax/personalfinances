@@ -8,27 +8,31 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Map;
-
 @Slf4j
 @Getter
 public class RestConnector {
 
     private final String baseUrl;
+    private final RestSecurityManager securityManager;
 
-    public RestConnector(String baseUrl) {
+    public RestConnector(String baseUrl, RestSecurityManager securityManager) {
         this.baseUrl = baseUrl;
+        this.securityManager = securityManager;
     }
 
-    public <Res, Err> Res genericGet(String path, Class<Res> responseType, Class<Err> errorType, Map<String, String> headers) throws RestConnectorException {
-        return internalGenericRequest(HttpMethod.GET, path, null, responseType, errorType, headers, MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_JSON);
+    // ------------------------- [GET] -------------------------
+
+    public <Res, Err> Res genericGet(String path, Class<Res> responseType, Class<Err> errorType) throws RestConnectorException {
+        return internalGenericRequest(HttpMethod.GET, path, null, responseType, errorType, MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_JSON);
     }
 
-    public <Res, Req> Res genericPost(String path, Req requestBody, Class<Res> responseType, Map<String, String> headers, String postMediaType) throws RestConnectorException {
-        return internalGenericRequest(HttpMethod.POST, path, requestBody, responseType, null, headers, postMediaType, MediaType.APPLICATION_JSON);
+    // ------------------------- [POST] -------------------------
+
+    public <Res, Req> Res genericPost(String path, Req requestBody, Class<Res> responseType, String postMediaType) throws RestConnectorException {
+        return internalGenericRequest(HttpMethod.POST, path, requestBody, responseType, null, postMediaType, MediaType.APPLICATION_JSON);
     }
 
-    public <Req, Res, Err> Res internalGenericRequest(HttpMethod method, String path, Req requestBody, Class<Res> responseType, Class<Err> errorType, Map<String, String> headers, String postMediaType, MediaType acceptMediaType) throws RestConnectorException {
+    public <Req, Res, Err> Res internalGenericRequest(HttpMethod method, String path, Req requestBody, Class<Res> responseType, Class<Err> errorType, String postMediaType, MediaType acceptMediaType) throws RestConnectorException {
         // Crear el RestTemplate
         RestTemplate restTemplate = new RestTemplate();
 
@@ -36,10 +40,8 @@ public class RestConnector {
         HttpHeaders httpHeaders = new HttpHeaders();
 
         // Agregar los headers personalizados
-        if (headers != null) {
-            for (Map.Entry<String, String> header : headers.entrySet()) {
-                httpHeaders.set(header.getKey(), header.getValue());
-            }
+        if (securityManager != null) {
+            httpHeaders = securityManager.addHeaders(httpHeaders);
         }
         if (postMediaType != null) {
             httpHeaders.set(HttpHeaders.CONTENT_TYPE, postMediaType);
@@ -60,7 +62,7 @@ public class RestConnector {
         } catch (RestConnectorException e) {
             throw e;
         } catch (HttpStatusCodeException e) {
-            convertErrorEntityAsStringToErrorTypeAndThrowRestConnectorException(e.getResponseBodyAsString(), errorType, e.getStatusCode());
+            processErrorAndThrowRestConnectorException(e.getResponseBodyAsString(), errorType, e.getStatusCode());
             return null;  // Este return nunca se ejecuta porque `convertErrorEntityAsStringToErrorTypeAndThrowRestConnectorException` siempre lanza una excepción.
         } catch (Exception e) {
             // Manejar posibles excepciones, como un error de red
@@ -70,11 +72,11 @@ public class RestConnector {
 
     private <Err> void checkSuccessfulOrException(ResponseEntity<String> response, Class<Err> errorType) throws RestConnectorException {
         if (!response.getStatusCode().is2xxSuccessful()) {
-            convertErrorEntityAsStringToErrorTypeAndThrowRestConnectorException(response.getBody(), errorType, response.getStatusCode());
+            processErrorAndThrowRestConnectorException(response.getBody(), errorType, response.getStatusCode());
         }
     }
 
-    private <Err> void convertErrorEntityAsStringToErrorTypeAndThrowRestConnectorException(String errorEntityAsString, Class<Err> errorType, HttpStatus status) throws RestConnectorException {
+    private <Err> void processErrorAndThrowRestConnectorException(String errorEntityAsString, Class<Err> errorType, HttpStatus status) throws RestConnectorException {
         Object entityResponseError;
 
         if (errorType != null) {

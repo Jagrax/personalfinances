@@ -5,250 +5,86 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Objects;
 
+@Getter
+@Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CreditCardMovement implements Serializable {
 
-    @JsonProperty("index")//: 0,
+    @JsonProperty("index")
     private Long index;
     
     @JsonProperty("amount")
     private BigDecimal amount;
     
-    @JsonProperty("currency")//: 1,
+    @JsonProperty("currency")
     private Long currency;
     
-    @JsonProperty("currency_symbol")//: "ARS",
+    @JsonProperty("currency_symbol")
     private String currencySymbol;
     
-    @JsonProperty("description")//: "MERPAGO*COTO",
+    @JsonProperty("description")
     private String description;
     
-    @JsonProperty("date")//: "2025-03-30T00:00:00",
+    @JsonProperty("date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "GMT-03:00")
     private Date date;
     
-    @JsonProperty("movement_description")//: "MERPAGO*COTO",
+    @JsonProperty("movement_description")
     private String movementDescription;
     
-    @JsonProperty("total_installment")//: "0",
-    private String totalInstallment;
+    @JsonProperty("total_installment")
+    private Integer totalInstallment;
     
-    @JsonProperty("current_installment")//: "",
-    private String currentInstallment;
+    @JsonProperty("current_installment")
+    private Integer currentInstallment;
     
-    @JsonProperty("name")//: "Titular",
+    @JsonProperty("name")
     private String name;
     
-    @JsonProperty("price")//: null,
+    @JsonProperty("price")
     private String price;
     
-    @JsonProperty("converted_amount")//: null,
+    @JsonProperty("converted_amount")
     private String convertedAmount;
     
-    @JsonProperty("payment_channel")//: 0,
+    @JsonProperty("payment_channel")
     private Long paymentChannel;
     
-    @JsonProperty("id_mov")//: 0,
+    @JsonProperty("id_mov")
     private Long idMov;
     
-    @JsonProperty("pending")//: false,
+    @JsonProperty("pending")
     private Boolean pending;
     
-    @JsonProperty("next_bussines_day")//: null,
+    @JsonProperty("next_bussines_day")
     private String nextBussinesDay;
     
-    @JsonProperty("date_format_hour")//: "30/03/2025 a las 14:06 h",
+    @JsonProperty("date_format_hour")
     private String dateFormatHour;
     
-    @JsonProperty("motive")//: "",
+    @JsonProperty("motive")
     private String motive;
     
-    @JsonProperty("reject_flag")//: false,
+    @JsonProperty("reject_flag")
     private Boolean rejectFlag;
     
-    @JsonProperty("is_operation_managment")//: false,
+    @JsonProperty("is_operation_managment")
     private Boolean isOperationManagment;
     
-    @JsonProperty("last_digits_owner")//: "3628"
+    @JsonProperty("last_digits_owner")
     private String lastDigitsOwner;
-
-    public Long getIndex() {
-        return index;
-    }
-
-    public void setIndex(Long index) {
-        this.index = index;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
 
     public void setAmount(String amount) {
         this.amount = NumberUtils.parseBigDecimal(amount);
-    }
-
-    public Long getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(Long currency) {
-        this.currency = currency;
-    }
-
-    public String getCurrencySymbol() {
-        return currencySymbol;
-    }
-
-    public void setCurrencySymbol(String currencySymbol) {
-        this.currencySymbol = currencySymbol;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Date getDate() {
-        return date;
-    }
-
-    public void setDate(Date date) {
-        this.date = date;
-    }
-
-    public String getMovementDescription() {
-        return movementDescription;
-    }
-
-    public void setMovementDescription(String movementDescription) {
-        this.movementDescription = movementDescription;
-    }
-
-    public String getTotalInstallment() {
-        return totalInstallment;
-    }
-
-    public void setTotalInstallment(String totalInstallment) {
-        this.totalInstallment = totalInstallment;
-    }
-
-    public String getCurrentInstallment() {
-        return currentInstallment;
-    }
-
-    public void setCurrentInstallment(String currentInstallment) {
-        this.currentInstallment = currentInstallment;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getPrice() {
-        return price;
-    }
-
-    public void setPrice(String price) {
-        this.price = price;
-    }
-
-    public String getConvertedAmount() {
-        return convertedAmount;
-    }
-
-    public void setConvertedAmount(String convertedAmount) {
-        this.convertedAmount = convertedAmount;
-    }
-
-    public Long getPaymentChannel() {
-        return paymentChannel;
-    }
-
-    public void setPaymentChannel(Long paymentChannel) {
-        this.paymentChannel = paymentChannel;
-    }
-
-    public Long getIdMov() {
-        return idMov;
-    }
-
-    public void setIdMov(Long idMov) {
-        this.idMov = idMov;
-    }
-
-    public Boolean getPending() {
-        return pending;
-    }
-
-    public void setPending(Boolean pending) {
-        this.pending = pending;
-    }
-
-    public String getNextBussinesDay() {
-        return nextBussinesDay;
-    }
-
-    public void setNextBussinesDay(String nextBussinesDay) {
-        this.nextBussinesDay = nextBussinesDay;
-    }
-
-    public String getDateFormatHour() {
-        return dateFormatHour;
-    }
-
-    public void setDateFormatHour(String dateFormatHour) {
-        this.dateFormatHour = dateFormatHour;
-    }
-
-    public String getMotive() {
-        return motive;
-    }
-
-    public void setMotive(String motive) {
-        this.motive = motive;
-    }
-
-    public Boolean getRejectFlag() {
-        return rejectFlag;
-    }
-
-    public void setRejectFlag(Boolean rejectFlag) {
-        this.rejectFlag = rejectFlag;
-    }
-
-    public Boolean getOperationManagment() {
-        return isOperationManagment;
-    }
-
-    public void setOperationManagment(Boolean operationManagment) {
-        isOperationManagment = operationManagment;
-    }
-
-    public String getLastDigitsOwner() {
-        return lastDigitsOwner;
-    }
-
-    public void setLastDigitsOwner(String lastDigitsOwner) {
-        this.lastDigitsOwner = lastDigitsOwner;
     }
 
     @Override
@@ -261,8 +97,8 @@ public class CreditCardMovement implements Serializable {
                 ((description != null) ? "description='" + description + "', " : "") +
                 ((date != null) ? "date=" + date + ", " : "") +
                 ((movementDescription != null) ? "movementDescription='" + movementDescription + "', " : "") +
-                ((totalInstallment != null) ? "totalInstallment='" + totalInstallment + "', " : "") +
-                ((currentInstallment != null) ? "currentInstallment='" + currentInstallment + "', " : "") +
+                ((totalInstallment != null) ? "totalInstallment=" + totalInstallment + ", " : "") +
+                ((currentInstallment != null) ? "currentInstallment=" + currentInstallment + ", " : "") +
                 ((name != null) ? "name='" + name + "', " : "") +
                 ((price != null) ? "price='" + price + "', " : "") +
                 ((convertedAmount != null) ? "convertedAmount='" + convertedAmount + "', " : "") +

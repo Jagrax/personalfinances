@@ -1,4 +1,4 @@
-package ar.com.personalfinances.api.galicia;
+package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
 import ar.com.personalfinances.api.galicia.io.ErrorResponse;
@@ -11,13 +11,15 @@ import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 @Slf4j
-public class GaliciaApiManagerBean implements GaliciaApiManager {
+@Service
+public class GaliciaApiServiceImpl implements GaliciaApiService {
 
     @Override
     public CommonResult getMovimientosCuenta(String cookies, Date from, Date to) {

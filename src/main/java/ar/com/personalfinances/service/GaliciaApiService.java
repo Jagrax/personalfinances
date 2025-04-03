@@ -1,11 +1,11 @@
-package ar.com.personalfinances.api.galicia;
+package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.util.CommonResult;
 import lombok.Getter;
 
 import java.util.Date;
 
-public interface GaliciaApiManager {
+public interface GaliciaApiService {
 
     @Getter
     enum TipoMovimiento {

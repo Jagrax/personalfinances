@@ -1,7 +1,7 @@
 package ar.com.personalfinances.controller.abm;
 
-import ar.com.personalfinances.api.galicia.GaliciaApiManager;
-import ar.com.personalfinances.api.galicia.GaliciaApiManagerBean;
+import ar.com.personalfinances.service.GaliciaApiService;
+import ar.com.personalfinances.service.GaliciaApiServiceImpl;
 import ar.com.personalfinances.api.galicia.model.CreditCardMovement;
 import ar.com.personalfinances.api.galicia.model.Movimiento;
 import ar.com.personalfinances.entity.*;
@@ -37,13 +37,15 @@ public class BankSyncController {
     private final AccountRepository accountRepository;
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
+    private final GaliciaApiService galiciaApiService;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
+        this.galiciaApiService = galiciaApiService;
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -95,66 +97,16 @@ public class BankSyncController {
 
             String applicationMessage = null;
             ApplicationMessage.ApplicationMessageType applicationMessageType = null;
-            final GaliciaApiManager galiciaApiManager = new GaliciaApiManagerBean();
+            final GaliciaApiService galiciaApiManager = new GaliciaApiServiceImpl();
             switch (account.getType()) {
                 case CREDIT_CARD: {
-                    CommonResult getMovimientosTarjetaResult = galiciaApiManager.getMovimientosTarjeta(bankSyncModelAttribute.getCookie());
+                    CommonResult getMovimientosTarjetaResult = syncCreditCardAccount(bankSyncModelAttribute.getCookie(), account);
                     if (getMovimientosTarjetaResult.isError()) {
+                        model.addAttribute("applicationMessage", ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
                         return "abm/bank-sync";
                     } else {
-                        List<CreditCardMovement> movimientos = (List<CreditCardMovement>) getMovimientosTarjetaResult.getPayload();
-                        if (!CollectionUtils.isEmpty(movimientos)) {
-                            log.info("[postBankSync] Se procede a filtrar los movimientos ya sincronizados");
-                            // 1) Filtro los movimientos del Galicia que ya existen en la DB
-                            final long galiciaCurrencyARSId = 1;
-                            final List<Long> expensesIdFounded = new ArrayList<>();
-                            movimientos = movimientos.stream().filter(movimiento -> {
-                                if (movimiento.getCurrency().equals(galiciaCurrencyARSId) && movimiento.getTotalInstallment().equals("0")) {
-                                    // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
-                                    if (isValid(movimiento)) {
-                                        // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
-                                        final List<Expense> expensesByDateAndAmount = expenseRepository.findByDateAndAmountEquals(movimiento.getDate(), movimiento.getAmount());
-                                        for (Expense expense : expensesByDateAndAmount) {
-                                            if (expensesIdFounded.contains(expense.getId())) {
-                                                continue;
-                                            }
-
-                                            expensesIdFounded.add(expense.getId());
-                                            return false;
-                                        }
-                                    } else {
-                                        // Si el gasto no es valido, lo descarto
-                                        return false;
-                                    }
-                                } else {
-                                    log.info("[postBankSync] Se ignora el {} por moneda invalida: {}", movimiento, movimiento.getCurrencySymbol());
-                                    // Si el gasto no es en pesos (es en USD por ejemplo), hoy no me interesa guardarlo en la DB. Lo descarto
-                                    return false;
-                                }
-
-                                // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
-                                return true;
-                            }).collect(Collectors.toList());
-
-                            log.info("[postBankSync] Luego de filtrar me quedaron {} movimientos", movimientos.size());
-
-                            if (!CollectionUtils.isEmpty(movimientos)) {
-                                movimientos.forEach(movimiento -> {
-                                    String description = movimiento.getDescription();
-                                    if (!StringUtils.hasText(description)) {
-                                        description = movimiento.getMovementDescription();
-                                    } else if (!description.equals(movimiento.getMovementDescription())) {
-                                        description += " | " + movimiento.getMovementDescription();
-                                    }
-                                    createExpense(user, movimiento.getDate(), account, description, movimiento.getAmount());
-                                });
-                                applicationMessage = "Se sincronizaron " + movimientos.size() + " gastos en la cuenta";
-                                applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
-                            } else {
-                                applicationMessage = "Los gastos de la cuenta estan sincronizados!";
-                                applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
-                            }
-                        }
+                        applicationMessage = getMovimientosTarjetaResult.getMessage();
+                        applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
                     }
                     break;
                 }
@@ -239,6 +191,98 @@ public class BankSyncController {
         }
     }
 
+    final long GALICIA_CURRENCY_ARS_ID = 1;
+    private CommonResult syncCreditCardAccount(String cookie, Account account) {
+        log.info("[syncCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito");
+        CommonResult getMovimientosTarjetaResult = galiciaApiService.getMovimientosTarjeta(cookie);
+        if (getMovimientosTarjetaResult.isError()) {
+            return getMovimientosTarjetaResult;
+        }
+
+        List<CreditCardMovement> movimientos = (List<CreditCardMovement>) getMovimientosTarjetaResult.getPayload();
+        if (CollectionUtils.isEmpty(movimientos)) {
+            log.info("[syncCreditCardAccount] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
+            return CommonResult.ok("No se recuperaron movimientos de la tarjeta de credito");
+        }
+
+        log.info("[syncCreditCardAccount] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", movimientos.size());
+        final List<Long> expensesIdFounded = new ArrayList<>();
+        movimientos = movimientos.stream().filter(movimiento -> {
+            if (!movimiento.getCurrency().equals(GALICIA_CURRENCY_ARS_ID)) {
+                log.info("[syncCreditCardAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movimiento.getDate()), getDescription(movimiento), movimiento.getAmount(), movimiento.getCurrencySymbol());
+                return false;
+            } else if (movimiento.getTotalInstallment() != null && movimiento.getTotalInstallment() != 0) {
+                log.info("[syncCreditCardAccount] Se ignora el movimiento [{} {} {}] por ser una cuota: {} de {}", DateUtils.format(movimiento.getDate()), getDescription(movimiento), movimiento.getAmount(), movimiento.getCurrentInstallment(), movimiento.getTotalInstallment());
+                return false;
+            }
+
+            // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
+            if (isValid(movimiento)) {
+                // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+                final List<Expense> expensesByDateAndAmount = expenseRepository.findByDateAndAmountEquals(movimiento.getDate(), movimiento.getAmount());
+                for (Expense expense : expensesByDateAndAmount) {
+                    if (expensesIdFounded.contains(expense.getId())) {
+                        continue;
+                    }
+
+                    expensesIdFounded.add(expense.getId());
+                    return false;
+                }
+            } else {
+                // Si el gasto no es valido, lo descarto
+                return false;
+            }
+
+            // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
+            return true;
+        }).collect(Collectors.toList());
+
+        log.info("[syncCreditCardAccount] Luego de filtrar los movimientos de la tarjeta de credito {}", movimientos.isEmpty()
+                ? "no me quedaron movimientos por sincronizar. Se procede a filtrar los movimientos ya existentes"
+                : "me quedaron " + movimientos.size() + " movimientos por sincronizar");
+
+        if (movimientos.isEmpty()) {
+            return CommonResult.ok(movimientos, "Los gastos de la cuenta estan sincronizados!");
+        }
+
+        final List<Expense> expensesCreated = new ArrayList<>();
+        for (CreditCardMovement creditCardMovement : movimientos) {
+            expensesCreated.add(createExpense(account.getOwner(), creditCardMovement.getDate(), account, getDescription(creditCardMovement), creditCardMovement.getAmount()));
+        }
+
+        return CommonResult.ok(expensesCreated, "Se sincronizaron " + movimientos.size() + " gastos en la cuenta");
+    }
+
+    private String getDescription(CreditCardMovement creditCardMovement) {
+        String description = creditCardMovement.getDescription();
+        if (!StringUtils.hasText(description)) {
+            description = creditCardMovement.getMovementDescription();
+        } else if (!description.equals(creditCardMovement.getMovementDescription())) {
+            description += " | " + creditCardMovement.getMovementDescription();
+        }
+
+        if (StringUtils.hasText(description)) {
+            if (description.toUpperCase().contains("PERSONAL FLOW")) {
+                description = "Fibertel";
+            } else if (description.toUpperCase().contains("AGUA Y SANEAMIEN")) {
+                description = "AySA";
+            } else if (description.toUpperCase().contains("MERPAGO*CAFEVILLACRES")) {
+                description = "Cafetería - Café Villa Crespo";
+            } else if (description.toUpperCase().contains("MERPAGO*DONELADIO")) {
+                description = "Panadería - Don Eladio";
+            } else if (description.toUpperCase().contains("MERPAGO*COTO")) {
+                description = "Supermercado - Coto";
+            } else if (description.toUpperCase().contains("LA FLOR DE ALMAGRO-SUC")) {
+                description = "Heladería - La Flor de Almagro";
+            } else if (description.toUpperCase().contains("EMOVA SUBTE")) {
+                description = "Subte";
+            } else if (description.toUpperCase().contains("DEL PAN AND CIA")) {
+                description = "Panadería - La Nueva Villa Crespo";
+            }
+        }
+        return description;
+    }
+
     private boolean isValid(CreditCardMovement creditCardMovement) {
         if (creditCardMovement.getDate() == null) {
             log.info("[isValid] Invalid {}: fecha is null", creditCardMovement);
@@ -264,7 +308,7 @@ public class BankSyncController {
         expense.setCategory(automaticCategory);
 
         expense = expenseRepository.save(expense);
-        log.info("[createExpense] Expense created: {}", expense.getId());
+        log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
     }
