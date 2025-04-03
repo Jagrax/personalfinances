@@ -21,10 +21,10 @@ public class Model implements Serializable {
     private Long totalPaginas;
 
     @JsonProperty("Movimientos")
-    private List<Movimiento> movimientos;
+    private List<BankAccountMovement> movimientos;
 
     @JsonProperty("MovimientosPendientes")
-    private List<Movimiento> movimientosPendientes;
+    private List<BankAccountMovement> movimientosPendientes;
 
     @JsonProperty("CantidadMovimientosRestantes")
     private Long cantidadMovimientosRestantes;

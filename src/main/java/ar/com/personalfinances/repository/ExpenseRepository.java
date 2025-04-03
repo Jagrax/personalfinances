@@ -1,5 +1,6 @@
 package ar.com.personalfinances.repository;
 
+import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.entity.User;
 import org.springframework.data.domain.Sort;
@@ -16,5 +17,5 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByUser(User user, Sort sort);
 
-    List<Expense> findByDateAndAmountEquals(Date date, BigDecimal amount);
+    List<Expense> findByAccountAndDateAndAmountEquals(Account account, Date date, BigDecimal amount);
 }

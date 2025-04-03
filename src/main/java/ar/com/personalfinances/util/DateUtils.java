@@ -46,7 +46,7 @@ public class DateUtils {
         Calendar cal = Calendar.getInstance();
         cal.setTime(fecha);
 
-        while (esFeriado(cal.getTime()) || esFinDeSemana(cal)) {
+        while (esFeriado(cal.getTime()) || isWeekend(cal)) {
             cal.add(Calendar.DAY_OF_MONTH, -1);
         }
 
@@ -56,9 +56,9 @@ public class DateUtils {
     /**
      * Verifica si una fecha cae en sábado o domingo.
      */
-    public static boolean esFinDeSemana(Calendar cal) {
-        int diaSemana = cal.get(Calendar.DAY_OF_WEEK);
-        return diaSemana == Calendar.SATURDAY || diaSemana == Calendar.SUNDAY;
+    public static boolean isWeekend(Calendar cal) {
+        int weekday = cal.get(Calendar.DAY_OF_WEEK);
+        return weekday == Calendar.SATURDAY || weekday == Calendar.SUNDAY;
     }
 
     /**

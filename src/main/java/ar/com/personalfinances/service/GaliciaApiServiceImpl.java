@@ -6,7 +6,7 @@ import ar.com.personalfinances.api.galicia.io.GetMovimientosCuentaResponse;
 import ar.com.personalfinances.api.galicia.io.GetMovimientosTarjetaResponse;
 import ar.com.personalfinances.api.galicia.model.Data;
 import ar.com.personalfinances.api.galicia.model.Model;
-import ar.com.personalfinances.api.galicia.model.Movimiento;
+import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
 
     @Override
     public CommonResult getMovimientosCuenta(String cookies, Date from, Date to) {
-        final List<Movimiento> movimientos = new ArrayList<>();
+        final List<BankAccountMovement> movimientos = new ArrayList<>();
         long actualPage = 0;
         Long totalPaginas = null;
 
