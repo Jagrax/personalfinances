@@ -1,15 +1,14 @@
 package ar.com.personalfinances.controller.abm;
 
-import ar.com.personalfinances.service.GaliciaApiService;
-import ar.com.personalfinances.service.GaliciaApiServiceImpl;
-import ar.com.personalfinances.api.galicia.model.CreditCardMovement;
 import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
+import ar.com.personalfinances.api.galicia.model.CreditCardMovement;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.AlertEventService;
+import ar.com.personalfinances.service.GaliciaApiService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +35,9 @@ public class BankSyncController {
     private final AccountRepository accountRepository;
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
+    private final CategoryRepository categoryRepository;
     private final GaliciaApiService galiciaApiService;
+    private final Map<String, String[]> movementMapByDescription;
 
     public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService) {
         this.specificationsService = specificationsService;
@@ -44,7 +45,17 @@ public class BankSyncController {
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
+        this.categoryRepository = categoryRepository;
         this.galiciaApiService = galiciaApiService;
+        this.movementMapByDescription = new HashMap<>();
+        movementMapByDescription.put("PERSONAL FLOW", new String[]{"Fibertel", "Servicio"});
+        movementMapByDescription.put("AGUA Y SANEAMIEN", new String[]{"AySA", "Servicio"});
+        movementMapByDescription.put("MERPAGO*CAFEVILLACRES", new String[]{"Cafetería - Café Villa Crespo", "Cefetería"});
+        movementMapByDescription.put("MERPAGO*DONELADIO", new String[]{"Panadería - Don Eladio", "Gustito"});
+        movementMapByDescription.put("MERPAGO*COTO", new String[]{"Supermercado - Coto", "Víveres para el hogar"});
+        movementMapByDescription.put("LA FLOR DE ALMAGRO-SUC", new String[]{"Heladería - La Flor de Almagro", "Gustito"});
+        movementMapByDescription.put("EMOVA SUBTE", new String[]{"Subte", "Movilidad"});
+        movementMapByDescription.put("DEL PAN AND CIA", new String[]{"Panadería - La Nueva Villa Crespo", "Gustito"});
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -90,13 +101,11 @@ public class BankSyncController {
             if (optionalAccount.isEmpty()) {
                 return "redirect:/expenses";
             }
-            final User user = ApplicationUtils.getUserFromSession();
 
             final Account account = optionalAccount.get();
 
             String applicationMessage;
             ApplicationMessage.ApplicationMessageType applicationMessageType;
-            final GaliciaApiService galiciaApiManager = new GaliciaApiServiceImpl();
             switch (account.getType()) {
                 case CREDIT_CARD: {
                     CommonResult getMovimientosTarjetaResult = syncCreditCardAccount(bankSyncModelAttribute.getCookie(), account);
@@ -212,7 +221,8 @@ public class BankSyncController {
 
         final List<Expense> expensesCreated = new ArrayList<>();
         for (BankAccountMovement bankAccountMovement : movements) {
-            expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), bankAccountMovement.getAmount()));
+            // TODO: Iterar la lista al reves, porque el primer item es el ultimo gasto/movimiento que hubo en la cuenta
+            expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), getCategory(bankAccountMovement, account.getOwner()), bankAccountMovement.getAmount()));
         }
 
         return CommonResult.ok(expensesCreated, "Se " + (movements.size() > 1 ? "sincronizaron " + movements.size() + " gastos" : "sincronizo " + movements.size() + " gasto") +  " en la cuenta");
@@ -274,7 +284,7 @@ public class BankSyncController {
 
         final List<Expense> expensesCreated = new ArrayList<>();
         for (CreditCardMovement creditCardMovement : movimientos) {
-            expensesCreated.add(createExpense(account.getOwner(), creditCardMovement.getDate(), account, getDescription(creditCardMovement), creditCardMovement.getAmount()));
+            expensesCreated.add(createExpense(account.getOwner(), creditCardMovement.getDate(), account, getDescription(creditCardMovement), getCategory(creditCardMovement, account.getOwner()), creditCardMovement.getAmount()));
         }
 
         return CommonResult.ok(expensesCreated, "Se sincronizaron " + movimientos.size() + " gastos en la cuenta");
@@ -302,27 +312,46 @@ public class BankSyncController {
         return mapDescription(description);
     }
 
+    private Category getCategory(BankAccountMovement movimiento, User user) {
+        String description = movimiento.getDescripcionAMostrar();
+        if (!StringUtils.hasText(description)) {
+            description = movimiento.getDescripcionAMostrar();
+        } else if (!description.equals(movimiento.getDescripcionAMostrar())) {
+            description += " | " + movimiento.getDescripcionAMostrar();
+        }
+
+        return mapCategory(description, user);
+    }
+
+    private Category getCategory(CreditCardMovement creditCardMovement, User user) {
+        String description = creditCardMovement.getDescription();
+        if (!StringUtils.hasText(description)) {
+            description = creditCardMovement.getMovementDescription();
+        } else if (!description.equals(creditCardMovement.getMovementDescription())) {
+            description += " | " + creditCardMovement.getMovementDescription();
+        }
+
+        return mapCategory(description, user);
+    }
+
     private String mapDescription(String description) {
-        if (StringUtils.hasText(description)) {
-            if (description.toUpperCase().contains("PERSONAL FLOW")) {
-                description = "Fibertel";
-            } else if (description.toUpperCase().contains("AGUA Y SANEAMIEN")) {
-                description = "AySA";
-            } else if (description.toUpperCase().contains("MERPAGO*CAFEVILLACRES")) {
-                description = "Cafetería - Café Villa Crespo";
-            } else if (description.toUpperCase().contains("MERPAGO*DONELADIO")) {
-                description = "Panadería - Don Eladio";
-            } else if (description.toUpperCase().contains("MERPAGO*COTO")) {
-                description = "Supermercado - Coto";
-            } else if (description.toUpperCase().contains("LA FLOR DE ALMAGRO-SUC")) {
-                description = "Heladería - La Flor de Almagro";
-            } else if (description.toUpperCase().contains("EMOVA SUBTE")) {
-                description = "Subte";
-            } else if (description.toUpperCase().contains("DEL PAN AND CIA")) {
-                description = "Panadería - La Nueva Villa Crespo";
-            }
+        if (StringUtils.hasText(description) && movementMapByDescription.containsKey(description.toUpperCase())) {
+            return movementMapByDescription.get(description.toUpperCase())[0];
         }
         return description;
+    }
+
+    private Category mapCategory(String description, User user) {
+        if (StringUtils.hasText(description) && movementMapByDescription.containsKey(description.toUpperCase())) {
+            String categoryName = movementMapByDescription.get(description.toUpperCase())[1];
+            if (StringUtils.hasText(categoryName)) {
+                Optional<Category> foundedCategory = categoryRepository.findByOwnerAndName(user, categoryName);
+                if (foundedCategory.isPresent()) {
+                    return foundedCategory.get();
+                }
+            }
+        }
+        return automaticCategory;
     }
 
     private boolean isValid(BankAccountMovement bankAccountMovement) {
@@ -355,14 +384,14 @@ public class BankSyncController {
         return true;
     }
 
-    private Expense createExpense(User user, Date date, Account account, String description, BigDecimal amount) {
+    private Expense createExpense(User user, Date date, Account account, String description, Category category, BigDecimal amount) {
         Expense expense = new Expense();
         expense.setUser(user);
         expense.setDate(date);
         expense.setAccount(account);
         expense.setAmount(amount);
         expense.setDescription(description);
-        expense.setCategory(automaticCategory);
+        expense.setCategory(category);
 
         expense = expenseRepository.save(expense);
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());

@@ -9,9 +9,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long>, JpaSpecificationExecutor<Category> {
 
-    List<Category> findByNameContainsIgnoreCase(String categoryName);
+    Optional<Category> findByOwnerAndName(User user, String name);
 }
