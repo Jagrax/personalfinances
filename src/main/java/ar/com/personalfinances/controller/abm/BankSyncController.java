@@ -220,9 +220,9 @@ public class BankSyncController {
         }
 
         final List<Expense> expensesCreated = new ArrayList<>();
-        for (BankAccountMovement bankAccountMovement : movements) {
-            // TODO: Iterar la lista al reves, porque el primer item es el ultimo gasto/movimiento que hubo en la cuenta
-            expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), getCategory(bankAccountMovement, account.getOwner()), bankAccountMovement.getAmount()));
+        for (int i = movements.size() - 1; i >= 0; i--) {
+            BankAccountMovement bankAccountMovement = movements.get(i);
+            expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), bankAccountMovement.getAmount()));
         }
 
         return CommonResult.ok(expensesCreated, "Se " + (movements.size() > 1 ? "sincronizaron " + movements.size() + " gastos" : "sincronizo " + movements.size() + " gasto") +  " en la cuenta");
@@ -283,8 +283,9 @@ public class BankSyncController {
         }
 
         final List<Expense> expensesCreated = new ArrayList<>();
-        for (CreditCardMovement creditCardMovement : movimientos) {
-            expensesCreated.add(createExpense(account.getOwner(), creditCardMovement.getDate(), account, getDescription(creditCardMovement), getCategory(creditCardMovement, account.getOwner()), creditCardMovement.getAmount()));
+        for (int i = movimientos.size() - 1; i >= 0; i--) {
+            CreditCardMovement creditCardMovement = movimientos.get(i);
+            expensesCreated.add(createExpense(account.getOwner(), creditCardMovement.getDate(), account, getDescription(creditCardMovement), creditCardMovement.getAmount()));
         }
 
         return CommonResult.ok(expensesCreated, "Se sincronizaron " + movimientos.size() + " gastos en la cuenta");
