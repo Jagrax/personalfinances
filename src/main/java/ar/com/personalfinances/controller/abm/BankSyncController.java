@@ -48,14 +48,23 @@ public class BankSyncController {
         this.categoryRepository = categoryRepository;
         this.galiciaApiService = galiciaApiService;
         this.movementMapByDescription = new HashMap<>();
-        movementMapByDescription.put("PERSONAL FLOW", new String[]{"Fibertel", "Servicio"});
-        movementMapByDescription.put("AGUA Y SANEAMIEN", new String[]{"AySA", "Servicio"});
-        movementMapByDescription.put("MERPAGO*CAFEVILLACRES", new String[]{"Cafetería - Café Villa Crespo", "Cefetería"});
-        movementMapByDescription.put("MERPAGO*DONELADIO", new String[]{"Panadería - Don Eladio", "Gustito"});
-        movementMapByDescription.put("MERPAGO*COTO", new String[]{"Supermercado - Coto", "Víveres para el hogar"});
-        movementMapByDescription.put("LA FLOR DE ALMAGRO-SUC", new String[]{"Heladería - La Flor de Almagro", "Gustito"});
-        movementMapByDescription.put("EMOVA SUBTE", new String[]{"Subte", "Movilidad"});
-        movementMapByDescription.put("DEL PAN AND CIA", new String[]{"Panadería - La Nueva Villa Crespo", "Gustito"});
+        movementMapByDescription.put("PERSONAL FLOW",           new String[]{"Fibertel"                         , null                                                          , "Servicio"});
+        movementMapByDescription.put("AGUA Y SANEAMIEN",        new String[]{"AySA"                             , null                                                          , "Servicio"});
+        movementMapByDescription.put("MERPAGO*CAFEVILLACRES",   new String[]{"Cafetería - Café Villa Crespo"    , null                                                          , "Cefetería"});
+        movementMapByDescription.put("MERPAGO*DONELADIO",       new String[]{"Panadería - Don Eladio"           , null                                                          , "Gustito"});
+        movementMapByDescription.put("MERPAGO*COTO",            new String[]{"Supermercado - Coto"              , null                                                          , "Víveres para el hogar"});
+        movementMapByDescription.put("LA FLOR DE ALMAGRO-SUC",  new String[]{"Heladería - La Flor de Almagro"   , null                                                          , "Gustito"});
+        movementMapByDescription.put("EMOVA SUBTE",             new String[]{"Subte"                            , null                                                          , "Movilidad"});
+        movementMapByDescription.put("DEL PAN AND CIA",         new String[]{"Panadería - La Nueva Villa Crespo", null                                                          , "Gustito"});
+        movementMapByDescription.put("MERPAGO*MOLINAPANADER",   new String[]{"Cafetería - Molina"               , null                                                          , "Gustito"});
+        movementMapByDescription.put("SUSCRIPCION FIMA<BR /> FIMA PREMIUM CLASE A<BR /> | SUSCRIPCION FIMA",
+                                                                new String[]{"Suscripción FIMA"                 , "Fima Premium Clase A"                                        , "Inversión"});
+        movementMapByDescription.put("RESCATE FIMA<BR /> FIMA PREMIUM CLASE A<BR /> | RESCATE FIMA",
+                                                                new String[]{"Rescate FIMA"                     , "Fima Premium Clase A"                                        , "Inversión"});
+        movementMapByDescription.put("ACREDITAMIENTO DE HABERES<BR /> GLOBAL SW SA<BR /> 30717404811<BR /> ACRED.HABERES<BR /> | ACREDITAMIENTO DE HABERES",
+                                                                new String[]{"Sueldo XXX"                       , null                                                          , "Pago de haberes"});
+        movementMapByDescription.put("TRANSFERENCIA A TERCEROS<BR /> CU  27149766273<BR /> 0720793088000035783790<BR /> RIOP<BR /> 4425XXXXXXXXXX43<BR /> ALQUILERES<BR /> | TRANSFERENCIA A TERCEROS",
+                                                                new String[]{"Transferencia a Sandra Ablin"     , "Alquiler - XXX - Total (menos expensas extraordinarias: $)"  , "Alquiler"});
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -299,7 +308,7 @@ public class BankSyncController {
             description += " | " + movimiento.getDescripcionAMostrar();
         }
 
-        return mapDescription(description);
+        return description;
     }
 
     private String getDescription(CreditCardMovement creditCardMovement) {
@@ -310,45 +319,39 @@ public class BankSyncController {
             description += " | " + creditCardMovement.getMovementDescription();
         }
 
-        return mapDescription(description);
-    }
-
-    private Category getCategory(BankAccountMovement movimiento, User user) {
-        String description = movimiento.getDescripcionAMostrar();
-        if (!StringUtils.hasText(description)) {
-            description = movimiento.getDescripcionAMostrar();
-        } else if (!description.equals(movimiento.getDescripcionAMostrar())) {
-            description += " | " + movimiento.getDescripcionAMostrar();
-        }
-
-        return mapCategory(description, user);
-    }
-
-    private Category getCategory(CreditCardMovement creditCardMovement, User user) {
-        String description = creditCardMovement.getDescription();
-        if (!StringUtils.hasText(description)) {
-            description = creditCardMovement.getMovementDescription();
-        } else if (!description.equals(creditCardMovement.getMovementDescription())) {
-            description += " | " + creditCardMovement.getMovementDescription();
-        }
-
-        return mapCategory(description, user);
+        return description;
     }
 
     private String mapDescription(String description) {
-        if (StringUtils.hasText(description) && movementMapByDescription.containsKey(description.toUpperCase())) {
-            return movementMapByDescription.get(description.toUpperCase())[0];
+        if (StringUtils.hasText(description)) {
+            description = description.trim().toUpperCase();
+            if (movementMapByDescription.containsKey(description)) {
+                return movementMapByDescription.get(description)[0];
+            }
+        }
+        return description;
+    }
+
+    private String mapDetails(String description) {
+        if (StringUtils.hasText(description)) {
+            description = description.trim().toUpperCase();
+            if (movementMapByDescription.containsKey(description)) {
+                return movementMapByDescription.get(description)[1];
+            }
         }
         return description;
     }
 
     private Category mapCategory(String description, User user) {
-        if (StringUtils.hasText(description) && movementMapByDescription.containsKey(description.toUpperCase())) {
-            String categoryName = movementMapByDescription.get(description.toUpperCase())[1];
-            if (StringUtils.hasText(categoryName)) {
-                Optional<Category> foundedCategory = categoryRepository.findByOwnerAndName(user, categoryName);
-                if (foundedCategory.isPresent()) {
-                    return foundedCategory.get();
+        if (StringUtils.hasText(description)) {
+            description = description.trim().toUpperCase();
+            if (movementMapByDescription.containsKey(description)) {
+                String categoryName =  movementMapByDescription.get(description)[2];
+                if (StringUtils.hasText(categoryName)) {
+                    Optional<Category> foundedCategory = categoryRepository.findByOwnerAndName(user, categoryName);
+                    if (foundedCategory.isPresent()) {
+                        return foundedCategory.get();
+                    }
                 }
             }
         }
@@ -385,14 +388,15 @@ public class BankSyncController {
         return true;
     }
 
-    private Expense createExpense(User user, Date date, Account account, String description, Category category, BigDecimal amount) {
+    private Expense createExpense(User user, Date date, Account account, String description, BigDecimal amount) {
         Expense expense = new Expense();
         expense.setUser(user);
         expense.setDate(date);
         expense.setAccount(account);
         expense.setAmount(amount);
-        expense.setDescription(description);
-        expense.setCategory(category);
+        expense.setDescription(mapDescription(description));
+        expense.setDetails(mapDetails(description));
+        expense.setCategory(mapCategory(description, user));
 
         expense = expenseRepository.save(expense);
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
