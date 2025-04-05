@@ -292,7 +292,7 @@ public class BankSyncController {
     }
 
     private String getDescription(BankAccountMovement movimiento) {
-        String description = movimiento.getDescripcionAMostrar();
+        String description = movimiento.getDescripcionSide();
         if (!StringUtils.hasText(description)) {
             description = movimiento.getDescripcionAMostrar();
         } else if (!description.equals(movimiento.getDescripcionAMostrar())) {
