@@ -1,6 +1,6 @@
-package ar.com.personalfinances.repository;
+package ignored.repository;
 
-import ar.com.personalfinances.entity.SharedExpense;
+import ignored.entity.SharedExpense;
 import ar.com.personalfinances.entity.User;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;

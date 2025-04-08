@@ -83,11 +83,11 @@ public class User implements UserDetails {
     @OneToMany(mappedBy = "creationUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ExpensesGroup> expensesGroups;
 
-    @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
-    private List<SharedExpense> sharedExpenses;
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SharedExpenseMember> expensesGroupsMembers;
+//    @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
+//    private List<SharedExpense> sharedExpenses;
+//
+//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private List<SharedExpenseMember> expensesGroupsMembers;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -156,6 +156,6 @@ public class User implements UserDetails {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, firstName, lastName, email, password, mobile, createdAt, updatedAt, role, locked, enabled, sharedExpenses, expensesGroups);
+        return Objects.hash(id, firstName, lastName, email, password, mobile, createdAt, updatedAt, role, locked, enabled, expensesGroups);
     }
 }

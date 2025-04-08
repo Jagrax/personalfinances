@@ -1,5 +1,8 @@
-package ar.com.personalfinances.entity;
+package ignored.entity;
 
+import ar.com.personalfinances.entity.Category;
+import ar.com.personalfinances.entity.ExpensesGroup;
+import ar.com.personalfinances.entity.User;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;

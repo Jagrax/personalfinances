@@ -1,8 +1,10 @@
-package ar.com.personalfinances.controller.abm;
+package ignored.controller.abm;
 
 import ar.com.personalfinances.controller.ApplicationController;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
+import ignored.entity.SharedExpense;
+import ignored.entity.SharedExpenseMember;
 import ar.com.personalfinances.repository.*;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.util.ApplicationMessage;
@@ -10,6 +12,8 @@ import ar.com.personalfinances.util.ApplicationUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ignored.repository.SharedExpenseMemberRepository;
+import ignored.repository.SharedExpenseRepository;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;

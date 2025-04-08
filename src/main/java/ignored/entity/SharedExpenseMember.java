@@ -1,5 +1,6 @@
-package ar.com.personalfinances.entity;
+package ignored.entity;
 
+import ar.com.personalfinances.entity.User;
 import lombok.Getter;
 import lombok.Setter;
 

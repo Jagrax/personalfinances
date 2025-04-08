@@ -1,7 +1,7 @@
-package ar.com.personalfinances.repository;
+package ignored.repository;
 
-import ar.com.personalfinances.entity.SharedExpense;
-import ar.com.personalfinances.entity.SharedExpenseMember;
+import ignored.entity.SharedExpense;
+import ignored.entity.SharedExpenseMember;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
