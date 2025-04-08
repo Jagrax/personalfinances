@@ -8,6 +8,7 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.AlertEventService;
+import ar.com.personalfinances.service.ExpenseMappingService;
 import ar.com.personalfinances.service.GaliciaApiService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
@@ -35,36 +36,17 @@ public class BankSyncController {
     private final AccountRepository accountRepository;
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
-    private final CategoryRepository categoryRepository;
     private final GaliciaApiService galiciaApiService;
-    private final Map<String, String[]> movementMapByDescription;
+    private final ExpenseMappingService expenseMappingService;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
-        this.categoryRepository = categoryRepository;
         this.galiciaApiService = galiciaApiService;
-        this.movementMapByDescription = new HashMap<>();
-        movementMapByDescription.put("PERSONAL FLOW",           new String[]{"Fibertel"                         , null                                                          , "Servicio"});
-        movementMapByDescription.put("AGUA Y SANEAMIEN",        new String[]{"AySA"                             , null                                                          , "Servicio"});
-        movementMapByDescription.put("MERPAGO*CAFEVILLACRES",   new String[]{"Cafetería - Café Villa Crespo"    , null                                                          , "Cefetería"});
-        movementMapByDescription.put("MERPAGO*DONELADIO",       new String[]{"Panadería - Don Eladio"           , null                                                          , "Gustito"});
-        movementMapByDescription.put("MERPAGO*COTO",            new String[]{"Supermercado - Coto"              , null                                                          , "Víveres para el hogar"});
-        movementMapByDescription.put("LA FLOR DE ALMAGRO-SUC",  new String[]{"Heladería - La Flor de Almagro"   , null                                                          , "Gustito"});
-        movementMapByDescription.put("EMOVA SUBTE",             new String[]{"Subte"                            , null                                                          , "Movilidad"});
-        movementMapByDescription.put("DEL PAN AND CIA",         new String[]{"Panadería - La Nueva Villa Crespo", null                                                          , "Gustito"});
-        movementMapByDescription.put("MERPAGO*MOLINAPANADER",   new String[]{"Cafetería - Molina"               , null                                                          , "Gustito"});
-        movementMapByDescription.put("SUSCRIPCION FIMA<BR /> FIMA PREMIUM CLASE A<BR /> | SUSCRIPCION FIMA",
-                                                                new String[]{"Suscripción FIMA"                 , "Fima Premium Clase A"                                        , "Inversión"});
-        movementMapByDescription.put("RESCATE FIMA<BR /> FIMA PREMIUM CLASE A<BR /> | RESCATE FIMA",
-                                                                new String[]{"Rescate FIMA"                     , "Fima Premium Clase A"                                        , "Inversión"});
-        movementMapByDescription.put("ACREDITAMIENTO DE HABERES<BR /> GLOBAL SW SA<BR /> 30717404811<BR /> ACRED.HABERES<BR /> | ACREDITAMIENTO DE HABERES",
-                                                                new String[]{"Sueldo XXX"                       , null                                                          , "Pago de haberes"});
-        movementMapByDescription.put("TRANSFERENCIA A TERCEROS<BR /> CU  27149766273<BR /> 0720793088000035783790<BR /> RIOP<BR /> 4425XXXXXXXXXX43<BR /> ALQUILERES<BR /> | TRANSFERENCIA A TERCEROS",
-                                                                new String[]{"Transferencia a Sandra Ablin"     , "Alquiler - XXX - Total (menos expensas extraordinarias: $)"  , "Alquiler"});
+        this.expenseMappingService = expenseMappingService;
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -322,42 +304,6 @@ public class BankSyncController {
         return description;
     }
 
-    private String mapDescription(String description) {
-        if (StringUtils.hasText(description)) {
-            description = description.trim().toUpperCase();
-            if (movementMapByDescription.containsKey(description)) {
-                return movementMapByDescription.get(description)[0];
-            }
-        }
-        return description;
-    }
-
-    private String mapDetails(String description) {
-        if (StringUtils.hasText(description)) {
-            description = description.trim().toUpperCase();
-            if (movementMapByDescription.containsKey(description)) {
-                return movementMapByDescription.get(description)[1];
-            }
-        }
-        return description;
-    }
-
-    private Category mapCategory(String description, User user) {
-        if (StringUtils.hasText(description)) {
-            description = description.trim().toUpperCase();
-            if (movementMapByDescription.containsKey(description)) {
-                String categoryName =  movementMapByDescription.get(description)[2];
-                if (StringUtils.hasText(categoryName)) {
-                    Optional<Category> foundedCategory = categoryRepository.findByOwnerAndName(user, categoryName);
-                    if (foundedCategory.isPresent()) {
-                        return foundedCategory.get();
-                    }
-                }
-            }
-        }
-        return automaticCategory;
-    }
-
     private boolean isValid(BankAccountMovement bankAccountMovement) {
         if (bankAccountMovement.getFecha() == null) {
             log.info("[isValid] Invalid {}: fecha is null", bankAccountMovement);
@@ -388,15 +334,23 @@ public class BankSyncController {
         return true;
     }
 
-    private Expense createExpense(User user, Date date, Account account, String description, BigDecimal amount) {
+    private Expense createExpense(User user, Date date, Account account, String bankDescription, BigDecimal amount) {
         Expense expense = new Expense();
         expense.setUser(user);
         expense.setDate(date);
         expense.setAccount(account);
         expense.setAmount(amount);
-        expense.setDescription(mapDescription(description));
-        expense.setDetails(mapDetails(description));
-        expense.setCategory(mapCategory(description, user));
+        Optional<ExpenseMapping> matchOpt = expenseMappingService.matchExpenseMapping(user, bankDescription);
+        if (matchOpt.isPresent()) {
+            ExpenseMapping mapping = matchOpt.get();
+            expense.setDescription(mapping.getNormalizedDescription());
+            expense.setDetails(mapping.getDetails());
+            expense.setCategory(mapping.getCategory() != null ? mapping.getCategory() : automaticCategory);
+        } else {
+            expense.setDescription(bankDescription);
+            expense.setDetails(null);
+            expense.setCategory(automaticCategory);
+        }
 
         expense = expenseRepository.save(expense);
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
