@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>ar.com</groupId>
 	<artifactId>personalfinances</artifactId>
-	<version>0.2.5</version>
+	<version>0.2.6</version>
 	<packaging>war</packaging>
 	<name>personalfinances</name>
 	<description>Application to register income and expenses of money in different accounts</description>
@@ -82,6 +82,11 @@
 			<artifactId>jollyday</artifactId>
 			<version>0.5.10</version>
 		</dependency>
+		<dependency>
+			<groupId>com.cronutils</groupId>
+			<artifactId>cron-utils</artifactId>
+			<version>9.2.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -109,6 +114,14 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.0.0</version>
+				<configuration>
+					<argLine>-Dspring.profiles.active=prod</argLine>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
