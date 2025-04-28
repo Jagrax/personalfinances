@@ -123,6 +123,9 @@ public class BankSyncController {
                         applicationMessage = syncBankAccountResult.getMessage();
                         applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
                     }
+
+                    learnFromBankMovements(bankSyncModelAttribute.getCookie(), account);
+
                     break;
                 }
                 default:
@@ -133,6 +136,54 @@ public class BankSyncController {
             if (applicationMessage != null) redirectUrl += "&applicationMessage=" + applicationMessage;
             if (applicationMessageType != null) redirectUrl += "&applicationMessageType=" + applicationMessageType.name();
             return "redirect:" + redirectUrl;
+        }
+    }
+
+    /*
+     * Metodo para recorrer los movimientos desde hoy hacia atras con un delta de 3 meses hasta que no haya mas movimientos y luego te da un reporte de los que se repitieron mas de una vez
+     */
+    @SuppressWarnings("unused")
+    public void learnFromBankMovements(String cookie, Account account) {
+        final int monthsGap = -3;
+        Date to = new Date();
+        Date from = DateUtils.addMonths(to, monthsGap);
+        CommonResult getMovimientosCuentaResult = CommonResult.ok();
+        boolean hasMovements = true;
+
+        // Mapa para contar las descripciones
+        Map<String, Integer> descriptionCount = new HashMap<>();
+
+        while (!getMovimientosCuentaResult.isError() && hasMovements) {
+            final String strFrom = DateUtils.format(from);
+            final String strTo = DateUtils.format(to);
+            log.info("[learnFromMovements] Por buscar movimientos entre las fechas {} y {}", strFrom, strTo);
+            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(cookie, from, to);
+            if (!getMovimientosCuentaResult.isError()) {
+                List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
+                if (CollectionUtils.isEmpty(movements)) {
+                    hasMovements = false;
+                } else {
+                    log.info("[syncBankAccount] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}.", movements.size(), strFrom, strTo);
+                    for (BankAccountMovement movement : movements) {
+                        descriptionCount.merge(getDescription(movement).toUpperCase(), 1, Integer::sum);
+                    }
+
+                    to = from;
+                    from = DateUtils.addMonths(to, monthsGap);
+                }
+            }
+        }
+
+        if (getMovimientosCuentaResult.isError()) {
+            log.error(getMovimientosCuentaResult.getMessage());
+        } else {
+            List<Map.Entry<String, Integer>> sortedDescriptions = descriptionCount.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 1) // Filtramos los que tienen más de 1 aparición
+                    .filter(entry -> expenseMappingService.matchExpenseMapping(account.getOwner(), entry.getKey()).isEmpty())
+                    .sorted(Comparator.comparing(Map.Entry<String, Integer>::getValue, Comparator.reverseOrder()).thenComparing(Map.Entry::getKey)) // Orden descendente por count y luego por description
+                    .collect(Collectors.toList());
+
+            sortedDescriptions.forEach(entry -> log.info("{}\t{}", entry.getValue(), entry.getKey()));
         }
     }
 

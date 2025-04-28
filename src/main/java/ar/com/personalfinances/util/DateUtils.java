@@ -73,4 +73,11 @@ public class DateUtils {
                 cal.get(Calendar.DAY_OF_MONTH)
         );
     }
+
+    public static Date addMonths(Date date, int months) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        calendar.add(Calendar.MONTH, months);
+        return calendar.getTime();
+    }
 }
