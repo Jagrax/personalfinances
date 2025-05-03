@@ -51,6 +51,19 @@
                 <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Sincronizar</button>
             </div>
         </form>
+
+        <script>
+            $('#cookie').on('focus', async function () {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text.startsWith('R2D2=')) {
+                        $(this).val(text);
+                    }
+                } catch (err) {
+                    console.error('No se pudo acceder al portapapeles:', err);
+                }
+            });
+        </script>
     </div>
 </body>
 </html>
