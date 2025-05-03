@@ -1,19 +1,30 @@
 package ar.com.personalfinances.util;
 
-import de.jollyday.Holiday;
 import de.jollyday.HolidayCalendar;
 import de.jollyday.HolidayManager;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.Set;
+import java.util.List;
 
 public class DateUtils {
 
     private final static SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+    private final static List<LocalDate> notWorkingDays;
+
+    static {
+        try {
+            notWorkingDays = List.of(
+                    convertirDateALocalDate(sdf.parse("02/05/2025")) // Feriado turístico
+            );
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public static String format(Date date) {
         return sdf.format(date);
@@ -31,12 +42,8 @@ public class DateUtils {
      * Verifica si una fecha es feriado en Argentina.
      */
     public static boolean esFeriado(Date fecha) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(fecha);
-        int year = cal.get(Calendar.YEAR);
-
-        Set<Holiday> feriados = holidayManager.getHolidays(year);
-        return feriados.stream().anyMatch(h -> h.getDate().equals(convertirDateALocalDate(fecha)));
+        final LocalDate date = convertirDateALocalDate(fecha);
+        return holidayManager.isHoliday(date) || notWorkingDays.contains(date);
     }
 
     /**
