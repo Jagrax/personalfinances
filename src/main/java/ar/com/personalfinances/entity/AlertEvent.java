@@ -36,7 +36,7 @@ public class AlertEvent {
     @Enumerated(EnumType.STRING)
     private EntityEvent event;
 
-    @Column(name = "details")
+    @Column(name = "details", length = 4000)
     private String details;
 
     // Algunos constructores comodos
