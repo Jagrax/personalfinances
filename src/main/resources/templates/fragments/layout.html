@@ -12,6 +12,7 @@
     <link rel="stylesheet" media="screen" th:href="@{/css/styles.css}"/>
     <script th:src="@{/js/jquery-3.7.0.min.js}"></script>
     <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/js/bootstrap.theme.switch.js}"></script>
 
     <!-- external libs from cdnjs -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
@@ -72,8 +73,13 @@
                         <hr>
                     </li>
                 </ul>
-                <div class="ms-auto d-flex py-2 align-items-center" th:if="${#authentication?.principal != null}">
-                    <i class="bi bi-person-circle me-2"></i><span th:with="user=${#authentication.principal}" th:text="${user.firstName + ' ' + user.lastName}"></span>
+                <div class="ms-auto d-flex align-items-center py-2">
+                    <div class="mode-switch">
+                        <button type="button" title="Use dark mode" id="dark" class="btn btn-sm btn-default text-secondary"><i class="bi bi-moon"></i></button>
+                        <button type="button" title="Use light mode" id="light" class="btn btn-sm btn-default text-secondary"><i class="bi bi-sun"></i></button>
+                        <button type="button" title="Use system preferred mode" id="system" class="btn btn-sm btn-default text-secondary"><i class="bi bi-display"></i></button>
+                    </div>
+                    <div class="ms-3 d-flex align-items-center" th:if="${#authentication?.principal != null}"><i class="bi bi-person-circle me-2"></i><span th:with="user=${#authentication.principal}" th:text="${user.firstName + ' ' + user.lastName}"></span></div>
                 </div>
             </div>
         </div>
