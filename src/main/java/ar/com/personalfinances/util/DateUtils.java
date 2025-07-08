@@ -19,7 +19,8 @@ public class DateUtils {
     static {
         try {
             notWorkingDays = List.of(
-                    convertirDateALocalDate(sdf.parse("02/05/2025")) // Feriado turístico
+                    convertirDateALocalDate(sdf.parse("02/05/2025")), // Feriado turístico
+                    convertirDateALocalDate(sdf.parse("20/06/2025"))  // Paso a la Inmortalidad del Gral. Manuel Belgrano
             );
         } catch (ParseException e) {
             throw new RuntimeException(e);
