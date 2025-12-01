@@ -3,15 +3,18 @@ package ar.com.personalfinances.controller;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.*;
+import ar.com.personalfinances.service.PDFService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
 import java.text.SimpleDateFormat;
@@ -31,14 +34,16 @@ public class ApplicationController {
     private final AccountRepository accountRepository;
     private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
+    private final PDFService pdfService;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, PDFService pdfService) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
+        this.pdfService = pdfService;
     }
 
     @RequestMapping("/expenses/report")
@@ -193,5 +198,17 @@ public class ApplicationController {
 
         categorySearch.setOwnerIds(categorySearchOwnerIds);
         return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
+    }
+
+    @PostMapping("/pdf/upload")
+    public ResponseEntity<String> uploadPdf(@RequestParam("file") MultipartFile file) {
+        try {
+            String text = pdfService.extractText(file);
+//            String csv = pdfService.convertToCsv(text); // opcional
+
+            return ResponseEntity.ok(text);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
 }
