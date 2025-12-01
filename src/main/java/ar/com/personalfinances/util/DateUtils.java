@@ -21,7 +21,9 @@ public class DateUtils {
             notWorkingDays = List.of(
                     convertirDateALocalDate(sdf.parse("02/05/2025")), // Feriado turístico
                     convertirDateALocalDate(sdf.parse("20/06/2025")), // Paso a la Inmortalidad del Gral. Manuel Belgrano
-                    convertirDateALocalDate(sdf.parse("15/08/2025"))  // Feriado turístico (por feriado del domingo 17 - Paso a la Inmortalidad del Gral. José de San Martín)
+                    convertirDateALocalDate(sdf.parse("15/08/2025")), // Feriado turístico (por feriado del domingo 17 - Paso a la Inmortalidad del Gral. José de San Martín)
+                    convertirDateALocalDate(sdf.parse("21/08/2025")), // Feriado turístico (por feriado del Juéves 20 - Día de a Soberanía Nacional)
+                    convertirDateALocalDate(sdf.parse("24/08/2025"))  // Día de la Soberanía Nacional (20/11)
             );
         } catch (ParseException e) {
             throw new RuntimeException(e);
