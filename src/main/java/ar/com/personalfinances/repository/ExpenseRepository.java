@@ -18,4 +18,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     List<Expense> findByUser(User user, Sort sort);
 
     List<Expense> findByAccountAndDateAndAmountEquals(Account account, Date date, BigDecimal amount);
+
+    List<Expense> findByAccountAndDateBetween(Account account, Date dateFrom, Date dateTo, Sort sort);
 }

@@ -22,7 +22,7 @@
                 <p><a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary">Ver detalles</a></p>
             </div>
         </div>
-        <form method="post" enctype="multipart/form-data" action="/pdf/upload">
+        <form method="post" enctype="multipart/form-data" th:action="@{/pdf/upload}">
             <input type="file" name="file" accept="application/pdf" />
             <button type="submit">Procesar PDF</button>
         </form>
