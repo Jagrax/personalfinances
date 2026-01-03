@@ -5,7 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.util.*;
 
@@ -108,5 +110,22 @@ public class ApplicationUtils {
     public static String getCacheSafeValue() {
         long ts = System.currentTimeMillis();
         return Long.toString(ts, Character.MAX_RADIX);
+    }
+
+    public static String getCurrentPage(HttpServletRequest request, boolean withParams) {
+        String referer = request.getHeader("Referer");
+        if (referer == null) return null;
+
+        referer = referer.substring(referer.lastIndexOf("/"));
+        if (!withParams && referer.contains("?")) {
+            referer = referer.substring(referer.indexOf("?") - 1);
+        }
+        return referer;
+    }
+
+    public static void addRedirectApplicationMessage(RedirectAttributes redirectAttributes, ApplicationMessage applicationMessage) {
+        Objects.requireNonNull(redirectAttributes, "redirectAttributes must not be null");
+        Objects.requireNonNull(applicationMessage, "applicationMessage must not be null");
+        redirectAttributes.addFlashAttribute("applicationMessage", applicationMessage);
     }
 }

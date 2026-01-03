@@ -30,4 +30,8 @@ public class ApplicationMessage {
     public static ApplicationMessage error(String message) {
         return new ApplicationMessage(message, ApplicationMessageType.DANGER);
     }
+
+    public static ApplicationMessage success(String message) {
+        return new ApplicationMessage(message, ApplicationMessageType.SUCCESS);
+    }
 }

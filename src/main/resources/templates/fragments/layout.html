@@ -86,6 +86,28 @@
     </nav>
     <main class="container-fluid">
         <div layout:fragment="content">Page content</div>
+        <div class="toast-container position-fixed top-0 end-0 p-3">
+            <div id="clipboardErrorToast" class="toast text-bg-info border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body" id="clipboardErrorToastMessage">
+                        <!-- mensaje dinámico -->
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+                </div>
+            </div>
+        </div>
+        <script>
+            function showClipboardErrorToast(message) {
+                $('#clipboardErrorToastMessage').html(message);
+
+                const toastElement = document.getElementById('clipboardErrorToast');
+                const toast = bootstrap.Toast.getOrCreateInstance(toastElement, {
+                    delay: 4000
+                });
+
+                toast.show();
+            }
+        </script>
     </main>
 </body>
 </html>

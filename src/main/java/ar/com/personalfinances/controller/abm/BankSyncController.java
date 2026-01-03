@@ -20,7 +20,9 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.util.*;
@@ -83,59 +85,88 @@ public class BankSyncController {
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.POST)
-    public String postBankSync(@Valid BankSyncModelAttribute bankSyncModelAttribute, Model model) {
+    public String postBankSync(
+            @Valid BankSyncModelAttribute bankSyncModelAttribute,
+            RedirectAttributes redirectAttributes,
+            HttpServletRequest request) {
+        String backUrl = ApplicationUtils.getCurrentPage(request, false);
+        if (!StringUtils.hasText(backUrl)) {
+            backUrl = "abm/expenses";
+        }
 
-        if (bankSyncModelAttribute.getAccountId() == null) {
-            return "redirect:/expenses";
+        if (bankSyncModelAttribute.getAccountId() == null && bankSyncModelAttribute.getAccountName() == null) {
+            ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("AccountId and AccountName are null"));
+            return "redirect:" + backUrl;
         } else {
-            Optional<Account> optionalAccount = accountRepository.findById(bankSyncModelAttribute.getAccountId());
-            if (optionalAccount.isEmpty()) {
-                return "redirect:/expenses";
+            Optional<Account> optionalAccount;
+            if (bankSyncModelAttribute.getAccountId() != null) {
+                optionalAccount = accountRepository.findById(bankSyncModelAttribute.getAccountId());
+                if (optionalAccount.isEmpty()) {
+                    ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Invalid account"));
+                    return "redirect:" + backUrl;
+                }
+            } else {
+                List<Long> accountSearchOwnerIds = new ArrayList<>();
+                accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
+
+                User user = ApplicationUtils.getUserFromSession(false);
+                if (user != null) {
+                    // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
+                    accountSearchOwnerIds.add(user.getId());
+                }
+
+                AccountSearch accountSearch = new AccountSearch();
+                accountSearch.setOwnerIds(accountSearchOwnerIds);
+                accountSearch.setName(bankSyncModelAttribute.getAccountName());
+                List<Account> userAccounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC,"name"));
+                if (CollectionUtils.isEmpty(userAccounts)) {
+                    ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Invalid account"));
+                    return "redirect:" + backUrl;
+                }
+                optionalAccount = userAccounts.stream().findFirst();
             }
 
             final Account account = optionalAccount.get();
 
-            String applicationMessage;
-            ApplicationMessage.ApplicationMessageType applicationMessageType;
+            if (!StringUtils.hasText(bankSyncModelAttribute.getCookie())) {
+                ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Cookie null"));
+                return "redirect:" + backUrl;
+            }
+
             switch (account.getType()) {
                 case CREDIT_CARD: {
                     CommonResult getMovimientosTarjetaResult = syncCreditCardAccount(bankSyncModelAttribute.getCookie(), account);
                     if (getMovimientosTarjetaResult.isError()) {
-                        model.addAttribute("applicationMessage", ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
-                        return "abm/bank-sync";
+                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
+                        return "redirect:" + backUrl;
                     } else {
-                        applicationMessage = getMovimientosTarjetaResult.getMessage();
-                        applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
+                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.success(getMovimientosTarjetaResult.getMessage()));
                     }
                     break;
                 }
                 case BANK_ACCOUNT: {
                     if (bankSyncModelAttribute.getDateFrom() == null || bankSyncModelAttribute.getDateTo() == null) {
-                        model.addAttribute("applicationMessage", ApplicationMessage.error("Las fechas desde/hasta no pueden ser null"));
-                        return "abm/bank-sync";
+                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Las fechas desde/hasta no pueden ser null"));
+                        return "redirect:" + backUrl;
                     }
 
                     CommonResult syncBankAccountResult = syncBankAccount(bankSyncModelAttribute.getCookie(), account, bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
                     if (syncBankAccountResult.isError()) {
-                        model.addAttribute("applicationMessage", ApplicationMessage.error(syncBankAccountResult.getMessage()));
-                        return "abm/bank-sync";
+                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error(syncBankAccountResult.getMessage()));
+                        return "redirect:" + backUrl;
                     } else {
-                        applicationMessage = syncBankAccountResult.getMessage();
-                        applicationMessageType = ApplicationMessage.ApplicationMessageType.SUCCESS;
+                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.success(syncBankAccountResult.getMessage()));
                     }
 
-                    learnFromBankMovements(bankSyncModelAttribute.getCookie(), account);
+                    //learnFromBankMovements(bankSyncModelAttribute.getCookie(), account);
 
                     break;
                 }
                 default:
-                    return "redirect:/expenses";
+                    return "redirect:" + backUrl;
             }
 
-            String redirectUrl = "/expenses?accountType=" + account.getType().name() + "&accountName=" + account.getName();
-            if (applicationMessage != null) redirectUrl += "&applicationMessage=" + applicationMessage;
-            if (applicationMessageType != null) redirectUrl += "&applicationMessageType=" + applicationMessageType.name();
-            return "redirect:" + redirectUrl;
+            return "redirect:/expenses?accountType=" + account.getType().name() + "&accountName=" + account.getName();
         }
     }
 

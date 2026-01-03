@@ -16,4 +16,5 @@ public class BankSyncModelAttribute {
     private Date dateTo;
     private String cookie;
     private Long accountId;
+    private String accountName;
 }

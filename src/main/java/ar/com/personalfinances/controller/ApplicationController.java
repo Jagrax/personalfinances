@@ -11,10 +11,7 @@ import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.ReportsRepository;
 import ar.com.personalfinances.service.PDFService;
 import ar.com.personalfinances.service.SpecificationsService;
-import ar.com.personalfinances.util.AccountSearch;
-import ar.com.personalfinances.util.ApplicationUtils;
-import ar.com.personalfinances.util.CategorySearch;
-import ar.com.personalfinances.util.ExpenseSearch;
+import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -182,6 +179,18 @@ public class ApplicationController {
 
     @GetMapping({"/dashboard", "/"})
     public String getDashboardPage(Model model) {
+        BankSyncModelAttribute bankSyncModelAttribute = new BankSyncModelAttribute();
+
+        final Date to = new Date();
+        bankSyncModelAttribute.setDateTo(to);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(to);
+        calendar.add(Calendar.DATE, -7);
+        bankSyncModelAttribute.setDateFrom(calendar.getTime());
+
+        model.addAttribute("bankSyncModelAttribute", bankSyncModelAttribute);
+
         model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId()));
         return "dashboard";
     }
