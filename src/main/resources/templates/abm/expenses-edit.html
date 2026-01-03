@@ -8,16 +8,6 @@
 </head>
 <body>
     <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
-        <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <span th:utext="${applicationMessage.message}"></span>
-            <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
-                <ul th:each="data : ${bindingResult.allErrors}">
-                    <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
-                </ul>
-            </th:block>
-        </div>
-
         <form th:action="@{/expenses/save}" th:object="${expense}" method="post" class="card">
             <input type="hidden" th:field="*{id}"/>
             <input type="hidden" th:field="*{user}"/>

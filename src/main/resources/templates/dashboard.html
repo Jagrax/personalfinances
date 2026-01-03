@@ -9,12 +9,6 @@
 <body>
     <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
         <h2>Dashboard</h2>
-
-        <div th:if="${applicationMessage != null}" class="alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <span th:utext="${applicationMessage.message}"></span>
-        </div>
-
         <form id="bankSyncForm" th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="row">
             <input type="hidden" th:field="*{cookie}" id="cookie">
             <input type="hidden" name="accountName" id="accountName">

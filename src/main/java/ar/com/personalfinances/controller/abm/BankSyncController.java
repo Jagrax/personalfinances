@@ -7,10 +7,7 @@ import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
-import ar.com.personalfinances.service.AlertEventService;
-import ar.com.personalfinances.service.ExpenseMappingService;
-import ar.com.personalfinances.service.GaliciaApiService;
-import ar.com.personalfinances.service.SpecificationsService;
+import ar.com.personalfinances.service.*;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -40,8 +37,9 @@ public class BankSyncController {
     private final AlertEventService alertEventService;
     private final GaliciaApiService galiciaApiService;
     private final ExpenseMappingService expenseMappingService;
+    private final ApplicationMessageService applicationMessageService;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService, ApplicationMessageService applicationMessageService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
@@ -49,6 +47,7 @@ public class BankSyncController {
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
         this.galiciaApiService = galiciaApiService;
         this.expenseMappingService = expenseMappingService;
+        this.applicationMessageService = applicationMessageService;
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -91,18 +90,18 @@ public class BankSyncController {
             HttpServletRequest request) {
         String backUrl = ApplicationUtils.getCurrentPage(request, false);
         if (!StringUtils.hasText(backUrl)) {
-            backUrl = "abm/expenses";
+            backUrl = "/expenses";
         }
 
         if (bankSyncModelAttribute.getAccountId() == null && bankSyncModelAttribute.getAccountName() == null) {
-            ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("AccountId and AccountName are null"));
+            applicationMessageService.add(request, ApplicationMessage.error("AccountId and AccountName are null"));
             return "redirect:" + backUrl;
         } else {
             Optional<Account> optionalAccount;
             if (bankSyncModelAttribute.getAccountId() != null) {
                 optionalAccount = accountRepository.findById(bankSyncModelAttribute.getAccountId());
                 if (optionalAccount.isEmpty()) {
-                    ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Invalid account"));
+                    applicationMessageService.add(request, ApplicationMessage.error("Invalid account"));
                     return "redirect:" + backUrl;
                 }
             } else {
@@ -120,7 +119,7 @@ public class BankSyncController {
                 accountSearch.setName(bankSyncModelAttribute.getAccountName());
                 List<Account> userAccounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC,"name"));
                 if (CollectionUtils.isEmpty(userAccounts)) {
-                    ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Invalid account"));
+                    applicationMessageService.add(request, ApplicationMessage.error("Invalid account"));
                     return "redirect:" + backUrl;
                 }
                 optionalAccount = userAccounts.stream().findFirst();
@@ -129,7 +128,7 @@ public class BankSyncController {
             final Account account = optionalAccount.get();
 
             if (!StringUtils.hasText(bankSyncModelAttribute.getCookie())) {
-                ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Cookie null"));
+                applicationMessageService.add(request, ApplicationMessage.error("Cookie null"));
                 return "redirect:" + backUrl;
             }
 
@@ -137,25 +136,25 @@ public class BankSyncController {
                 case CREDIT_CARD: {
                     CommonResult getMovimientosTarjetaResult = syncCreditCardAccount(bankSyncModelAttribute.getCookie(), account);
                     if (getMovimientosTarjetaResult.isError()) {
-                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
+                        applicationMessageService.add(request, ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
                         return "redirect:" + backUrl;
                     } else {
-                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.success(getMovimientosTarjetaResult.getMessage()));
+                        applicationMessageService.add(request, ApplicationMessage.success(getMovimientosTarjetaResult.getMessage()));
                     }
                     break;
                 }
                 case BANK_ACCOUNT: {
                     if (bankSyncModelAttribute.getDateFrom() == null || bankSyncModelAttribute.getDateTo() == null) {
-                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error("Las fechas desde/hasta no pueden ser null"));
+                        applicationMessageService.add(request, ApplicationMessage.error("Las fechas desde/hasta no pueden ser null"));
                         return "redirect:" + backUrl;
                     }
 
                     CommonResult syncBankAccountResult = syncBankAccount(bankSyncModelAttribute.getCookie(), account, bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
                     if (syncBankAccountResult.isError()) {
-                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.error(syncBankAccountResult.getMessage()));
+                        applicationMessageService.add(request, ApplicationMessage.error(syncBankAccountResult.getMessage()));
                         return "redirect:" + backUrl;
                     } else {
-                        ApplicationUtils.addRedirectApplicationMessage(redirectAttributes, ApplicationMessage.success(syncBankAccountResult.getMessage()));
+                        applicationMessageService.add(request, ApplicationMessage.success(syncBankAccountResult.getMessage()));
                     }
 
                     //learnFromBankMovements(bankSyncModelAttribute.getCookie(), account);

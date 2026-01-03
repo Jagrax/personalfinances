@@ -5,11 +5,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
-import java.util.*;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 @Slf4j
 public class ApplicationUtils {
@@ -114,18 +118,21 @@ public class ApplicationUtils {
 
     public static String getCurrentPage(HttpServletRequest request, boolean withParams) {
         String referer = request.getHeader("Referer");
-        if (referer == null) return null;
+        if (!StringUtils.hasText(referer)) return null;
 
-        referer = referer.substring(referer.lastIndexOf("/"));
-        if (!withParams && referer.contains("?")) {
-            referer = referer.substring(referer.indexOf("?") - 1);
+        URI uri = URI.create(referer);
+        String path = uri.getPath(); // incluye /personalfinances
+        String contextPath = request.getContextPath();
+
+        // me quedo SOLO con lo relativo a la app
+        if (path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
         }
-        return referer;
-    }
 
-    public static void addRedirectApplicationMessage(RedirectAttributes redirectAttributes, ApplicationMessage applicationMessage) {
-        Objects.requireNonNull(redirectAttributes, "redirectAttributes must not be null");
-        Objects.requireNonNull(applicationMessage, "applicationMessage must not be null");
-        redirectAttributes.addFlashAttribute("applicationMessage", applicationMessage);
+        if (withParams && uri.getQuery() != null) {
+            path += "?" + uri.getQuery();
+        }
+
+        return path;
     }
 }

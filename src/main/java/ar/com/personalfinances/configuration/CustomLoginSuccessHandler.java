@@ -48,11 +48,11 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         User user = (User) authentication.getPrincipal();
         // Si tiene algun rol definido, lo mando al dashboard
         if (roles.contains("ADMIN") || roles.contains("USER")) {
-            log.info("Se ha logueado el User[id=" + user.getId() + ", email=" + user.getEmail() + "]");
+            log.info("Se ha logueado el User[id={}, email={}]", user.getId(), user.getEmail());
             alertEventService.saveUserAlert(EntityEvent.LOGIN, user.getId(), remoteAddress, -1);
             return "/dashboard";
         } else {
-            log.info("LOGIN - user.role.invalid: id = " + user.getId());
+            log.info("LOGIN - user.role.invalid: id = {}", user.getId());
         }
 
         // Si no tiene ningun rol valido, vuelve al log con mensaje de error
