@@ -505,7 +505,7 @@ public class BankSyncController {
 
             List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
             if (CollectionUtils.isEmpty(consumptions)) {
-                log.info("[syncCreditCardAccount] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
+                log.info("[readCreditCardAccount] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
                 return CommonResult.ok("No se recuperaron movimientos de la tarjeta de credito");
             }
 

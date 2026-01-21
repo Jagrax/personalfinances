@@ -120,17 +120,6 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
                 consumptions.add(consumption);
             }
         }
-        log.info("Resumen de tarjeta {}", creditCardBrand);
-        log.info("Cant. consumos: {}", consumptions.size());
-        for (Consumption consumption : consumptions.stream().sorted(Comparator.comparing(Consumption::getTransactionDate)).collect(Collectors.toList())) {
-            log.info(String.join(" | ", List.of(
-                    DateUtils.format(consumption.getTransactionDate()),
-                    consumption.getMerchantName(),
-                    consumption.getFinalAmount() + " " + consumption.getFinalCurrency()
-            )));
-        }
-        log.info("Cant. consumos pendiente de autorizacion: {}", data.getAuthorizations().size());
-        data.getAuthorizations().forEach(authorization -> log.info(authorization.toString()));
 
         return CommonResult.ok(data.getConsumptions());
     }
