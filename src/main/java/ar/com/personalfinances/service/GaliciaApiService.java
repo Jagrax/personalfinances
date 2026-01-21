@@ -20,7 +20,14 @@ public interface GaliciaApiService {
         }
     }
 
+    enum CreditCardBrand {
+        VISA,
+        MASTER,
+    }
+
     CommonResult getMovimientosCuenta(String cookies, Date from, Date to);
 
     CommonResult getMovimientosTarjeta(String cookies);
+
+    CommonResult getCardMovements(String bearerToken, CreditCardBrand creditCardBrand, String creditAccountNumber);
 }

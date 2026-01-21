@@ -1,9 +1,7 @@
 package ar.com.personalfinances.api.galicia.client;
 
+import ar.com.personalfinances.api.galicia.io.*;
 import ar.com.personalfinances.service.GaliciaApiService;
-import ar.com.personalfinances.api.galicia.io.ErrorResponse;
-import ar.com.personalfinances.api.galicia.io.GetMovimientosCuentaResponse;
-import ar.com.personalfinances.api.galicia.io.GetMovimientosTarjetaResponse;
 import ar.com.personalfinances.webclient.RestConnector;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import ar.com.personalfinances.webclient.RestSecurityManager;
@@ -15,7 +13,6 @@ import org.springframework.util.MultiValueMap;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
 
 @Slf4j
 public class GaliciaApiConnector implements RestSecurityManager {
@@ -44,6 +41,18 @@ public class GaliciaApiConnector implements RestSecurityManager {
         final String path = "/api/consumos/movements";
         log.debug("[getMovimientosTarjeta] Request GET por obtener movimientos de la tarjeta");
         return connector.genericGet(path, GetMovimientosTarjetaResponse.class, ErrorResponse.class);
+    }
+
+    public PostCardsMovementsResponse postCardsMovements(String bearerToken, PostCardsMovementsRequest postCardsMovementsRequest) throws RestConnectorException {
+        final RestConnector connector = new RestConnector("https://bff-cards-movements-tc-pota-cards.bff.bancogalicia.com.ar", httpHeaders -> {
+            httpHeaders.add(HttpHeaders.AUTHORIZATION, "Bearer " + bearerToken);
+            httpHeaders.add(HttpHeaders.HOST, "bff-cards-movements-tc-pota-cards.bff.bancogalicia.com.ar");
+            httpHeaders.add("id_channel", "onlinebanking");
+            return httpHeaders;
+        });
+        final String path = "/bff/cards/movements-tc";
+        log.debug("[postCardsMovements] Request POST por obtener movimientos de la tarjeta {}", postCardsMovementsRequest.getBrand());
+        return connector.genericPost(path, postCardsMovementsRequest, PostCardsMovementsResponse.class, MediaType.APPLICATION_JSON_VALUE);
     }
 
     @Override

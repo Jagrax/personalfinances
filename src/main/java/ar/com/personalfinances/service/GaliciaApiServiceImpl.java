@@ -1,21 +1,20 @@
 package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
-import ar.com.personalfinances.api.galicia.io.ErrorResponse;
-import ar.com.personalfinances.api.galicia.io.GetMovimientosCuentaResponse;
-import ar.com.personalfinances.api.galicia.io.GetMovimientosTarjetaResponse;
-import ar.com.personalfinances.api.galicia.model.Data;
-import ar.com.personalfinances.api.galicia.model.Model;
-import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
+import ar.com.personalfinances.api.galicia.io.*;
+import ar.com.personalfinances.api.galicia.model.*;
 import ar.com.personalfinances.util.CommonResult;
+import ar.com.personalfinances.util.DateUtils;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -71,6 +70,69 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
             log.info("[getMovimientosTarjeta] Consulta de movimientos de la tarjeta finalizada. Movimientos recuperados: {}", data.getMovements().size());
             return CommonResult.ok(data.getMovements());
         }
+    }
+
+    @Override
+    public CommonResult getCardMovements(String bearerToken, CreditCardBrand creditCardBrand, String creditAccountNumber) {
+        PostCardsMovementsResponse postCardsMovementsResponse;
+        try {
+            postCardsMovementsResponse = new GaliciaApiConnector().postCardsMovements(bearerToken, new PostCardsMovementsRequest(creditAccountNumber, creditCardBrand.name()));
+        } catch (RestConnectorException e) {
+            return logAndReturnError("getCardMovements", e);
+        }
+
+        if (postCardsMovementsResponse == null) {
+            return CommonResult.error("postCardsMovements returns null");
+        }
+
+        // Aca podria haber errores que no sean significativos
+//        if (postCardsMovementsResponse.getErrors() != null && !postCardsMovementsResponse.getErrors().isEmpty()) {
+//        }
+
+        DataTc data = postCardsMovementsResponse.getData().get(0);
+        List<Consumption> consumptions = data.getConsumptions();
+        if (!data.getPayments().isEmpty()) {
+            for (Payment payment : data.getPayments()) {
+                Consumption consumption = new Consumption();
+                consumption.setFinalAmount(payment.getAmount());
+                consumption.setTransactionAmount(payment.getAmount());
+                consumption.setFinalCurrency(payment.getCurrency());
+                consumption.setTransactionCurrency(payment.getCurrency());
+                consumption.setTransactionDate(payment.getPaymentDate());
+                consumption.setMerchantName("Pago de tarjeta " + creditCardBrand);
+                consumptions.add(consumption);
+            }
+        }
+        if (!data.getAdjustments().isEmpty()) {
+            for (Adjustment adjustment : data.getAdjustments()) {
+                Consumption consumption = new Consumption();
+                consumption.setFinalAmount(adjustment.getTransactionAmount());
+                consumption.setTransactionAmount(adjustment.getTransactionAmount());
+                consumption.setFinalCurrency(adjustment.getTransactionCurrency());
+                consumption.setTransactionCurrency(adjustment.getTransactionCurrency());
+                consumption.setTransactionDate(adjustment.getTransactionDate());
+                consumption.setSubmissionDate(adjustment.getPresentationDate());
+                consumption.setBrand(adjustment.getBrand());
+                consumption.setMerchantName(adjustment.getOperationDescription());
+                consumption.setReceiptNumber(adjustment.getReceiptNumber());
+                consumption.setMovementType(adjustment.getTransactionType());
+                consumption.setAuthCode(adjustment.getAdjustmentCode());
+                consumptions.add(consumption);
+            }
+        }
+        log.info("Resumen de tarjeta {}", creditCardBrand);
+        log.info("Cant. consumos: {}", consumptions.size());
+        for (Consumption consumption : consumptions.stream().sorted(Comparator.comparing(Consumption::getTransactionDate)).collect(Collectors.toList())) {
+            log.info(String.join(" | ", List.of(
+                    DateUtils.format(consumption.getTransactionDate()),
+                    consumption.getMerchantName(),
+                    consumption.getFinalAmount() + " " + consumption.getFinalCurrency()
+            )));
+        }
+        log.info("Cant. consumos pendiente de autorizacion: {}", data.getAuthorizations().size());
+        data.getAuthorizations().forEach(authorization -> log.info(authorization.toString()));
+
+        return CommonResult.ok(data.getConsumptions());
     }
 
     private CommonResult logAndReturnError(String tag, RestConnectorException e) {

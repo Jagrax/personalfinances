@@ -1,6 +1,7 @@
 package ar.com.personalfinances.controller.abm;
 
 import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
+import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.api.galicia.model.CreditCardMovement;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
@@ -134,7 +135,7 @@ public class BankSyncController {
 
             switch (account.getType()) {
                 case CREDIT_CARD: {
-                    CommonResult getMovimientosTarjetaResult = syncCreditCardAccount(bankSyncModelAttribute.getCookie(), account);
+                    CommonResult getMovimientosTarjetaResult = readCreditCardAccount(getBearerTokenFromCookie(bankSyncModelAttribute.getCookie()), account);
                     if (getMovimientosTarjetaResult.isError()) {
                         applicationMessageService.add(request, ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
                         return "redirect:" + backUrl;
@@ -385,6 +386,17 @@ public class BankSyncController {
         return description;
     }
 
+    private String getDescription(Consumption consumption) {
+//        String description = consumption.getDescription();
+//        if (!StringUtils.hasText(description)) {
+//            description = consumption.getMovementDescription();
+//        } else if (!description.equals(consumption.getMovementDescription())) {
+//            description += " | " + consumption.getMovementDescription();
+//        }
+
+        return consumption.getMerchantName();
+    }
+
     private boolean isValid(BankAccountMovement bankAccountMovement) {
         if (bankAccountMovement.getFecha() == null) {
             log.info("[isValid] Invalid {}: fecha is null", bankAccountMovement);
@@ -415,6 +427,21 @@ public class BankSyncController {
         return true;
     }
 
+    private boolean isValid(Consumption consumption) {
+        if (consumption.getTransactionDate() == null) {
+            log.info("[isValid] Invalid {}: transaction date is null", consumption);
+            return false;
+        } else if (consumption.getMerchantName() == null) {
+            log.info("[isValid] Invalid {}: merchant name is null", consumption);
+            return false;
+        } else if (consumption.getFinalAmount() == null) {
+            log.info("[isValid] Invalid {}: final amount is null", consumption);
+            return false;
+        }
+
+        return true;
+    }
+
     private Expense createExpense(User user, Date date, Account account, String bankDescription, BigDecimal amount) {
         Expense expense = new Expense();
         expense.setUser(user);
@@ -437,5 +464,100 @@ public class BankSyncController {
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
+    }
+
+    private String getBearerTokenFromCookie(String cookie) {
+        if (cookie == null || cookie.isBlank()) {
+            return null;
+        }
+
+        String[] cookies = cookie.split(";");
+        for (String c : cookies) {
+            String trimmed = c.trim();
+            if (trimmed.startsWith("Skywalker=")) {
+                return trimmed.substring("Skywalker=".length());
+            }
+        }
+        return null;
+    }
+
+
+    private CommonResult readCreditCardAccount(String bearerToken, Account creditCardAccount) {
+        if (creditCardAccount.getType().equals(AccountType.CREDIT_CARD)) {
+            String creditCardAccountName = creditCardAccount.getName();
+            GaliciaApiService.CreditCardBrand creditCardBrand;
+            String creditCardAccountNumber;
+            if ("VISA".equals(creditCardAccountName)) {
+                creditCardBrand = GaliciaApiService.CreditCardBrand.VISA;
+                creditCardAccountNumber = "769200529";
+            } else if ("Master Card".equals(creditCardAccountName)) {
+                creditCardBrand = GaliciaApiService.CreditCardBrand.MASTER;
+                creditCardAccountNumber = "1328457";
+            } else {
+                return CommonResult.error("La " + creditCardAccount + " no es una tarjeta de credito valida (VISA o Master Card)");
+            }
+
+            log.info("[readCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito {}", creditCardAccount.getName());
+            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(bearerToken, creditCardBrand, creditCardAccountNumber);
+            if (getCardMovementsResult.isError()) {
+                return getCardMovementsResult;
+            }
+
+            List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
+            if (CollectionUtils.isEmpty(consumptions)) {
+                log.info("[syncCreditCardAccount] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
+                return CommonResult.ok("No se recuperaron movimientos de la tarjeta de credito");
+            }
+
+            log.info("[readCreditCardAccount] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", consumptions.size());
+            final List<Long> expensesIdFounded = new ArrayList<>();
+            consumptions = consumptions.stream().filter(movimiento -> {
+                if (!movimiento.getFinalCurrency().equals("ARS")) {
+                    log.info("[readCreditCardAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movimiento.getTransactionDate()), getDescription(movimiento), movimiento.getFinalAmount(), movimiento.getFinalCurrency());
+                    return false;
+                } else if (movimiento.getInstallmentPlan() != null && movimiento.getInstallmentPlan() != 0) {
+                    log.info("[readCreditCardAccount] Se ignora el movimiento [{} {} {}] por ser una cuota: {} de {}", DateUtils.format(movimiento.getTransactionDate()), getDescription(movimiento), movimiento.getFinalAmount(), movimiento.getInstallmentNumber(), movimiento.getInstallmentPlan());
+                    return false;
+                }
+
+                // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
+                if (isValid(movimiento)) {
+                    // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+                    final List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, movimiento.getTransactionDate(), movimiento.getFinalAmount());
+                    for (Expense expense : expensesByDateAndAmount) {
+                        if (expensesIdFounded.contains(expense.getId())) {
+                            continue;
+                        }
+
+                        expensesIdFounded.add(expense.getId());
+                        return false;
+                    }
+                } else {
+                    // Si el gasto no es valido, lo descarto
+                    return false;
+                }
+
+                // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
+                return true;
+            }).collect(Collectors.toList());
+
+            log.info("[readCreditCardAccount] Luego de filtrar los movimientos de la tarjeta de credito {}", consumptions.isEmpty()
+                    ? "no me quedaron movimientos por sincronizar"
+                    : "me quedaron " + consumptions.size() + " movimientos por sincronizar");
+
+            if (consumptions.isEmpty()) {
+                return CommonResult.ok(consumptions, "Los gastos de la cuenta estan sincronizados!");
+            }
+
+            final List<Expense> expensesCreated = new ArrayList<>();
+            for (int i = consumptions.size() - 1; i >= 0; i--) {
+                Consumption creditCardMovement = consumptions.get(i);
+                expensesCreated.add(createExpense(creditCardAccount.getOwner(), creditCardMovement.getTransactionDate(), creditCardAccount, getDescription(creditCardMovement), creditCardMovement.getFinalAmount()));
+            }
+
+            return CommonResult.ok(expensesCreated, "Se sincronizaron " + consumptions.size() + " gastos en la cuenta");
+        } else {
+            return CommonResult.error("La " + creditCardAccount + " no es una tarjeta de credito");
+        }
     }
 }
