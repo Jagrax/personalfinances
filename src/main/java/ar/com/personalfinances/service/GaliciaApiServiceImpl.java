@@ -85,7 +85,7 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
             msgDetail = "Sesion expirada (cookie invalida)";
             logError = false;
         } else {
-            msgDetail = e.getCause().getMessage();
+            msgDetail = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
         }
         if (logError) log.error(logMessage, e);
         return CommonResult.error("Error de Galicia [" + msgDetail + "]");
