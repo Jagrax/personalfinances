@@ -3,25 +3,23 @@ package ar.com.personalfinances.service;
 import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
 import ar.com.personalfinances.api.galicia.io.*;
 import ar.com.personalfinances.api.galicia.model.*;
+import ar.com.personalfinances.api.galicia.util.Credentials;
 import ar.com.personalfinances.util.CommonResult;
-import ar.com.personalfinances.util.DateUtils;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class GaliciaApiServiceImpl implements GaliciaApiService {
 
     @Override
-    public CommonResult getMovimientosCuenta(String cookies, Date from, Date to) {
+    public CommonResult getMovimientosCuenta(Credentials credentials, String cookies, Date from, Date to) {
         final List<BankAccountMovement> movimientos = new ArrayList<>();
         long actualPage = 0;
         Long totalPaginas = null;
@@ -30,7 +28,7 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
         while (totalPaginas == null || actualPage < totalPaginas) {
             try {
                 log.info("[getMovimientosCuenta] Por consultar los movimientos de la cuenta para las fechas [{} | {}]. Pagina actual: {}", from, to, actualPage);
-                getMovimientosCuentaResponse = new GaliciaApiConnector().getMovimientosCuenta(cookies, from, to, TipoMovimiento.TODOS, actualPage);
+                getMovimientosCuentaResponse = new GaliciaApiConnector(credentials).getMovimientosCuenta(cookies, from, to, TipoMovimiento.TODOS, actualPage);
             } catch (RestConnectorException e) {
                 return logAndReturnError("getMovimientosCuenta", e);
             }
@@ -50,11 +48,11 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
     }
 
     @Override
-    public CommonResult getMovimientosTarjeta(String cookies) {
+    public CommonResult getMovimientosTarjeta(Credentials credentials, String cookies) {
         GetMovimientosTarjetaResponse getMovimientosTarjetaResponse;
         try {
             log.info("[getMovimientosTarjeta] Por consultar los movimientos de la tarjeta");
-            getMovimientosTarjetaResponse = new GaliciaApiConnector().getMovimientosTarjeta(cookies);
+            getMovimientosTarjetaResponse = new GaliciaApiConnector(credentials).getMovimientosTarjeta(cookies);
         } catch (RestConnectorException e) {
             return logAndReturnError("getMovimientosTarjeta", e);
         }
@@ -73,10 +71,10 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
     }
 
     @Override
-    public CommonResult getCardMovements(String bearerToken, CreditCardBrand creditCardBrand, String creditAccountNumber) {
+    public CommonResult getCardMovements(Credentials credentials, CreditCardBrand creditCardBrand, String creditAccountNumber) {
         PostCardsMovementsResponse postCardsMovementsResponse;
         try {
-            postCardsMovementsResponse = new GaliciaApiConnector().postCardsMovements(bearerToken, new PostCardsMovementsRequest(creditAccountNumber, creditCardBrand.name()));
+            postCardsMovementsResponse = new GaliciaApiConnector(credentials).postCardsMovements(new PostCardsMovementsRequest(creditAccountNumber, creditCardBrand.name()));
         } catch (RestConnectorException e) {
             return logAndReturnError("getCardMovements", e);
         }
@@ -84,10 +82,6 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
         if (postCardsMovementsResponse == null) {
             return CommonResult.error("postCardsMovements returns null");
         }
-
-        // Aca podria haber errores que no sean significativos
-//        if (postCardsMovementsResponse.getErrors() != null && !postCardsMovementsResponse.getErrors().isEmpty()) {
-//        }
 
         DataTc data = postCardsMovementsResponse.getData().get(0);
         List<Consumption> consumptions = data.getConsumptions();
@@ -132,7 +126,7 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
             ErrorResponse commonError = (ErrorResponse) e.getEntityError();
             msgDetail = commonError.getMessage();
             logMessage += " " + commonError;
-        } else if (e.getStatusInfo().equals(HttpStatus.FOUND) && e.getEntityError() != null && ((String) e.getEntityError()).contains("sesionexpirada")) {
+        } else if (e.getStatusInfo() != null && e.getStatusInfo().equals(HttpStatus.FOUND) && e.getEntityError() != null && ((String) e.getEntityError()).contains("sesionexpirada")) {
             msgDetail = "Sesion expirada (cookie invalida)";
             logError = false;
         } else {

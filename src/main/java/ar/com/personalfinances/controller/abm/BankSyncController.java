@@ -128,14 +128,14 @@ public class BankSyncController {
 
             final Account account = optionalAccount.get();
 
-            if (!StringUtils.hasText(bankSyncModelAttribute.getCookie())) {
+            if (!StringUtils.hasText(bankSyncModelAttribute.getCookie()) && account.getType().equals(AccountType.BANK_ACCOUNT)) {
                 applicationMessageService.add(request, ApplicationMessage.error("Cookie null"));
                 return "redirect:" + backUrl;
             }
 
             switch (account.getType()) {
                 case CREDIT_CARD: {
-                    CommonResult getMovimientosTarjetaResult = readCreditCardAccount(getBearerTokenFromCookie(bankSyncModelAttribute.getCookie()), account);
+                    CommonResult getMovimientosTarjetaResult = readCreditCardAccount(account);
                     if (getMovimientosTarjetaResult.isError()) {
                         applicationMessageService.add(request, ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
                         return "redirect:" + backUrl;
@@ -188,7 +188,7 @@ public class BankSyncController {
             final String strFrom = DateUtils.format(from);
             final String strTo = DateUtils.format(to);
             log.info("[learnFromMovements] Por buscar movimientos entre las fechas {} y {}", strFrom, strTo);
-            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(cookie, from, to);
+            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(ApplicationUtils.getGaliciaCredentials(), cookie, from, to);
             if (!getMovimientosCuentaResult.isError()) {
                 List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
                 if (CollectionUtils.isEmpty(movements)) {
@@ -222,7 +222,7 @@ public class BankSyncController {
         final String strFrom = DateUtils.format(from);
         final String strTo = DateUtils.format(to);
         log.info("[syncBankAccount] Por sincronizar movimientos de la cuenta {} entre las fechas {} y {}", account.getName(), strFrom, strTo);
-        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(cookie, from, to);
+        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(ApplicationUtils.getGaliciaCredentials(), cookie, from, to);
         if (getMovimientosCuentaResult.isError()) {
             return getMovimientosCuentaResult;
         }
@@ -304,7 +304,7 @@ public class BankSyncController {
     final long GALICIA_CURRENCY_ARS_ID = 1;
     private CommonResult syncCreditCardAccount(String cookie, Account account) {
         log.info("[syncCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito {}", account.getName());
-        CommonResult getMovimientosTarjetaResult = galiciaApiService.getMovimientosTarjeta(cookie);
+        CommonResult getMovimientosTarjetaResult = galiciaApiService.getMovimientosTarjeta(ApplicationUtils.getGaliciaCredentials(), cookie);
         if (getMovimientosTarjetaResult.isError()) {
             return getMovimientosTarjetaResult;
         }
@@ -466,23 +466,7 @@ public class BankSyncController {
         return expense;
     }
 
-    private String getBearerTokenFromCookie(String cookie) {
-        if (cookie == null || cookie.isBlank()) {
-            return null;
-        }
-
-        String[] cookies = cookie.split(";");
-        for (String c : cookies) {
-            String trimmed = c.trim();
-            if (trimmed.startsWith("Skywalker=")) {
-                return trimmed.substring("Skywalker=".length());
-            }
-        }
-        return null;
-    }
-
-
-    private CommonResult readCreditCardAccount(String bearerToken, Account creditCardAccount) {
+    private CommonResult readCreditCardAccount(Account creditCardAccount) {
         if (creditCardAccount.getType().equals(AccountType.CREDIT_CARD)) {
             String creditCardAccountName = creditCardAccount.getName();
             GaliciaApiService.CreditCardBrand creditCardBrand;
@@ -498,7 +482,7 @@ public class BankSyncController {
             }
 
             log.info("[readCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito {}", creditCardAccount.getName());
-            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(bearerToken, creditCardBrand, creditCardAccountNumber);
+            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(ApplicationUtils.getGaliciaCredentials(), creditCardBrand, creditCardAccountNumber);
             if (getCardMovementsResult.isError()) {
                 return getCardMovementsResult;
             }

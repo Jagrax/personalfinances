@@ -1,5 +1,6 @@
 package ar.com.personalfinances.service;
 
+import ar.com.personalfinances.api.galicia.util.Credentials;
 import ar.com.personalfinances.util.CommonResult;
 import lombok.Getter;
 
@@ -25,9 +26,9 @@ public interface GaliciaApiService {
         MASTER,
     }
 
-    CommonResult getMovimientosCuenta(String cookies, Date from, Date to);
+    CommonResult getMovimientosCuenta(Credentials credentials, String cookies, Date from, Date to);
 
-    CommonResult getMovimientosTarjeta(String cookies);
+    CommonResult getMovimientosTarjeta(Credentials credentials, String cookies);
 
-    CommonResult getCardMovements(String bearerToken, CreditCardBrand creditCardBrand, String creditAccountNumber);
+    CommonResult getCardMovements(Credentials credentials, CreditCardBrand creditCardBrand, String creditAccountNumber);
 }

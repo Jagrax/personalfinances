@@ -47,10 +47,10 @@
                     try {
                         const text = await navigator.clipboard.readText();
 
-                        if (!text || !text.includes('Skywalker=')) {
-                            showClipboardErrorToast('El portapapeles no contiene una cookie v&aacute;lida');
-                            return;
-                        }
+                        // if (!text || !text.includes('Skywalker=')) {
+                        //     showClipboardErrorToast('El portapapeles no contiene una cookie v&aacute;lida');
+                        //     return;
+                        // }
 
                         $('#accountName').val(submitter.value);
                         $('#cookie').val(text);

@@ -1,5 +1,6 @@
 package ar.com.personalfinances.util;
 
+import ar.com.personalfinances.api.galicia.util.Credentials;
 import ar.com.personalfinances.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
@@ -134,5 +135,9 @@ public class ApplicationUtils {
         }
 
         return path;
+    }
+
+    public static Credentials getGaliciaCredentials() {
+        return new Credentials("39800772", "jgiani96", "0952");
     }
 }
