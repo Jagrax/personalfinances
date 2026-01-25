@@ -5,6 +5,7 @@ import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.api.galicia.model.CreditCardMovement;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
+import ar.com.personalfinances.repository.AccountApiCredentialsRepository;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
@@ -12,6 +13,7 @@ import ar.com.personalfinances.service.*;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
@@ -34,18 +36,20 @@ public class BankSyncController {
 
     private final SpecificationsService specificationsService;
     private final AccountRepository accountRepository;
+    private final AccountApiCredentialsRepository accountApiCredentialsRepository;
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
     private final GaliciaApiService galiciaApiService;
     private final ExpenseMappingService expenseMappingService;
     private final ApplicationMessageService applicationMessageService;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService, ApplicationMessageService applicationMessageService) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService, ApplicationMessageService applicationMessageService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
+        this.accountApiCredentialsRepository = accountApiCredentialsRepository;
         this.galiciaApiService = galiciaApiService;
         this.expenseMappingService = expenseMappingService;
         this.applicationMessageService = applicationMessageService;
@@ -466,23 +470,38 @@ public class BankSyncController {
         return expense;
     }
 
-    private CommonResult readCreditCardAccount(Account creditCardAccount) {
-        if (creditCardAccount.getType().equals(AccountType.CREDIT_CARD)) {
-            String creditCardAccountName = creditCardAccount.getName();
-            GaliciaApiService.CreditCardBrand creditCardBrand;
-            String creditCardAccountNumber;
+    private Pair<GaliciaApiService.CreditCardBrand, String> getOrComputeAccountBrandAndNumber(AccountApiCredentials accountApiCredentials) {
+        String extraDataEncrypted = accountApiCredentials.getExtraDataEncrypted();
+        if (!StringUtils.hasText(extraDataEncrypted)) {
+            String creditCardAccountName = accountApiCredentials.getAccount().getName();
             if ("VISA".equals(creditCardAccountName)) {
-                creditCardBrand = GaliciaApiService.CreditCardBrand.VISA;
-                creditCardAccountNumber = "769200529";
+                extraDataEncrypted = GaliciaApiService.CreditCardBrand.VISA + "|769200529";
             } else if ("Master Card".equals(creditCardAccountName)) {
-                creditCardBrand = GaliciaApiService.CreditCardBrand.MASTER;
-                creditCardAccountNumber = "1328457";
+                extraDataEncrypted = GaliciaApiService.CreditCardBrand.MASTER + "|1328457";
             } else {
-                return CommonResult.error("La " + creditCardAccount + " no es una tarjeta de credito valida (VISA o Master Card)");
+                throw new IllegalArgumentException("La tarjeta " + creditCardAccountName + " no es una tarjeta de credito valida (VISA o Master Card)");
             }
 
+            accountApiCredentials.setExtraDataEncrypted(extraDataEncrypted);
+            accountApiCredentialsRepository.save(accountApiCredentials);
+        }
+
+        String[] accountBrandAndNumber = extraDataEncrypted.split("\\|", 2);
+        return Pair.of(GaliciaApiService.CreditCardBrand.valueOf(accountBrandAndNumber[0]), accountBrandAndNumber[1]);
+    }
+
+    private CommonResult readCreditCardAccount(Account creditCardAccount) {
+        if (creditCardAccount.getType().equals(AccountType.CREDIT_CARD)) {
+            AccountApiCredentials accountApiCredentials = accountApiCredentialsRepository.findByAccount(creditCardAccount).orElseThrow(() -> new IllegalArgumentException(
+                    "Account has "
+            ));
+
+            Pair<GaliciaApiService.CreditCardBrand, String> accountBrandAndNumber = getOrComputeAccountBrandAndNumber(accountApiCredentials);
+            GaliciaApiService.CreditCardBrand creditCardBrand = accountBrandAndNumber.getFirst();
+            String creditCardAccountNumber = accountBrandAndNumber.getSecond();
+
             log.info("[readCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito {}", creditCardAccount.getName());
-            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(ApplicationUtils.getGaliciaCredentials(), creditCardBrand, creditCardAccountNumber);
+            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(ApplicationUtils.getGaliciaCredentials(accountApiCredentials), creditCardBrand, creditCardAccountNumber);
             if (getCardMovementsResult.isError()) {
                 return getCardMovementsResult;
             }

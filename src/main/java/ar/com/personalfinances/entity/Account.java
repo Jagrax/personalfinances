@@ -40,6 +40,13 @@ public class Account {
     @JoinColumn(name = "bank_id", foreignKey = @ForeignKey(name = "fk_account_bank"))
     private Bank bank;
 
+    @Column(name = "sync_enabled", nullable = false)
+    public boolean syncEnabled = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sync_provider")
+    public SyncProvider syncProvider;
+
     @Override
     public String toString() {
         return "Account [" +
