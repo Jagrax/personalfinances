@@ -9,13 +9,8 @@
 <body>
     <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
         <h2>Dashboard</h2>
-        <form id="bankSyncForm" th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="row">
-            <input type="hidden" th:field="*{cookie}" id="cookie">
-            <input type="hidden" name="accountName" id="accountName">
-            <input type="hidden" th:field="*{dateFrom}" id="dateFrom"/>
-            <input type="hidden" th:field="*{dateTo}" id="dateTo"/>
-
-            <div class="col-lg-4 col-xl-3 text-center" th:each="account : ${accountsBalances}">
+        <div class="row">
+            <form id="bankSyncForm" th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="col-lg-4 col-xl-3 col-xxl text-center" th:each="account : ${accountsBalances}">
                 <i th:if="${#strings.isEmpty(account[3])}" class="bi bi-credit-card fs-1"></i>
                 <i th:if="${!#strings.isEmpty(account[3]) and !(account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="bi me-2" th:with="icon=${account[3]}" th:classappend="${'bi-' + icon}"></i>
                 <img th:if="${!#strings.isEmpty(account[3]) and (account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="me-2" th:src="@{/images/{icon}(icon=${account[3]})}" height="64">
@@ -24,47 +19,28 @@
                     <span th:text="${#numbers.formatDecimal(account[2], 1, 'POINT', 2, 'COMMA')}"></span>
                     <span th:text="${account[1]}"></span>
                 </h2>
-                <p><a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary">Ver detalles</a></p>
-
-                <button type="submit" class="btn btn-success" name="accountName" th:value="${account[0]}"><i class="bi bi-save me-2"></i>Sincronizar</button>
-            </div>
-        </form>
-        <form method="post" enctype="multipart/form-data" th:action="@{/pdf/upload}">
-            <input type="file" name="file" accept="application/pdf" />
-            <button type="submit">Procesar PDF</button>
+                <div class="d-flex justify-content-center gap-5">
+                    <a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary" title="Ver detalles"><i class="bi bi-journal-text"></i></a>
+                    <button type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                    <button th:if="${'Master Card' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" onclick="tiggerPdfUpload()"><i class="bi bi-file-earmark-pdf"></i></button>
+                </div>
+            </form>
+        </div>
+        <form id="pdfUploadForm" method="post" enctype="multipart/form-data" th:action="@{/pdf/upload}" class="d-none">
+            <input id="pdfFileInput" type="file" name="file" accept="application/pdf" />
         </form>
         <script>
-            $(document).ready(function () {
-                $('#bankSyncForm').on('submit', async function (e) {
-                    e.preventDefault(); // frenamos el submit por defecto
-
-                    const submitter = e.originalEvent.submitter;
-                    if (!submitter) {
-                        showClipboardErrorToast('No se pudo determinar la cuenta a sincronizar');
-                        return;
+            function tiggerPdfUpload() {
+                const input = document.getElementById('pdfFileInput');
+                input.click();
+                input.onchange = function () {
+                    if (input.files.length > 0) {
+                        document.getElementById('pdfUploadForm').submit();
                     }
-
-                    try {
-                        const text = await navigator.clipboard.readText();
-
-                        // if (!text || !text.includes('Skywalker=')) {
-                        //     showClipboardErrorToast('El portapapeles no contiene una cookie v&aacute;lida');
-                        //     return;
-                        // }
-
-                        $('#accountName').val(submitter.value);
-                        $('#cookie').val(text);
-
-                        // ahora sí, submit real
-                        this.submit();
-
-                    } catch (err) {
-                        console.error('No se pudo acceder al portapapeles:', err);
-                        showClipboardErrorToast('No se pudo acceder al portapapeles');
-                    }
-                });
-            });
+                };
+            }
         </script>
+
     </div>
 </body>
 </html>

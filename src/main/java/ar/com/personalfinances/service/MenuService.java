@@ -34,7 +34,7 @@ public class MenuService {
             menuItems.add(new MenuItem(null, "speedometer2", "Dashboard", "/dashboard", null));
 
             List<MenuItem> expensesSubMenu = new ArrayList<>();
-            expensesSubMenu.add(new MenuItem(null, "list-columns-reverse", "Unificados", "/expenses", null));
+            expensesSubMenu.add(new MenuItem(null, "journal-text", "Unificados", "/expenses", null));
             expensesSubMenu.add(new MenuItem(null, "people-fill", "Compartidos", "/sharedExpenses", null));
             List<Account> userAccounts = accountRepository.findByOwner(user);
             if (!CollectionUtils.isEmpty(userAccounts)) {
