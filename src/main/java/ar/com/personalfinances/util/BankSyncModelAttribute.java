@@ -14,7 +14,7 @@ public class BankSyncModelAttribute {
     private Date dateFrom;
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private Date dateTo;
-    private String cookie;
+    private String aspNetSessionId;
     private Long accountId;
     private String accountName;
 }

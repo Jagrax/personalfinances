@@ -39,15 +39,39 @@ public class GaliciaApiConnector implements RestSecurityManager {
 
     private String cookie;
 
+    public GaliciaApiConnector() {
+        this.documentNumber = null;
+        this.username = null;
+        this.password = null;
+    }
+
     public GaliciaApiConnector(Credentials credentials) {
         this.documentNumber = credentials.getDocumentNumber();
         this.username = credentials.getUsername();
         this.password = credentials.getPassword();
     }
 
-    public GetMovimientosCuentaResponse getMovimientosCuenta(String cookie, Date fechaDesde, Date fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
-        this.cookie = cookie;
-        final RestConnector connector = new RestConnector("https://cuentas.bancogalicia.com.ar", this);
+    public GetMovimientosCuentaResponse getMovimientosCuenta(String aspNetSessionId, Date fechaDesde, Date fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
+        final RestConnector connector = new RestConnector("https://cuentas.bancogalicia.com.ar", new RestSecurityManager() {
+            @Override
+            public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
+                httpHeaders.add(HttpHeaders.HOST, "cuentas.bancogalicia.com.ar");
+                httpHeaders.add(HttpHeaders.ORIGIN, "https://cuentas.bancogalicia.com.ar");
+                httpHeaders.add(HttpHeaders.REFERER, "https://cuentas.bancogalicia.com.ar/cuentas/mis-cuentas");
+                httpHeaders.add(HttpHeaders.COOKIE, "ASP.NET_SessionId=" + aspNetSessionId);
+                return httpHeaders;
+            }
+
+            @Override
+            public boolean retryOnUnauthorized() {
+                return false;
+            }
+
+            @Override
+            public boolean detectUnauthorized(RestConnectorException e) {
+                return false;
+            }
+        });
         final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
 
         final MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
@@ -131,7 +155,7 @@ public class GaliciaApiConnector implements RestSecurityManager {
         return connector.genericGet(path, String.class, null, null, MediaType.TEXT_HTML);
     }
 
-    public Pair<String, HttpHeaders> postLogIn(String loginHeaderCookies, String requestVerificationToken, String documentNumber, int usernameLenght, int passwordLenght, String encriptedPassword) throws RestConnectorException {
+    public Pair<String, HttpHeaders> postLogIn(String loginHeaderCookies, String requestVerificationToken, String encriptedPassword) throws RestConnectorException {
         final RestConnector connector = new RestConnector("https://onlinebanking.bancogalicia.com.ar", new RestSecurityManager() {
             @Override
             public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
@@ -158,8 +182,8 @@ public class GaliciaApiConnector implements RestSecurityManager {
         formData.add("__RequestVerificationToken", requestVerificationToken);
         formData.add("EncriptedPassword", encriptedPassword);
         formData.add("DocumentNumber", documentNumber);
-        formData.add("UserName", "0".repeat(usernameLenght));
-        formData.add("Password", "0".repeat(passwordLenght));
+        formData.add("UserName", "0".repeat(username.length()));
+        formData.add("Password", "0".repeat(password.length()));
         formData.add("RememberMe", "false");
         formData.add("DevicePrintAdaptive", "version=3.7.1_1&pm_fpua=mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/143.0.0.0 safari/537.36|5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36|Win32&pm_fpsc=24|1920|1080|1032&pm_fpsw=pdf|pdf|pdf|pdf|pdf&pm_fptz=-3&pm_fpln=lang=en-US|syslang=|userlang=&pm_fpjv=0&pm_fpco=1&pm_fpasw=internal-pdf-viewer|internal-pdf-viewer|internal-pdf-viewer|internal-pdf-viewer|internal-pdf-viewer&pm_fpan=Netscape&pm_fpacn=Mozilla&pm_fpol=true&pm_fposp=&pm_fpup=&pm_fpsaw=1920&pm_fpspd=24&pm_fpsbd=&pm_fpsdx=&pm_fpsdy=&pm_fpslx=&pm_fpsly=&pm_fpsfse=&pm_fpsui=&pm_os=Windows&pm_brmjv=143&pm_br=Chrome&pm_inpt=&pm_expt="/*devicePrintAdaptive*/);
         formData.add("isDebugEnabled", "false");
@@ -228,7 +252,7 @@ public class GaliciaApiConnector implements RestSecurityManager {
                 throw new RestConnectorException("La encryptedPassword generada vacia");
             }
 
-            Pair<String, HttpHeaders> postLogInResponse = postLogIn(cookies, csrfToken, documentNumber, username.length(), password.length(), encryptedPassword);
+            Pair<String, HttpHeaders> postLogInResponse = postLogIn(cookies, csrfToken, encryptedPassword);
             if (postLogInResponse == null) {
                 log.error("El request POST de la pagina de login devolvio null");
                 throw new RestConnectorException("postLogIn returns null");

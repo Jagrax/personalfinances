@@ -19,7 +19,7 @@ import java.util.List;
 public class GaliciaApiServiceImpl implements GaliciaApiService {
 
     @Override
-    public CommonResult getMovimientosCuenta(Credentials credentials, String cookies, Date from, Date to) {
+    public CommonResult getMovimientosCuenta(String aspNetSessionId, Date from, Date to) {
         final List<BankAccountMovement> movimientos = new ArrayList<>();
         long actualPage = 0;
         Long totalPaginas = null;
@@ -28,7 +28,7 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
         while (totalPaginas == null || actualPage < totalPaginas) {
             try {
                 log.info("[getMovimientosCuenta] Por consultar los movimientos de la cuenta para las fechas [{} | {}]. Pagina actual: {}", from, to, actualPage);
-                getMovimientosCuentaResponse = new GaliciaApiConnector(credentials).getMovimientosCuenta(cookies, from, to, TipoMovimiento.TODOS, actualPage);
+                getMovimientosCuentaResponse = new GaliciaApiConnector().getMovimientosCuenta(aspNetSessionId, from, to, TipoMovimiento.TODOS, actualPage);
             } catch (RestConnectorException e) {
                 return logAndReturnError("getMovimientosCuenta", e);
             }

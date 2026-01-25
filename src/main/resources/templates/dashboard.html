@@ -21,7 +21,13 @@
                 </h2>
                 <div class="d-flex justify-content-center gap-5">
                     <a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary" title="Ver detalles"><i class="bi bi-journal-text"></i></a>
-                    <button type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                    <div class="input-group" th:if="${'Galicia ARS' == account[0]}">
+                        <input type="hidden" th:field="*{dateFrom}" id="dateFrom"/>
+                        <input type="hidden" th:field="*{dateTo}" id="dateTo"/>
+                        <input type="text" class="form-control" placeholder="ASP.NET_SessionId" aria-label="ASP.NET_SessionId" th:field="*{aspNetSessionId}" required>
+                        <button type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                    </div>
+                    <button th:unless="${'Galicia ARS' == account[0]}" type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
                     <button th:if="${'Master Card' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" onclick="tiggerPdfUpload()"><i class="bi bi-file-earmark-pdf"></i></button>
                 </div>
             </form>

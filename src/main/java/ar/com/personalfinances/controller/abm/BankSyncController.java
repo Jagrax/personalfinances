@@ -132,7 +132,7 @@ public class BankSyncController {
 
             final Account account = optionalAccount.get();
 
-            if (!StringUtils.hasText(bankSyncModelAttribute.getCookie()) && account.getType().equals(AccountType.BANK_ACCOUNT)) {
+            if (!StringUtils.hasText(bankSyncModelAttribute.getAspNetSessionId()) && account.getType().equals(AccountType.BANK_ACCOUNT)) {
                 applicationMessageService.add(request, ApplicationMessage.error("Cookie null"));
                 return "redirect:" + backUrl;
             }
@@ -154,7 +154,7 @@ public class BankSyncController {
                         return "redirect:" + backUrl;
                     }
 
-                    CommonResult syncBankAccountResult = syncBankAccount(bankSyncModelAttribute.getCookie(), account, bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
+                    CommonResult syncBankAccountResult = syncBankAccount(bankSyncModelAttribute.getAspNetSessionId(), account, bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
                     if (syncBankAccountResult.isError()) {
                         applicationMessageService.add(request, ApplicationMessage.error(syncBankAccountResult.getMessage()));
                         return "redirect:" + backUrl;
@@ -192,7 +192,7 @@ public class BankSyncController {
             final String strFrom = DateUtils.format(from);
             final String strTo = DateUtils.format(to);
             log.info("[learnFromMovements] Por buscar movimientos entre las fechas {} y {}", strFrom, strTo);
-            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(ApplicationUtils.getGaliciaCredentials(), cookie, from, to);
+            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(cookie, from, to);
             if (!getMovimientosCuentaResult.isError()) {
                 List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
                 if (CollectionUtils.isEmpty(movements)) {
@@ -222,11 +222,11 @@ public class BankSyncController {
         }
     }
 
-    private CommonResult syncBankAccount(String cookie, Account account, Date from, Date to) {
+    private CommonResult syncBankAccount(String aspNetSessionId, Account account, Date from, Date to) {
         final String strFrom = DateUtils.format(from);
         final String strTo = DateUtils.format(to);
         log.info("[syncBankAccount] Por sincronizar movimientos de la cuenta {} entre las fechas {} y {}", account.getName(), strFrom, strTo);
-        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(ApplicationUtils.getGaliciaCredentials(), cookie, from, to);
+        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(aspNetSessionId, from, to);
         if (getMovimientosCuentaResult.isError()) {
             return getMovimientosCuentaResult;
         }

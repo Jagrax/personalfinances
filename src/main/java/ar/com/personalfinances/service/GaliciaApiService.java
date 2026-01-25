@@ -26,7 +26,7 @@ public interface GaliciaApiService {
         MASTER,
     }
 
-    CommonResult getMovimientosCuenta(Credentials credentials, String cookies, Date from, Date to);
+    CommonResult getMovimientosCuenta(String aspNetSessionId, Date from, Date to);
 
     CommonResult getMovimientosTarjeta(Credentials credentials, String cookies);
 
