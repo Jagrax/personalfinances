@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 @ControllerAdvice
 public class GlobalControllerAdvice {
@@ -34,9 +35,9 @@ public class GlobalControllerAdvice {
 
         model.addAttribute("menu", menuService.getMenu(user));
 
-        ApplicationMessage msg = applicationMessageService.consume(httpServletRequest);
+        List<ApplicationMessage> msg = applicationMessageService.consume(httpServletRequest);
         if (msg != null) {
-            model.addAttribute("applicationMessage", msg);
+            model.addAttribute("applicationMessages", msg);
         }
     }
 }

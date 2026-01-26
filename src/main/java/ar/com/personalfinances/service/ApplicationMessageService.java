@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class ApplicationMessageService {
@@ -13,15 +15,19 @@ public class ApplicationMessageService {
 
     public void add(HttpServletRequest request, ApplicationMessage message) {
         if (message != null) {
-            request.getSession().setAttribute(SESSION_KEY, message);
+            HttpSession session = request.getSession();
+            List<ApplicationMessage> messages = (List<ApplicationMessage>) session.getAttribute(SESSION_KEY);
+            if (messages == null) messages = new ArrayList<>();
+            messages.add(message);
+            session.setAttribute(SESSION_KEY, messages);
         }
     }
 
-    public ApplicationMessage consume(HttpServletRequest request) {
+    public List<ApplicationMessage> consume(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) return null;
 
-        ApplicationMessage message = (ApplicationMessage) session.getAttribute(SESSION_KEY);
+        List<ApplicationMessage> message = (List<ApplicationMessage>) session.getAttribute(SESSION_KEY);
         if (message != null) {
             session.removeAttribute(SESSION_KEY);
         }

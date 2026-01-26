@@ -85,15 +85,17 @@
         </div>
     </nav>
     <main class="container-fluid">
-        <div th:if="${applicationMessage}" class="mt-4 alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            <span th:utext="${applicationMessage.message}"></span>
-            <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
-                <ul th:each="data : ${bindingResult.allErrors}">
-                    <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
-                </ul>
-            </th:block>
-        </div>
+        <th:block th:if="${applicationMessages}" th:each="applicationMessage : ${applicationMessages}">
+            <div class="mt-4 alert d-flex align-items-center" role="alert" th:classappend="${'alert-' + applicationMessage.type.name.toLowerCase()}">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span th:utext="${applicationMessage.message}"></span>
+                <th:block th:if="${bindingResult != null && bindingResult.allErrors != null}">
+                    <ul th:each="data : ${bindingResult.allErrors}">
+                        <li th:text="${data.objectName + ' :: ' + data.defaultMessage}"></li>
+                    </ul>
+                </th:block>
+            </div>
+        </th:block>
         <div layout:fragment="content">Page content</div>
         <div class="toast-container position-fixed top-0 end-0 p-3">
             <div id="clipboardErrorToast" class="toast text-bg-info border-0" role="alert" aria-live="assertive" aria-atomic="true">
