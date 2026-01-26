@@ -31,4 +31,5 @@ public interface GaliciaApiService {
     CommonResult getMovimientosTarjeta(Credentials credentials, String cookies);
 
     CommonResult getCardMovements(Credentials credentials, CreditCardBrand creditCardBrand, String creditAccountNumber);
+    CommonResult getCardMovements(String documentNumber, String username, String password, CreditCardBrand creditCardBrand, String creditAccountNumber);
 }

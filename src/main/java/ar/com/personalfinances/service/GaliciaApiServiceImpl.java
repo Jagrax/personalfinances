@@ -118,6 +118,11 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
         return CommonResult.ok(data.getConsumptions());
     }
 
+    @Override
+    public CommonResult getCardMovements(String documentNumber, String username, String password, CreditCardBrand creditCardBrand, String creditAccountNumber) {
+        return getCardMovements(new Credentials(documentNumber, username, password), creditCardBrand, creditAccountNumber);
+    }
+
     private CommonResult logAndReturnError(String tag, RestConnectorException e) {
         boolean logError = true;
         String logMessage = "[" + tag + "] Error de Galicia";

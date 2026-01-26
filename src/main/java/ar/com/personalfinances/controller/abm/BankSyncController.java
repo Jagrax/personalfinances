@@ -1,11 +1,8 @@
 package ar.com.personalfinances.controller.abm;
 
 import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
-import ar.com.personalfinances.api.galicia.model.Consumption;
-import ar.com.personalfinances.api.galicia.model.CreditCardMovement;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
-import ar.com.personalfinances.repository.AccountApiCredentialsRepository;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
@@ -13,14 +10,12 @@ import ar.com.personalfinances.service.*;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
@@ -36,23 +31,23 @@ public class BankSyncController {
 
     private final SpecificationsService specificationsService;
     private final AccountRepository accountRepository;
-    private final AccountApiCredentialsRepository accountApiCredentialsRepository;
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
     private final GaliciaApiService galiciaApiService;
     private final ExpenseMappingService expenseMappingService;
     private final ApplicationMessageService applicationMessageService;
+    private final AccountManagementService accountManagementService;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService, ApplicationMessageService applicationMessageService) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ExpenseRepository expenseRepository, AlertEventService alertEventService, CategoryRepository categoryRepository, GaliciaApiService galiciaApiService, ExpenseMappingService expenseMappingService, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
-        this.accountApiCredentialsRepository = accountApiCredentialsRepository;
         this.galiciaApiService = galiciaApiService;
         this.expenseMappingService = expenseMappingService;
         this.applicationMessageService = applicationMessageService;
+        this.accountManagementService = accountManagementService;
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -89,10 +84,7 @@ public class BankSyncController {
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.POST)
-    public String postBankSync(
-            @Valid BankSyncModelAttribute bankSyncModelAttribute,
-            RedirectAttributes redirectAttributes,
-            HttpServletRequest request) {
+    public String postBankSync(@Valid BankSyncModelAttribute bankSyncModelAttribute, HttpServletRequest request) {
         String backUrl = ApplicationUtils.getCurrentPage(request, false);
         if (!StringUtils.hasText(backUrl)) {
             backUrl = "/expenses";
@@ -139,12 +131,12 @@ public class BankSyncController {
 
             switch (account.getType()) {
                 case CREDIT_CARD: {
-                    CommonResult getMovimientosTarjetaResult = readCreditCardAccount(account);
-                    if (getMovimientosTarjetaResult.isError()) {
-                        applicationMessageService.add(request, ApplicationMessage.error(getMovimientosTarjetaResult.getMessage()));
+                    CommonResult syncResult = accountManagementService.syncCreditCardAccountMovements(account);
+                    if (syncResult.isError() || syncResult.isWarning()) {
+                        applicationMessageService.add(request, ApplicationMessage.error(syncResult.getMessage()));
                         return "redirect:" + backUrl;
                     } else {
-                        applicationMessageService.add(request, ApplicationMessage.success(getMovimientosTarjetaResult.getMessage()));
+                        applicationMessageService.add(request, ApplicationMessage.success(syncResult.getMessage()));
                     }
                     break;
                 }
@@ -170,6 +162,7 @@ public class BankSyncController {
                     return "redirect:" + backUrl;
             }
 
+            //noinspection SpringMVCViewInspection
             return "redirect:/expenses?accountType=" + account.getType().name() + "&accountName=" + account.getName();
         }
     }
@@ -306,67 +299,6 @@ public class BankSyncController {
     }
 
     final long GALICIA_CURRENCY_ARS_ID = 1;
-    private CommonResult syncCreditCardAccount(String cookie, Account account) {
-        log.info("[syncCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito {}", account.getName());
-        CommonResult getMovimientosTarjetaResult = galiciaApiService.getMovimientosTarjeta(ApplicationUtils.getGaliciaCredentials(), cookie);
-        if (getMovimientosTarjetaResult.isError()) {
-            return getMovimientosTarjetaResult;
-        }
-
-        List<CreditCardMovement> movimientos = (List<CreditCardMovement>) getMovimientosTarjetaResult.getPayload();
-        if (CollectionUtils.isEmpty(movimientos)) {
-            log.info("[syncCreditCardAccount] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
-            return CommonResult.ok("No se recuperaron movimientos de la tarjeta de credito");
-        }
-
-        log.info("[syncCreditCardAccount] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", movimientos.size());
-        final List<Long> expensesIdFounded = new ArrayList<>();
-        movimientos = movimientos.stream().filter(movimiento -> {
-            if (!movimiento.getCurrency().equals(GALICIA_CURRENCY_ARS_ID)) {
-                log.info("[syncCreditCardAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movimiento.getDate()), getDescription(movimiento), movimiento.getAmount(), movimiento.getCurrencySymbol());
-                return false;
-            } else if (movimiento.getTotalInstallment() != null && movimiento.getTotalInstallment() != 0) {
-                log.info("[syncCreditCardAccount] Se ignora el movimiento [{} {} {}] por ser una cuota: {} de {}", DateUtils.format(movimiento.getDate()), getDescription(movimiento), movimiento.getAmount(), movimiento.getCurrentInstallment(), movimiento.getTotalInstallment());
-                return false;
-            }
-
-            // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
-            if (isValid(movimiento)) {
-                // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
-                final List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, movimiento.getDate(), movimiento.getAmount());
-                for (Expense expense : expensesByDateAndAmount) {
-                    if (expensesIdFounded.contains(expense.getId())) {
-                        continue;
-                    }
-
-                    expensesIdFounded.add(expense.getId());
-                    return false;
-                }
-            } else {
-                // Si el gasto no es valido, lo descarto
-                return false;
-            }
-
-            // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
-            return true;
-        }).collect(Collectors.toList());
-
-        log.info("[syncCreditCardAccount] Luego de filtrar los movimientos de la tarjeta de credito {}", movimientos.isEmpty()
-                ? "no me quedaron movimientos por sincronizar"
-                : "me quedaron " + movimientos.size() + " movimientos por sincronizar");
-
-        if (movimientos.isEmpty()) {
-            return CommonResult.ok(movimientos, "Los gastos de la cuenta estan sincronizados!");
-        }
-
-        final List<Expense> expensesCreated = new ArrayList<>();
-        for (int i = movimientos.size() - 1; i >= 0; i--) {
-            CreditCardMovement creditCardMovement = movimientos.get(i);
-            expensesCreated.add(createExpense(account.getOwner(), creditCardMovement.getDate(), account, getDescription(creditCardMovement), creditCardMovement.getAmount()));
-        }
-
-        return CommonResult.ok(expensesCreated, "Se sincronizaron " + movimientos.size() + " gastos en la cuenta");
-    }
 
     private String getDescription(BankAccountMovement movimiento) {
         String description = movimiento.getDescripcionSide();
@@ -379,28 +311,6 @@ public class BankSyncController {
         return description;
     }
 
-    private String getDescription(CreditCardMovement creditCardMovement) {
-        String description = creditCardMovement.getDescription();
-        if (!StringUtils.hasText(description)) {
-            description = creditCardMovement.getMovementDescription();
-        } else if (!description.equals(creditCardMovement.getMovementDescription())) {
-            description += " | " + creditCardMovement.getMovementDescription();
-        }
-
-        return description;
-    }
-
-    private String getDescription(Consumption consumption) {
-//        String description = consumption.getDescription();
-//        if (!StringUtils.hasText(description)) {
-//            description = consumption.getMovementDescription();
-//        } else if (!description.equals(consumption.getMovementDescription())) {
-//            description += " | " + consumption.getMovementDescription();
-//        }
-
-        return consumption.getMerchantName();
-    }
-
     private boolean isValid(BankAccountMovement bankAccountMovement) {
         if (bankAccountMovement.getFecha() == null) {
             log.info("[isValid] Invalid {}: fecha is null", bankAccountMovement);
@@ -410,36 +320,6 @@ public class BankSyncController {
             return false;
         } else if (bankAccountMovement.getAmount() == null) {
             log.info("[isValid] Invalid {}: amount is null", bankAccountMovement);
-            return false;
-        }
-
-        return true;
-    }
-
-    private boolean isValid(CreditCardMovement creditCardMovement) {
-        if (creditCardMovement.getDate() == null) {
-            log.info("[isValid] Invalid {}: fecha is null", creditCardMovement);
-            return false;
-        } else if (creditCardMovement.getDescription() == null && creditCardMovement.getMovementDescription() == null) {
-            log.info("[isValid] Invalid {}: description & movementDescription is null", creditCardMovement);
-            return false;
-        } else if (creditCardMovement.getAmount() == null) {
-            log.info("[isValid] Invalid {}: amount is null", creditCardMovement);
-            return false;
-        }
-
-        return true;
-    }
-
-    private boolean isValid(Consumption consumption) {
-        if (consumption.getTransactionDate() == null) {
-            log.info("[isValid] Invalid {}: transaction date is null", consumption);
-            return false;
-        } else if (consumption.getMerchantName() == null) {
-            log.info("[isValid] Invalid {}: merchant name is null", consumption);
-            return false;
-        } else if (consumption.getFinalAmount() == null) {
-            log.info("[isValid] Invalid {}: final amount is null", consumption);
             return false;
         }
 
@@ -468,99 +348,5 @@ public class BankSyncController {
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
-    }
-
-    private Pair<GaliciaApiService.CreditCardBrand, String> getOrComputeAccountBrandAndNumber(AccountApiCredentials accountApiCredentials) {
-        String extraDataEncrypted = accountApiCredentials.getExtraDataEncrypted();
-        if (!StringUtils.hasText(extraDataEncrypted)) {
-            String creditCardAccountName = accountApiCredentials.getAccount().getName();
-            if ("VISA".equals(creditCardAccountName)) {
-                extraDataEncrypted = GaliciaApiService.CreditCardBrand.VISA + "|769200529";
-            } else if ("Master Card".equals(creditCardAccountName)) {
-                extraDataEncrypted = GaliciaApiService.CreditCardBrand.MASTER + "|1328457";
-            } else {
-                throw new IllegalArgumentException("La tarjeta " + creditCardAccountName + " no es una tarjeta de credito valida (VISA o Master Card)");
-            }
-
-            accountApiCredentials.setExtraDataEncrypted(extraDataEncrypted);
-            accountApiCredentialsRepository.save(accountApiCredentials);
-        }
-
-        String[] accountBrandAndNumber = extraDataEncrypted.split("\\|", 2);
-        return Pair.of(GaliciaApiService.CreditCardBrand.valueOf(accountBrandAndNumber[0]), accountBrandAndNumber[1]);
-    }
-
-    private CommonResult readCreditCardAccount(Account creditCardAccount) {
-        if (creditCardAccount.getType().equals(AccountType.CREDIT_CARD)) {
-            AccountApiCredentials accountApiCredentials = accountApiCredentialsRepository.findByAccount(creditCardAccount).orElseThrow(() -> new IllegalArgumentException(
-                    "Account has "
-            ));
-
-            Pair<GaliciaApiService.CreditCardBrand, String> accountBrandAndNumber = getOrComputeAccountBrandAndNumber(accountApiCredentials);
-            GaliciaApiService.CreditCardBrand creditCardBrand = accountBrandAndNumber.getFirst();
-            String creditCardAccountNumber = accountBrandAndNumber.getSecond();
-
-            log.info("[readCreditCardAccount] Por sincronizar movimientos de la tarjeta de credito {}", creditCardAccount.getName());
-            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(ApplicationUtils.getGaliciaCredentials(accountApiCredentials), creditCardBrand, creditCardAccountNumber);
-            if (getCardMovementsResult.isError()) {
-                return getCardMovementsResult;
-            }
-
-            List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
-            if (CollectionUtils.isEmpty(consumptions)) {
-                log.info("[readCreditCardAccount] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
-                return CommonResult.ok("No se recuperaron movimientos de la tarjeta de credito");
-            }
-
-            log.info("[readCreditCardAccount] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", consumptions.size());
-            final List<Long> expensesIdFounded = new ArrayList<>();
-            consumptions = consumptions.stream().filter(movimiento -> {
-                if (!movimiento.getFinalCurrency().equals("ARS")) {
-                    log.info("[readCreditCardAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movimiento.getTransactionDate()), getDescription(movimiento), movimiento.getFinalAmount(), movimiento.getFinalCurrency());
-                    return false;
-                } else if (movimiento.getInstallmentPlan() != null && movimiento.getInstallmentPlan() != 0) {
-                    log.info("[readCreditCardAccount] Se ignora el movimiento [{} {} {}] por ser una cuota: {} de {}", DateUtils.format(movimiento.getTransactionDate()), getDescription(movimiento), movimiento.getFinalAmount(), movimiento.getInstallmentNumber(), movimiento.getInstallmentPlan());
-                    return false;
-                }
-
-                // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
-                if (isValid(movimiento)) {
-                    // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
-                    final List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, movimiento.getTransactionDate(), movimiento.getFinalAmount());
-                    for (Expense expense : expensesByDateAndAmount) {
-                        if (expensesIdFounded.contains(expense.getId())) {
-                            continue;
-                        }
-
-                        expensesIdFounded.add(expense.getId());
-                        return false;
-                    }
-                } else {
-                    // Si el gasto no es valido, lo descarto
-                    return false;
-                }
-
-                // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
-                return true;
-            }).collect(Collectors.toList());
-
-            log.info("[readCreditCardAccount] Luego de filtrar los movimientos de la tarjeta de credito {}", consumptions.isEmpty()
-                    ? "no me quedaron movimientos por sincronizar"
-                    : "me quedaron " + consumptions.size() + " movimientos por sincronizar");
-
-            if (consumptions.isEmpty()) {
-                return CommonResult.ok(consumptions, "Los gastos de la cuenta estan sincronizados!");
-            }
-
-            final List<Expense> expensesCreated = new ArrayList<>();
-            for (int i = consumptions.size() - 1; i >= 0; i--) {
-                Consumption creditCardMovement = consumptions.get(i);
-                expensesCreated.add(createExpense(creditCardAccount.getOwner(), creditCardMovement.getTransactionDate(), creditCardAccount, getDescription(creditCardMovement), creditCardMovement.getFinalAmount()));
-            }
-
-            return CommonResult.ok(expensesCreated, "Se sincronizaron " + consumptions.size() + " gastos en la cuenta");
-        } else {
-            return CommonResult.error("La " + creditCardAccount + " no es una tarjeta de credito");
-        }
     }
 }
