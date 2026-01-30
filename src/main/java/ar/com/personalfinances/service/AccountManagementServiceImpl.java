@@ -81,7 +81,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
             if (CollectionUtils.isEmpty(consumptions)) {
                 log.info("[syncCreditCardAccountMovements] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
-                return CommonResult.ok("No se recuperaron movimientos de la tarjeta de credito");
+                return CommonResult.ok(consumptions, "No se recuperaron movimientos de la tarjeta de credito");
             }
 
             log.info("[syncCreditCardAccountMovements] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", consumptions.size());
