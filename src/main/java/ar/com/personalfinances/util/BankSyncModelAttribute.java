@@ -10,10 +10,6 @@ import java.util.Date;
 @Setter
 public class BankSyncModelAttribute {
 
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date dateFrom;
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date dateTo;
     private String aspNetSessionId;
     private Long accountId;
     private String accountName;

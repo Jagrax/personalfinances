@@ -141,17 +141,12 @@ public class BankSyncController {
                     break;
                 }
                 case BANK_ACCOUNT: {
-                    if (bankSyncModelAttribute.getDateFrom() == null || bankSyncModelAttribute.getDateTo() == null) {
-                        applicationMessageService.add(request, ApplicationMessage.error("Las fechas desde/hasta no pueden ser null"));
-                        return "redirect:" + backUrl;
-                    }
-
-                    CommonResult syncBankAccountResult = syncBankAccount(bankSyncModelAttribute.getAspNetSessionId(), account, bankSyncModelAttribute.getDateFrom(), bankSyncModelAttribute.getDateTo());
-                    if (syncBankAccountResult.isError()) {
-                        applicationMessageService.add(request, ApplicationMessage.error(syncBankAccountResult.getMessage()));
+                    CommonResult syncAccountMovementsResult = accountManagementService.syncAccountMovements(account, bankSyncModelAttribute.getAspNetSessionId());
+                    if (syncAccountMovementsResult.isError() || syncAccountMovementsResult.isWarning()) {
+                        applicationMessageService.add(request, ApplicationMessage.error(syncAccountMovementsResult.getMessage()));
                         return "redirect:" + backUrl;
                     } else {
-                        applicationMessageService.add(request, ApplicationMessage.success(syncBankAccountResult.getMessage()));
+                        applicationMessageService.add(request, ApplicationMessage.success(syncAccountMovementsResult.getMessage()));
                     }
 
                     //learnFromBankMovements(bankSyncModelAttribute.getCookie(), account);
@@ -213,140 +208,5 @@ public class BankSyncController {
 
             sortedDescriptions.forEach(entry -> log.info("{}\t{}", entry.getValue(), entry.getKey()));
         }
-    }
-
-    private CommonResult syncBankAccount(String aspNetSessionId, Account account, Date from, Date to) {
-        final String strFrom = DateUtils.format(from);
-        final String strTo = DateUtils.format(to);
-        log.info("[syncBankAccount] Por sincronizar movimientos de la cuenta {} entre las fechas {} y {}", account.getName(), strFrom, strTo);
-        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(aspNetSessionId, from, to);
-        if (getMovimientosCuentaResult.isError()) {
-            return getMovimientosCuentaResult;
-        }
-
-        List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
-        if (CollectionUtils.isEmpty(movements)) {
-            log.info("[syncBankAccount] No se recuperaron movimientos de la cuenta {} para sincronizar entre las fechas {} y {}", account.getName(), strFrom, strTo);
-            return CommonResult.ok("No se recuperaron movimientos de la cuenta para sincronizar entre las fechas " + strFrom + " y " + strTo);
-        }
-
-        log.info("[syncBankAccount] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}. Se procede a filtrar los movimientos ya existentes", movements.size(), strFrom, strTo);
-        final List<Long> expensesIdFounded = new ArrayList<>();
-        movements = movements.stream().filter(movement -> {
-            if (!movement.getMoneda().equals(GALICIA_CURRENCY_ARS_ID)) {
-                log.info("[syncBankAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movement.getFecha()), getDescription(movement), movement.getAmount(), movement.getMoneda());
-                return false;
-            }
-
-            // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
-            if (!isValid(movement)) {
-                // Si el gasto no es valido, lo descarto
-                return false;
-            }
-
-            // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
-            List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, movement.getFecha(), movement.getAmount());
-            for (Expense expense : expensesByDateAndAmount) {
-                if (expensesIdFounded.contains(expense.getId())) {
-                    continue;
-                }
-
-                expensesIdFounded.add(expense.getId());
-                return false;
-            }
-
-            // Si llegue a este punto, es que no encontre el gasto por cuenta, fecha e importe exacto, asi me fijo si tengo que buscar dias para atras hasta el proximo dia habil
-            final Calendar cal = Calendar.getInstance();
-            cal.setTime(movement.getFecha());
-            boolean isWorkingDay = false;
-            while (!isWorkingDay) {
-                // Retrocedo un dia
-                cal.add(Calendar.DATE, -1);
-                if (DateUtils.isWeekend(cal) || DateUtils.esFeriado(cal.getTime())) {
-                    expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, cal.getTime(), movement.getAmount());
-                    for (Expense expense : expensesByDateAndAmount) {
-                        if (expensesIdFounded.contains(expense.getId())) {
-                            continue;
-                        }
-
-                        expensesIdFounded.add(expense.getId());
-                        return false;
-                    }
-                } else {
-                    isWorkingDay = true;
-                }
-            }
-
-            // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
-            return true;
-        }).collect(Collectors.toList());
-
-        log.info("[syncBankAccount] Luego de filtrar los movimientos de la cuenta {} {}", account.getName(), movements.isEmpty()
-                ? "no me quedaron movimientos por sincronizar"
-                : "me quedaron " + movements.size() + " movimientos por sincronizar");
-
-        if (movements.isEmpty()) {
-            return CommonResult.ok(movements, "Los gastos de la cuenta estan sincronizados!");
-        }
-
-        final List<Expense> expensesCreated = new ArrayList<>();
-        for (int i = movements.size() - 1; i >= 0; i--) {
-            BankAccountMovement bankAccountMovement = movements.get(i);
-            expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), bankAccountMovement.getAmount()));
-        }
-
-        return CommonResult.ok(expensesCreated, "Se " + (movements.size() > 1 ? "sincronizaron " + movements.size() + " gastos" : "sincronizo " + movements.size() + " gasto") +  " en la cuenta");
-    }
-
-    final long GALICIA_CURRENCY_ARS_ID = 1;
-
-    private String getDescription(BankAccountMovement movimiento) {
-        String description = movimiento.getDescripcionSide();
-        if (!StringUtils.hasText(description)) {
-            description = movimiento.getDescripcionAMostrar();
-        } else if (!description.equals(movimiento.getDescripcionAMostrar())) {
-            description += " | " + movimiento.getDescripcionAMostrar();
-        }
-
-        return description;
-    }
-
-    private boolean isValid(BankAccountMovement bankAccountMovement) {
-        if (bankAccountMovement.getFecha() == null) {
-            log.info("[isValid] Invalid {}: fecha is null", bankAccountMovement);
-            return false;
-        } else if (bankAccountMovement.getDescripcionAMostrar() == null && bankAccountMovement.getDescripcionSide() == null) {
-            log.info("[isValid] Invalid {}: descripcionAMostrar & descripcionSide is null", bankAccountMovement);
-            return false;
-        } else if (bankAccountMovement.getAmount() == null) {
-            log.info("[isValid] Invalid {}: amount is null", bankAccountMovement);
-            return false;
-        }
-
-        return true;
-    }
-
-    private Expense createExpense(User user, Date date, Account account, String bankDescription, BigDecimal amount) {
-        Expense expense = new Expense();
-        expense.setUser(user);
-        expense.setDate(date);
-        expense.setAccount(account);
-        expense.setAmount(amount);
-        Optional<ExpenseMapping> matchOpt = expenseMappingService.matchExpenseMapping(user, bankDescription);
-        if (matchOpt.isPresent()) {
-            ExpenseMapping mapping = matchOpt.get();
-            expense.setDescription(mapping.getNormalizedDescription());
-            expense.setDetails(mapping.getDetails());
-            expense.setCategory(mapping.getCategory() != null ? mapping.getCategory() : automaticCategory);
-        } else {
-            expense.setDescription(bankDescription);
-            expense.setDetails(null);
-            expense.setCategory(automaticCategory);
-        }
-
-        expense = expenseRepository.save(expense);
-        log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
-        alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
-        return expense;
     }
 }

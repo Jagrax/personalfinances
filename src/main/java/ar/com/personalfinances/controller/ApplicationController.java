@@ -179,18 +179,7 @@ public class ApplicationController {
 
     @GetMapping({"/dashboard", "/"})
     public String getDashboardPage(Model model) {
-        BankSyncModelAttribute bankSyncModelAttribute = new BankSyncModelAttribute();
-
-        final Date to = new Date();
-        bankSyncModelAttribute.setDateTo(to);
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(to);
-        calendar.add(Calendar.DATE, -7);
-        bankSyncModelAttribute.setDateFrom(calendar.getTime());
-
-        model.addAttribute("bankSyncModelAttribute", bankSyncModelAttribute);
-
+        model.addAttribute("bankSyncModelAttribute", new BankSyncModelAttribute());
         model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId()));
         return "dashboard";
     }

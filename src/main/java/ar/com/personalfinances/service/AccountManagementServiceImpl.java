@@ -1,5 +1,6 @@
 package ar.com.personalfinances.service;
 
+import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
 import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
@@ -35,6 +36,158 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         this.alertEventService = alertEventService;
         this.expenseMappingService = expenseMappingService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
+    }
+
+    @Override
+    public CommonResult syncAccountMovements(Account account, String aspNetSessionId) {
+        if (!AccountType.BANK_ACCOUNT.equals(account.getType())) {
+            return CommonResult.warn("The requested account to sync is not a bank account: " + account);
+        }
+
+        if (!account.isSyncEnabled()) {
+            return CommonResult.warn("The requested account to sync is not allowed for sync: " + account);
+        }
+
+        final Date to = new Date();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(to);
+        calendar.add(Calendar.DATE, -30);
+        final Date from = calendar.getTime();
+
+        final String strFrom = DateUtils.format(from);
+        final String strTo = DateUtils.format(to);
+        log.info("[syncBankAccount] Por sincronizar movimientos de la cuenta {} entre las fechas {} y {}", account.getName(), strFrom, strTo);
+        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(aspNetSessionId, from, to);
+        if (getMovimientosCuentaResult.isError()) {
+            return getMovimientosCuentaResult;
+        }
+
+        List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
+        if (CollectionUtils.isEmpty(movements)) {
+            log.info("[syncBankAccount] No se recuperaron movimientos de la cuenta {} para sincronizar entre las fechas {} y {}", account.getName(), strFrom, strTo);
+            return CommonResult.ok("No se recuperaron movimientos de la cuenta para sincronizar entre las fechas " + strFrom + " y " + strTo);
+        }
+
+        log.info("[syncBankAccount] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}. Se procede a filtrar los movimientos ya existentes", movements.size(), strFrom, strTo);
+        final List<Long> expensesIdFounded = new ArrayList<>();
+        movements = movements.stream().filter(movement -> {
+            if (!movement.getMoneda().equals(GALICIA_CURRENCY_ARS_ID)) {
+                log.info("[syncBankAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movement.getFecha()), getDescription(movement), movement.getAmount(), movement.getMoneda());
+                return false;
+            }
+
+            // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
+            if (movement.getFecha() == null) {
+                log.info("[isValid] Invalid {}: fecha is null", movement);
+                return false;
+            } else if (movement.getDescripcionAMostrar() == null && movement.getDescripcionSide() == null) {
+                log.info("[isValid] Invalid {}: descripcionAMostrar & descripcionSide is null", movement);
+                return false;
+            } else if (movement.getAmount() == null) {
+                log.info("[isValid] Invalid {}: amount is null", movement);
+                return false;
+            }
+
+            // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+            List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, movement.getFecha(), movement.getAmount());
+            for (Expense expense : expensesByDateAndAmount) {
+                if (expensesIdFounded.contains(expense.getId())) {
+                    continue;
+                }
+
+                expensesIdFounded.add(expense.getId());
+                return false;
+            }
+
+            // Si llegue a este punto, es que no encontre el gasto por cuenta, fecha e importe exacto, asi me fijo si tengo que buscar dias para atras hasta el proximo dia habil
+            final Calendar cal = Calendar.getInstance();
+            cal.setTime(movement.getFecha());
+            boolean isWorkingDay = false;
+            while (!isWorkingDay) {
+                // Retrocedo un dia
+                cal.add(Calendar.DATE, -1);
+                if (DateUtils.isWeekend(cal) || DateUtils.esFeriado(cal.getTime())) {
+                    expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, cal.getTime(), movement.getAmount());
+                    for (Expense expense : expensesByDateAndAmount) {
+                        if (expensesIdFounded.contains(expense.getId())) {
+                            continue;
+                        }
+
+                        expensesIdFounded.add(expense.getId());
+                        return false;
+                    }
+                } else {
+                    isWorkingDay = true;
+                }
+            }
+
+            // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
+            return true;
+        }).collect(Collectors.toList());
+
+        log.info("[syncBankAccount] Luego de filtrar los movimientos de la cuenta {} {}", account.getName(), movements.isEmpty()
+                ? "no me quedaron movimientos por sincronizar"
+                : "me quedaron " + movements.size() + " movimientos por sincronizar");
+
+        if (movements.isEmpty()) {
+            return CommonResult.ok(movements, "Los gastos de la cuenta estan sincronizados!");
+        }
+
+        final List<Expense> expensesCreated = new ArrayList<>();
+        for (int i = movements.size() - 1; i >= 0; i--) {
+            BankAccountMovement bankAccountMovement = movements.get(i);
+            expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), bankAccountMovement.getAmount()));
+        }
+
+        return CommonResult.ok(expensesCreated, "Se " + (movements.size() > 1 ? "sincronizaron " + movements.size() + " gastos" : "sincronizo " + movements.size() + " gasto") +  " en la cuenta");
+    }
+
+    /*
+     * Metodo para recorrer los movimientos desde hoy hacia atras con un delta de 3 meses hasta que no haya mas movimientos y luego te da un reporte de los que se repitieron mas de una vez
+     */
+    public CommonResult learnFromBankMovements(Account account, String appNetSessionId) {
+        final int monthsGap = -3;
+        Date to = new Date();
+        Date from = DateUtils.addMonths(to, monthsGap);
+        CommonResult getMovimientosCuentaResult = CommonResult.ok();
+        boolean hasMovements = true;
+
+        // Mapa para contar las descripciones
+        Map<String, Integer> descriptionCount = new HashMap<>();
+
+        while (!getMovimientosCuentaResult.isError() && hasMovements) {
+            final String strFrom = DateUtils.format(from);
+            final String strTo = DateUtils.format(to);
+            log.info("[learnFromMovements] Por buscar movimientos entre las fechas {} y {}", strFrom, strTo);
+            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(appNetSessionId, from, to);
+
+            if (!getMovimientosCuentaResult.isError()) {
+                List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
+                if (CollectionUtils.isEmpty(movements)) {
+                    hasMovements = false;
+                } else {
+                    log.info("[syncBankAccount] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}.", movements.size(), strFrom, strTo);
+                    for (BankAccountMovement movement : movements) {
+                        descriptionCount.merge(getDescription(movement).toUpperCase(), 1, Integer::sum);
+                    }
+
+                    to = from;
+                    from = DateUtils.addMonths(to, monthsGap);
+                }
+            }
+        }
+
+        if (getMovimientosCuentaResult.isError()) {
+            return getMovimientosCuentaResult;
+        }
+
+        return CommonResult.ok(descriptionCount.entrySet().stream()
+                    .filter(entry -> entry.getValue() > 1) // Filtramos los que tienen más de 1 aparición
+                    .filter(entry -> expenseMappingService.matchExpenseMapping(account.getOwner(), entry.getKey()).isEmpty())
+                    .sorted(Comparator.comparing(Map.Entry<String, Integer>::getValue, Comparator.reverseOrder()).thenComparing(Map.Entry::getKey)) // Orden descendente por count y luego por description
+                    .collect(Collectors.toList())
+        );
     }
 
     @Override
@@ -137,6 +290,17 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         } else {
             throw new IllegalArgumentException("AccountAPICredentials.provider invalid [" + accountApiCredentials.getProvider() + "]");
         }
+    }
+
+    private String getDescription(BankAccountMovement movimiento) {
+        String description = movimiento.getDescripcionSide();
+        if (!StringUtils.hasText(description)) {
+            description = movimiento.getDescripcionAMostrar();
+        } else if (!description.equals(movimiento.getDescripcionAMostrar())) {
+            description += " | " + movimiento.getDescripcionAMostrar();
+        }
+
+        return description;
     }
 
     private Expense createExpense(User user, Date date, Account account, String bankDescription, BigDecimal amount) {

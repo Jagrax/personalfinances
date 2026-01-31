@@ -14,16 +14,6 @@
             <div class="card-body">
                 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                     <div class="col">
-                        <label class="form-label" for="dateFrom">Fecha desde</label>
-                        <input class="form-control form-control-sm" type="date" th:field="*{dateFrom}" id="dateFrom" th:classappend="${#fields.hasErrors('dateFrom') ? 'is-invalid' : ''}" required/>
-                        <div th:if="${#fields.hasErrors('dateFrom')}" th:errors="*{dateFrom}" th:classappend="${#fields.hasErrors('dateFrom') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                    </div>
-                    <div class="col">
-                        <label class="form-label" for="dateTo">Fecha hasta</label>
-                        <input class="form-control form-control-sm" type="date" th:field="*{dateTo}" id="dateTo" th:classappend="${#fields.hasErrors('dateTo') ? 'is-invalid' : ''}" required/>
-                        <div th:if="${#fields.hasErrors('dateTo')}" th:errors="*{dateTo}" th:classappend="${#fields.hasErrors('dateTo') ? 'invalid-feedback' : 'valid-feedback'}"></div>
-                    </div>
-                    <div class="col">
                         <label class="form-label" for="accountId">Cuenta</label>
                         <select class="form-select form-select-sm" th:field="*{accountId}" id="accountId" th:classappend="${#fields.hasErrors('accountId') ? 'is-invalid' : ''}" required>
                             <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}"/>
