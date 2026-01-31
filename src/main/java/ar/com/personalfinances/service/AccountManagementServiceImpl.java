@@ -146,6 +146,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     /*
      * Metodo para recorrer los movimientos desde hoy hacia atras con un delta de 3 meses hasta que no haya mas movimientos y luego te da un reporte de los que se repitieron mas de una vez
      */
+    @Override
     public CommonResult learnFromBankMovements(Account account, String appNetSessionId) {
         final int monthsGap = -3;
         Date to = new Date();

@@ -9,5 +9,7 @@ public interface AccountManagementService {
 
     CommonResult syncCreditCardAccountMovements(Account creditCardAccount);
 
+    CommonResult learnFromBankMovements(Account account, String appNetSessionId);
+
     CommonResult syncAccountMovements(Account account, String aspNetSessionId);
 }
