@@ -11,6 +11,7 @@
         <h2>Dashboard</h2>
         <div class="row">
             <form id="bankSyncForm" th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="col-lg-4 col-xl-3 col-xxl text-center" th:each="account : ${accountsBalances}">
+                <input type="hidden" name="accountName" th:value="${account[0]}">
                 <i th:if="${#strings.isEmpty(account[3])}" class="bi bi-credit-card fs-1"></i>
                 <i th:if="${!#strings.isEmpty(account[3]) and !(account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="bi me-2" th:with="icon=${account[3]}" th:classappend="${'bi-' + icon}"></i>
                 <img th:if="${!#strings.isEmpty(account[3]) and (account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="me-2" th:src="@{/images/{icon}(icon=${account[3]})}" height="64">
@@ -21,30 +22,50 @@
                 </h2>
                 <div class="d-flex justify-content-center gap-5">
                     <a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary" title="Ver detalles"><i class="bi bi-journal-text"></i></a>
-                    <div class="input-group" th:if="${'Galicia ARS' == account[0]}">
+                    <div class="input-group" th:if="${'Galicia ARS' == account[0] && account[4]}">
                         <input type="text" class="form-control" placeholder="ASP.NET_SessionId" aria-label="ASP.NET_SessionId" th:field="*{aspNetSessionId}" required>
-                        <button type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                        <button type="submit" class="btn btn-success" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                        <button type="button" class="btn btn-primary" title="Analizar movimientos del banco" onclick="submitAsLearn(this)"><i class="bi bi-eyeglasses"></i></button>
                     </div>
                     <button th:unless="${'Galicia ARS' == account[0]}" type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
-                    <button th:if="${'Master Card' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" onclick="tiggerPdfUpload()"><i class="bi bi-file-earmark-pdf"></i></button>
+                    <button th:if="${'Master Card' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" th:attr="data-account-name=${account[0]}" onclick="tiggerPdfUpload(this.dataset.accountName)"><i class="bi bi-file-earmark-pdf"></i></button>
                 </div>
             </form>
         </div>
-        <form id="pdfUploadForm" method="post" enctype="multipart/form-data" th:action="@{/pdf/upload}" class="d-none">
-            <input id="pdfFileInput" type="file" name="file" accept="application/pdf" />
+        <form id="pdfUploadForm" method="post" enctype="multipart/form-data" th:action="@{/bank-pdf}" class="d-none">
+            <input  type="file" id="pdfFileInput" name="file" accept="application/pdf" />
+            <input type="hidden" id="pdfAccountName" name="accountName">
         </form>
         <script>
-            function tiggerPdfUpload() {
-                const input = document.getElementById('pdfFileInput');
-                input.click();
-                input.onchange = function () {
-                    if (input.files.length > 0) {
-                        document.getElementById('pdfUploadForm').submit();
+            function tiggerPdfUpload(accountName) {
+                const fileInput = document.getElementById('pdfFileInput');
+                const accountInput = document.getElementById('pdfAccountName');
+                const form = document.getElementById('pdfUploadForm');
+
+                // seteamos el hidden
+                accountInput.value = accountName;
+
+                // abrimos el selector de archivo
+                fileInput.click();
+
+                fileInput.onchange = function () {
+                    if (fileInput.files.length > 0) {
+                        form.submit();
                     }
                 };
             }
-        </script>
 
+            function submitAsLearn(button) {
+                const form = button.closest('form');
+                if (!form) return;
+
+                // Cambiamos la action
+                form.action = form.action.replace('sync', 'learn');
+
+                // Submit normal
+                form.submit();
+            }
+        </script>
     </div>
 </body>
 </html>

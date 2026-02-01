@@ -9,27 +9,22 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.ReportsRepository;
-import ar.com.personalfinances.service.PDFService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
-import java.math.BigDecimal;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -45,16 +40,14 @@ public class ApplicationController {
     private final AccountRepository accountRepository;
     private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
-    private final PDFService pdfService;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, PDFService pdfService) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
-        this.pdfService = pdfService;
     }
 
     @RequestMapping("/expenses/report")
@@ -210,151 +203,5 @@ public class ApplicationController {
 
         categorySearch.setOwnerIds(categorySearchOwnerIds);
         return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
-    }
-
-    @PostMapping("/pdf/upload")
-    public ResponseEntity<String> uploadPdf(@RequestParam("file") MultipartFile file) {
-        try {
-            final String pdfAsText = pdfService.extractText(file);
-            final StringBuilder sb = new StringBuilder("<table border=\"1\">");
-
-            if (StringUtils.hasText(pdfAsText)) {
-                Pattern pattern = Pattern.compile(
-                        "^"
-                                + "(\\d{2}-[A-Za-z]{3}-\\d{2})"            // fecha
-                                + "\\s+"
-                                + "(.+?)"                 // descripción
-                                + "(?:\\s+(\\d{2})/(\\d{2}))?"             // cuota opcional NN/NN
-                                + "(?:\\s+(\\d{3,}))?"                     // referencia opcional
-                                + "\\s+(-?[0-9.,]+)"                       // monto principal
-                                + "(?:\\s+(-?[0-9.,]+))?"                  // segundo monto opcional
-                                + "$"
-                );
-
-                final String datePattern = "dd-MMM-yy";
-                SimpleDateFormat sdf = new SimpleDateFormat(datePattern, new Locale("es"));
-                boolean startReading = false;
-                boolean areCuotas = false;
-                List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
-                Account account = userAccounts.stream().filter(userAccount -> userAccount.getName().equals("Master Card")).collect(Collectors.toList()).get(0);
-                Date minDate = null, maxDate = null;
-                List<Expense> expensesFromPDF = new ArrayList<>();
-                for (String textRow : pdfAsText.split("\n")) {
-                    if (textRow == null) continue;
-                    String row = textRow.trim();              // quita espacios alrededor
-                    if (row.isEmpty()) continue;
-
-                    if (startReading) {
-                        Matcher matcher = pattern.matcher(row);
-                        if (matcher.find()) {
-                            String description = matcher.group(2).trim();
-
-                            // descartar pagos en dólares
-                            if (description.contains("U$S")) continue;
-
-                            String amount = matcher.group(6).replace(".", "").replace(",", ".");         // 13.600,00
-                            Date date;
-                            try {
-                                date = sdf.parse(matcher.group(1));
-                            } catch (ParseException e) {
-                                try {
-                                    date = new SimpleDateFormat(datePattern, Locale.ENGLISH).parse(matcher.group(1));
-                                } catch (ParseException e2) {
-                                    throw new IllegalArgumentException("Fecha inválida: " + e2);
-                                }
-                            }
-
-                            Expense expenseFromPDF = new Expense();
-                            expenseFromPDF.setDate(date);
-                            expenseFromPDF.setDescription(description);
-                            expenseFromPDF.setAmount(new BigDecimal(amount));
-                            String quotaNum = matcher.group(3);
-                            String quotaDen = matcher.group(4);
-                            if (quotaNum != null && quotaDen != null) {
-                                expenseFromPDF.setDetails("Cuota " + Integer.parseInt(quotaNum) + " de " + Integer.parseInt(quotaDen));
-                            }
-                            expensesFromPDF.add(expenseFromPDF);
-
-                            // La fecha minima no la quiero calcular a partir de los gastos de cuotas
-                            if (!areCuotas) {
-                                if (minDate == null) {
-                                    minDate = date;
-                                } else if (date.before(minDate)) {
-                                    minDate = date;
-                                }
-                            }
-
-                            if (maxDate == null) {
-                                maxDate = date;
-                            } else if (date.after(maxDate)) {
-                                maxDate = date;
-                            }
-                        } else if (row.equals("CUOTA DEL MES")) {
-                            areCuotas = true;
-                        }
-                    } else {
-                        startReading = row.startsWith("CONSOLIDADO");
-                    }
-                }
-
-                SimpleDateFormat sdf2 = new SimpleDateFormat("dd/MM/yyyy");
-                List<Expense> allExpenses = expenseRepository.findByAccountAndDateBetween(account, minDate, maxDate, Sort.by(Sort.Direction.DESC, "date", "id"));
-                List<Expense> expensesFromPDFMatched = new ArrayList<>();
-                for (Expense expense : allExpenses) {
-                    List<Expense> foundedExpenses = expensesFromPDF.stream()
-                            .filter(expenseFromPDF -> {
-                                // Distinto importe
-                                if (!expenseFromPDF.getAmount().equals(expense.getAmount())) {
-                                    return false;
-                                }
-
-                                // Es un gasto normal, descarto si no coincide la fecha
-                                if (expenseFromPDF.getDetails() != null) {
-                                    // Es un gasto en cuotas, si coincide el nro de cuota y el total, lo tomo como valido
-                                    return expense.getDetails().contains(expenseFromPDF.getDetails());
-                                } else {
-                                    return expenseFromPDF.getDate().equals(expense.getDate());
-                                }
-                            })
-                            .collect(Collectors.toList());
-                    sb.append("<tr>");
-                    int foundedExpensesCount = foundedExpenses.size();
-                    String rowspan = foundedExpensesCount > 1 ? " rowspan=\"" + foundedExpensesCount + "\"" : "";
-                    sb.append("<td ").append(rowspan).append(">").append(sdf2.format(expense.getDate())).append("</td>");
-                    sb.append("<td ").append(rowspan).append(">").append(expense.getDescription()).append("</td>");
-                    sb.append("<td ").append(rowspan).append(" class=\"text-end\">").append(expense.getAmount()).append("</td>");
-                    if (foundedExpenses.size() > 1) {
-                        for (Expense foundedExpense : foundedExpenses) {
-                            sb.append("<td>").append(sdf2.format(foundedExpense.getDate())).append("</td>");
-                            sb.append("<td>").append(foundedExpense.getDescription()).append("</td>");
-                            sb.append("<td class=\"text-end\">").append(foundedExpense.getAmount()).append("</td>");
-                            sb.append("</tr><tr>");
-                        }
-                    } else if (foundedExpenses.size() == 1) {
-                        Expense foundedExpense = foundedExpenses.get(0);
-                        sb.append("<td>").append(sdf2.format(foundedExpense.getDate())).append("</td>");
-                        sb.append("<td>").append(foundedExpense.getDescription()).append("</td>");
-                        sb.append("<td class=\"text-end\">").append(foundedExpense.getAmount()).append("</td>");
-                    }
-                    expensesFromPDFMatched.addAll(foundedExpenses);
-                    sb.append("</tr>");
-                }
-
-                for (Expense expense : expensesFromPDF) {
-                    if (!expensesFromPDFMatched.contains(expense)) {
-                        sb.append("<tr><td colspan=\"3\"></td>");
-                        sb.append("<td>").append(sdf2.format(expense.getDate())).append("</td>");
-                        sb.append("<td>").append(expense.getDescription()).append("</td>");
-                        sb.append("<td class=\"text-end\">").append(expense.getAmount()).append("</td>");
-                        sb.append("</tr>");
-                    }
-                }
-            }
-            sb.append("</table>");
-
-            return ResponseEntity.ok(sb.toString());
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error: " + e.getMessage());
-        }
     }
 }

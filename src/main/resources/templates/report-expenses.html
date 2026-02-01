@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Movimientos</title>
+</head>
+<body>
+<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+    <table class="table table-sm table-bordered table-striped">
+        <thead class="text-center">
+        <tr>
+            <th>Fecha</th>
+            <th>Descripci&oacute;n</th>
+            <th>Importe</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:if="${#lists.isEmpty(expensesNotFounded)}">
+            <td colspan="9">No hay registros para mostrar!</td>
+        </tr>
+        <tr th:unless="${#lists.isEmpty(expensesNotFounded)}" th:each="expense : ${expensesNotFounded}">
+            <td class="text-center" style="width:100px" th:text="${#dates.format(expense.date, 'dd/MM/yyyy')}"></td>
+            <td class="text-start" th:text="${expense.description}"></td>
+            <td class="text-center">
+                <div class="d-flex flex-nowrap">
+                    <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
+                    <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
+                </div>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
