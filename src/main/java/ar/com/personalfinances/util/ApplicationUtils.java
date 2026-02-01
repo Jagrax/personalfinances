@@ -118,6 +118,12 @@ public class ApplicationUtils {
         return Long.toString(ts, Character.MAX_RADIX);
     }
 
+    public static String getBackUrl(HttpServletRequest request, boolean withParams, String defaultBackUrl) {
+        String backUrl = ApplicationUtils.getCurrentPage(request, withParams);
+        if (!StringUtils.hasText(backUrl)) backUrl = defaultBackUrl;
+        return backUrl;
+    }
+
     public static String getCurrentPage(HttpServletRequest request, boolean withParams) {
         String referer = request.getHeader("Referer");
         if (!StringUtils.hasText(referer)) return null;
