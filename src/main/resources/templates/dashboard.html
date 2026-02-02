@@ -28,7 +28,7 @@
                         <button type="button" class="btn btn-primary" title="Analizar movimientos del banco" onclick="submitAsLearn(this)"><i class="bi bi-eyeglasses"></i></button>
                     </div>
                     <button th:unless="${'Galicia ARS' == account[0]}" type="submit" class="btn btn-success" name="accountName" th:if="${account[4]}" th:value="${account[0]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
-                    <button th:if="${'Master Card' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" th:attr="data-account-name=${account[0]}" onclick="tiggerPdfUpload(this.dataset.accountName)"><i class="bi bi-file-earmark-pdf"></i></button>
+                    <button th:if="${'Master Card' == account[0] or 'VISA' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" th:attr="data-account-name=${account[0]}" onclick="tiggerPdfUpload(this.dataset.accountName)"><i class="bi bi-file-earmark-pdf"></i></button>
                 </div>
             </form>
         </div>

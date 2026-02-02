@@ -267,18 +267,146 @@ public class BankSyncController {
             return backUrl;
         }
 
-        Pair<Map<Expense, List<Expense>>, List<Expense>> expensesAnalizedFromPdf = analizePdfMasterCard(account, pdfAsText);
+        Pair<Map<Expense, List<Expense>>, List<Expense>> expensesAnalizedFromPdf;
+        if (AccountType.CREDIT_CARD.equals(account.getType())){
+            if ("Master Card".equals(account.getName())) {
+                expensesAnalizedFromPdf = parseAndAnalyzeMasterCardPdf(account, pdfAsText);
+            } else if ("VISA".equals(account.getName())) {
+                expensesAnalizedFromPdf = parseAndAnalyzeVisaPdf(account, pdfAsText);
+            } else {
+                applicationMessageService.add(request, ApplicationMessage.error("Invalid credit card: " + account.getName()));
+                return backUrl;
+            }
+        } else {
+            applicationMessageService.add(request, ApplicationMessage.error("Invalid account type: " + account.getType()));
+            return backUrl;
+        }
         model.addAttribute("expensesFounded", expensesAnalizedFromPdf.getFirst());
         model.addAttribute("expensesNotFounded", expensesAnalizedFromPdf.getSecond());
 
         return "/report-expenses";
     }
 
-    /**
-     * Devuelve del lado izq un Map donde la key es un Expense de la DB asociado a todos los Expense creados dinamicamente a partir de las lineas del PDF
-     * Y del lado der el listado de Expenses creados dinamicamente a partir de las lineas del PDF que NO fueron encontradas en la DB
-     */
-    private Pair<Map<Expense, List<Expense>>, List<Expense>> analizePdfMasterCard(Account account, String pdfMasterCardAsText) {
+    private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeVisaPdf(Account account, String pdfMasterCardAsText) {
+        final Pattern expenseRowPattern = Pattern.compile(
+                "^"
+                        + "(\\d{2}\\.\\d{2}\\.\\d{2})"          // Fecha
+                        + "\\s+"
+                        + "(?:\\d{5,6}[A-Z*]?\\s+)?"            // Comprobante (opcional)
+                        + "(.+?)"                               // Detalle de transaccion
+                        + "(?:\\s+Cuota\\s+(\\d{2})/(\\d{2}))?" // Detalle de la cuota (opcional)
+                        + "\\s+"
+                        + "(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2}-?)" // Importe
+                        + "\\s*$"
+        );
+
+        final String datePattern = "dd.MM.yy";
+        SimpleDateFormat sdf = new SimpleDateFormat(datePattern, new Locale("es"));
+        boolean startReading = false;
+        Date minDate = null, maxDate = null, fixedQuotaDate = null;
+        List<Expense> expensesFromPDF = new ArrayList<>();
+        for (String textRow : pdfMasterCardAsText.split("\n")) {
+            if (textRow == null) continue;
+            String row = textRow.trim();              // quita espacios alrededor
+            if (row.isEmpty()) continue;
+
+            if (row.startsWith("CIERRE ANTERIOR")) {
+                final String cierreAnteriorRaw = row.substring("CIERRE ANTERIOR".length(), row.indexOf("PAGO MIN. ANT."));
+                if (StringUtils.hasText(cierreAnteriorRaw)) {
+                    final String cierreAnteriorClened = cierreAnteriorRaw.replaceAll("\\s+", "");
+                    final Matcher m = Pattern.compile("(\\d{1,2})([A-Za-z]{3})(\\d{2})").matcher(cierreAnteriorClened);
+                    if (m.matches()) {
+                        String monthStr = m.group(2).toLowerCase(Locale.ROOT);
+                        int month;
+                        switch (monthStr) {
+                            case "ene": month = Calendar.JANUARY; break;
+                            case "feb": month = Calendar.FEBRUARY; break;
+                            case "mar": month = Calendar.MARCH; break;
+                            case "abr": month = Calendar.APRIL; break;
+                            case "may": month = Calendar.MAY; break;
+                            case "jun": month = Calendar.JUNE; break;
+                            case "jul": month = Calendar.JULY; break;
+                            case "ago": month = Calendar.AUGUST; break;
+                            case "sep": month = Calendar.SEPTEMBER; break;
+                            case "oct": month = Calendar.OCTOBER; break;
+                            case "nov": month = Calendar.NOVEMBER; break;
+                            case "dic": month = Calendar.DECEMBER; break;
+                            default:
+                                throw new IllegalArgumentException("Mes inválido: " + monthStr);
+                        }
+
+                        Calendar cal = Calendar.getInstance();
+                        cal.set(Calendar.DATE, Integer.parseInt(m.group(1)));
+                        cal.set(Calendar.MONTH, month);
+                        cal.set(Calendar.YEAR, 2000 + Integer.parseInt(m.group(3)));
+                        // Le sumo 1 dia para que simule el 1er dia del periodo actual
+                        cal.add(Calendar.DATE, 1);
+                        fixedQuotaDate = cal.getTime();
+                    }
+                }
+            }
+
+            if (startReading) {
+                Matcher matcher = expenseRowPattern.matcher(row);
+                if (matcher.find()) {
+                    String description = matcher.group(2).trim();
+
+                    // descartar pagos en dólares
+                    if (description.contains("USD")) continue;
+
+                    final String amountRaw = matcher.group(5);
+                    BigDecimal amount = new BigDecimal(
+                            amountRaw.replace(".", "")
+                                    .replace(",", ".")
+                                    .replace("-", "")
+                    );
+                    if (amountRaw.endsWith("-")) amount = amount.negate();
+
+                    Date date;
+                    try {
+                        date = sdf.parse(matcher.group(1));
+                    } catch (ParseException e) {
+                        try {
+                            date = new SimpleDateFormat(datePattern, Locale.ENGLISH).parse(matcher.group(1));
+                        } catch (ParseException e2) {
+                            throw new IllegalArgumentException("Fecha inválida: " + e2);
+                        }
+                    }
+
+                    Expense expenseFromPDF = new Expense();
+                    expenseFromPDF.setDate(date);
+                    expenseFromPDF.setDescription(description);
+                    expenseFromPDF.setAmount(amount);
+                    String quotaNum = matcher.group(3);
+                    String quotaDen = matcher.group(4);
+                    if (quotaNum != null && quotaDen != null) {
+                        expenseFromPDF.setDetails("Cuota " + Integer.parseInt(quotaNum) + " de " + Integer.parseInt(quotaDen));
+                        if (fixedQuotaDate != null) expenseFromPDF.setDate(fixedQuotaDate);
+                    }
+                    expensesFromPDF.add(expenseFromPDF);
+
+                    // La fecha minima no la quiero calcular a partir de los gastos de cuotas
+                    if (minDate == null) {
+                        minDate = date;
+                    } else if (date.before(minDate)) {
+                        minDate = date;
+                    }
+
+                    if (maxDate == null) {
+                        maxDate = date;
+                    } else if (date.after(maxDate)) {
+                        maxDate = date;
+                    }
+                }
+            } else {
+                startReading = row.startsWith("FECHA");
+            }
+        }
+
+        return matchPdfExpensesWithAccount(expensesFromPDF, account, minDate, maxDate);
+    }
+
+    private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeMasterCardPdf(Account account, String pdfMasterCardAsText) {
         final Pattern expenseRowPattern = Pattern.compile(
                 "^"
                         + "(\\d{2}-[A-Za-z]{3}-\\d{2})"        // 1 fecha
@@ -359,6 +487,14 @@ public class BankSyncController {
             }
         }
 
+        return matchPdfExpensesWithAccount(expensesFromPDF, account, minDate, maxDate);
+    }
+
+    /**
+     * Devuelve del lado izq un Map donde la key es un Expense de la DB asociado a todos los Expense creados dinamicamente a partir de las lineas del PDF
+     * Y del lado der el listado de Expenses creados dinamicamente a partir de las lineas del PDF que NO fueron encontradas en la DB
+     */
+    private Pair<Map<Expense, List<Expense>>, List<Expense>> matchPdfExpensesWithAccount(List<Expense> expensesFromPDF, Account account, Date dateFrom, Date dateTo) {
         final Map<Expense, List<Expense>> expensesFounded = new HashMap<>();
         final List<Expense> expensesNotFounded = new ArrayList<>();
 
@@ -367,7 +503,7 @@ public class BankSyncController {
             return Pair.of(expensesFounded, expensesNotFounded);
         }
 
-        final List<Expense> allExpenses = expenseRepository.findByAccountAndDateBetween(account, minDate, maxDate, Sort.by(Sort.Direction.DESC, "date", "id"));
+        final List<Expense> allExpenses = expenseRepository.findByAccountAndDateBetween(account, dateFrom, dateTo, Sort.by(Sort.Direction.DESC, "date", "id"));
         final List<Expense> expensesFromPDFMatched = new ArrayList<>();
         for (Expense expense : allExpenses) {
             List<Expense> foundedExpensesFromPDF = expensesFromPDF.stream()
