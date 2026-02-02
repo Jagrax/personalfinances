@@ -18,23 +18,23 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Payment implements Serializable {
 
-    @JsonProperty("currency")// "ARS",
+    @JsonProperty("currency")
     private String currency;
 
-    @JsonProperty("amount")// "-1591994.30",
+    @JsonProperty("amount")
     private BigDecimal amount;
 
-    @JsonProperty("channel")// null,
+    @JsonProperty("channel")
     private String channel;
 
-    @JsonProperty("status")// "ACCEPTED",
+    @JsonProperty("status")
     private String status;
 
-    @JsonProperty("payment_date")// "2025-12-05",
+    @JsonProperty("payment_date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
     private Date paymentDate;
 
-    @JsonProperty("payment_owner")// null
+    @JsonProperty("payment_owner")
     private String paymentOwner;
 
     @Override

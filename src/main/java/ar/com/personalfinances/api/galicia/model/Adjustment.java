@@ -18,45 +18,45 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Adjustment implements Serializable {
 
-    @JsonProperty("status")// "ACCEPTED",
+    @JsonProperty("status")
     private String status;
     
-    @JsonProperty("transaction_date")// "2026-01-08",
+    @JsonProperty("transaction_date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
     private Date transactionDate;
     
-    @JsonProperty("presentation_date")// "2026-01-09",
+    @JsonProperty("presentation_date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
     private Date presentationDate;
     
-    @JsonProperty("adjustment_code")// "352829",
+    @JsonProperty("adjustment_code")
     private String adjustmentCode;
     
-    @JsonProperty("adjustment_code_internal")// null,
+    @JsonProperty("adjustment_code_internal")
     private String adjustmentCodeInternal;
     
-    @JsonProperty("operation_channel")// null,
+    @JsonProperty("operation_channel")
     private String operationChannel;
     
-    @JsonProperty("operation_description")// "DEV PER RG 4815 30%",
+    @JsonProperty("operation_description")
     private String operationDescription;
     
-    @JsonProperty("operation_description_internal")// null,
+    @JsonProperty("operation_description_internal")
     private String operationDescriptionInternal;
     
-    @JsonProperty("transaction_type")// "CREDIT",
+    @JsonProperty("transaction_type")
     private String transactionType;
     
-    @JsonProperty("transaction_amount")// "-31275.23",
+    @JsonProperty("transaction_amount")
     private BigDecimal transactionAmount;
     
-    @JsonProperty("receipt_number")// "540100",
+    @JsonProperty("receipt_number")
     private String receiptNumber;
     
-    @JsonProperty("transaction_currency")// "ARS",
+    @JsonProperty("transaction_currency")
     private String transactionCurrency;
     
-    @JsonProperty("brand")// "MASTER"
+    @JsonProperty("brand")
     private String brand;
 
     @Override

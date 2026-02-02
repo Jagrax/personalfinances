@@ -17,10 +17,10 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class PostCardsMovementsRequest implements Serializable {
 
-    @JsonProperty("credit_account_number")// "769200529", //769200529|1328457
+    @JsonProperty("credit_account_number")
     private String creditAccountNumber;
 
-    @JsonProperty("brand")// "VISA", //VISA|MASTER
+    @JsonProperty("brand")
     private String brand;
 
     @JsonProperty("date_from")

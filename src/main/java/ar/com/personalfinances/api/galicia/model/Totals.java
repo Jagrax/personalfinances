@@ -16,10 +16,10 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Totals implements Serializable {
 
-    @JsonProperty("total_amount_pesos")// "1068460.41",
+    @JsonProperty("total_amount_pesos")
     private BigDecimal totalAmountPesos;
 
-    @JsonProperty("total_amount_dollars")// "0.00"
+    @JsonProperty("total_amount_dollars")
     private BigDecimal totalAmountDollars;
 
     @Override

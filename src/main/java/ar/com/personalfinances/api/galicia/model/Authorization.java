@@ -18,77 +18,77 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Authorization implements Serializable {
 
-    @JsonProperty("transaction_date")// "2026-01-20",
+    @JsonProperty("transaction_date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
     private Date transactionDate;
     
-    @JsonProperty("merchant_number")// "73109449",
+    @JsonProperty("merchant_number")
     private String merchantNumber;
     
-    @JsonProperty("merchant_name")// "PVS*SUPER CNEL APOLINA",
+    @JsonProperty("merchant_name")
     private String merchantName;
     
-    @JsonProperty("market")// "5411",
+    @JsonProperty("market")
     private String market;
     
-    @JsonProperty("installment_plan")// 1,
+    @JsonProperty("installment_plan")
     private Long installmentPlan;
     
-    @JsonProperty("currency")// "ARS",
+    @JsonProperty("currency")
     private String currency;
     
-    @JsonProperty("transaction_currency")// "ARS",
+    @JsonProperty("transaction_currency")
     private String transactionCurrency;
     
-    @JsonProperty("transaction_amount")// "15830.00",
+    @JsonProperty("transaction_amount")
     private BigDecimal transactionAmount;
     
-    @JsonProperty("amount")// "15830.00",
+    @JsonProperty("amount")
     private BigDecimal amount;
     
-    @JsonProperty("transaction_status")// "APPROVED",
+    @JsonProperty("transaction_status")
     private String transactionStatus;
     
-    @JsonProperty("transaction_description")// "APPROVED WITHOUT BALANCES",
+    @JsonProperty("transaction_description")
     private String transactionDescription;
     
-    @JsonProperty("bin")// "550568",
+    @JsonProperty("bin")
     private String bin;
     
-    @JsonProperty("last_four_digits")// "3628",
+    @JsonProperty("last_four_digits")
     private String lastFourDigits;
     
-    @JsonProperty("brand")// "MASTER",
+    @JsonProperty("brand")
     private String brand;
     
-    @JsonProperty("channel")// "NFC",
+    @JsonProperty("channel")
     private String channel;
     
-    @JsonProperty("type")// "PURCHASE",
+    @JsonProperty("type")
     private String type;
     
-    @JsonProperty("acquirer_code")// "PRISMA",
+    @JsonProperty("acquirer_code")
     private String acquirerCode;
     
-    @JsonProperty("acquirer_description")// "PRISMA",
+    @JsonProperty("acquirer_description")
     private String acquirerDescription;
     
-    @JsonProperty("merchant_country")// "AR",
+    @JsonProperty("merchant_country")
     private String merchantCountry;
     
-    @JsonProperty("merchant_city")// "VILLA CRESPO",
+    @JsonProperty("merchant_city")
     private String merchantCity;
     
-    @JsonProperty("credit_account_number")// null,
+    @JsonProperty("credit_account_number")
     private String creditAccountNumber;
     
-    @JsonProperty("authorization_code")// null,
+    @JsonProperty("authorization_code")
     private String authorizationCode;
     
-    @JsonProperty("rejected_motive")// "",
+    @JsonProperty("rejected_motive")
     private String rejectedMotive;
     
-    @JsonProperty("date_front_format")// "2026-01-20 19:38"
+    @JsonProperty("date_front_format")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm", timezone = "GMT-03:00")
     private Date dateFrontFormat;
 

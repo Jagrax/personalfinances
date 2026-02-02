@@ -15,64 +15,64 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Error implements Serializable {
 
-    @JsonProperty("reason")// "No se enviaron fechas para la consulta del payments-manager",
+    @JsonProperty("reason")
     private String reason;
     
-    @JsonProperty("login-tracking-id")// null,
+    @JsonProperty("login-tracking-id")
     private String loginTrackingId;
     
-    @JsonProperty("code")// null,
+    @JsonProperty("code")
     private String code;
     
-    @JsonProperty("data")// null,
+    @JsonProperty("data")
     private String data;
     
-    @JsonProperty("code_backend")// null,
+    @JsonProperty("code_backend")
     private String codeBackend;
     
-    @JsonProperty("code_internal")// null,
+    @JsonProperty("code_internal")
     private String codeInternal;
     
-    @JsonProperty("description")// null,
+    @JsonProperty("description")
     private String description;
     
-    @JsonProperty("message")// null,
+    @JsonProperty("message")
     private String message;
     
-    @JsonProperty("title")// null,
+    @JsonProperty("title")
     private String title;
     
-    @JsonProperty("custom_message")// null,
+    @JsonProperty("custom_message")
     private String customMessage;
     
-    @JsonProperty("extensions")// null,
+    @JsonProperty("extensions")
     private String extensions;
     
-    @JsonProperty("trace")// null,
+    @JsonProperty("trace")
     private String trace;
     
-    @JsonProperty("error_type")// null,
+    @JsonProperty("error_type")
     private String errorType;
     
-    @JsonProperty("custom_title")// null,
+    @JsonProperty("custom_title")
     private String customTitle;
     
-    @JsonProperty("context")// null,
+    @JsonProperty("context")
     private String context;
     
-    @JsonProperty("detail")// null,
+    @JsonProperty("detail")
     private String detail;
     
-    @JsonProperty("custom_description")// null,
+    @JsonProperty("custom_description")
     private String customDescription;
     
-    @JsonProperty("lang")// null,
+    @JsonProperty("lang")
     private String lang;
     
-    @JsonProperty("custom_error_type")// null,
+    @JsonProperty("custom_error_type")
     private String customErrorType;
     
-    @JsonProperty("custom_code")// null
+    @JsonProperty("custom_code")
     private String customCode;
 
     @Override

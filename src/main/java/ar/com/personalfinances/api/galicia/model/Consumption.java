@@ -18,54 +18,54 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Consumption implements Serializable {
 
-    @JsonProperty("last_four_digits")// "8996",
+    @JsonProperty("last_four_digits")
     private String lastFourDigits;
     
-    @JsonProperty("receipt_number")// "00000447",
+    @JsonProperty("receipt_number")
     private String receiptNumber;
     
-    @JsonProperty("transaction_date")// "2025-05-13",
+    @JsonProperty("transaction_date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
     private Date transactionDate;
     
-    @JsonProperty("auth_code")// "00005049",
+    @JsonProperty("auth_code")
     private String authCode;
     
-    @JsonProperty("merchant_name")// "MARKETPLACE SAMSUNG",
+    @JsonProperty("merchant_name")
     private String merchantName;
     
-    @JsonProperty("installment_plan")// 18,
+    @JsonProperty("installment_plan")
     private Long installmentPlan;
     
-    @JsonProperty("installment_number")// 9,
+    @JsonProperty("installment_number")
     private Long installmentNumber;
     
-    @JsonProperty("transaction_currency")// "ARS",
+    @JsonProperty("transaction_currency")
     private String transactionCurrency;
     
-    @JsonProperty("transaction_amount")// 1499999.76,
+    @JsonProperty("transaction_amount")
     private BigDecimal transactionAmount;
     
-    @JsonProperty("submission_date")// "2025-11-28",
+    @JsonProperty("submission_date")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
     private Date submissionDate;
     
-    @JsonProperty("final_currency")// "ARS",
+    @JsonProperty("final_currency")
     private String finalCurrency;
     
-    @JsonProperty("movement_type")// "instalments",
+    @JsonProperty("movement_type")
     private String movementType;
     
-    @JsonProperty("brand")// "VISA",
+    @JsonProperty("brand")
     private String brand;
     
-    @JsonProperty("final_amount")// 83333.32,
+    @JsonProperty("final_amount")
     private BigDecimal finalAmount;
     
-    @JsonProperty("operation_type")// "733",
+    @JsonProperty("operation_type")
     private String operationType;
     
-    @JsonProperty("credit_account")// "769200529"
+    @JsonProperty("credit_account")
     private String creditAccount;
 
     @Override
