@@ -10,6 +10,7 @@ import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.util.DateUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -240,7 +241,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
 
             log.info("[syncCreditCardAccountMovements] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", consumptions.size());
 
-            final List<Long> expensesIdFounded = new ArrayList<>();
+            // Filtro los consumos validos
             consumptions = consumptions.stream()
                     .filter(consumption -> {
                         // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
@@ -256,38 +257,86 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                         } else if (!consumption.getFinalCurrency().equals("ARS")) {
                             log.info("[readCreditCardAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(consumption.getTransactionDate()), consumption.getMerchantName(), consumption.getFinalAmount(), consumption.getFinalCurrency());
                             return false;
-                        } else if (consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() != 0) {
-                            log.info("[readCreditCardAccount] Se ignora el movimiento [{} {} {}] por ser una cuota: {} de {}", DateUtils.format(consumption.getTransactionDate()), consumption.getMerchantName(), consumption.getFinalAmount(), consumption.getInstallmentNumber(), consumption.getInstallmentPlan());
-                            return false;
                         }
 
-                        // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
-                        final List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, consumption.getTransactionDate(), consumption.getFinalAmount());
-                        for (Expense expense : expensesByDateAndAmount) {
-                            if (expensesIdFounded.contains(expense.getId())) {
-                                continue;
-                            }
-
-                            expensesIdFounded.add(expense.getId());
-                            return false;
-                        }
-
-                        // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
                         return true;
                     })
                     .sorted(Comparator.comparing(Consumption::getTransactionDate))
                     .collect(Collectors.toList());
 
-            log.info("[syncCreditCardAccountMovements] Luego de filtrar los movimientos de la tarjeta de credito {}", consumptions.isEmpty()
-                    ? "no me quedaron movimientos por sincronizar"
-                    : "me quedaron " + consumptions.size() + " movimientos por sincronizar");
+            final List<Long> expensesIdFounded = new ArrayList<>();
+            Date minTransactionDate = null;
+            Date maxTransactionDate = null;
 
-            if (consumptions.isEmpty()) {
-                return CommonResult.ok(consumptions, "Los gastos de la cuenta estan sincronizados!");
+            List<Consumption> consumptionsToCreate = new ArrayList<>();
+            for (Consumption consumption : consumptions) {
+                final boolean isQuota = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0;
+                final List<Expense> foundedExpenses;
+                // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+                if (isQuota) {
+                    log.debug("Por buscar gasto con cuota {} de {} por {}", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
+                    foundedExpenses = expenseRepository.findByAccountAndAmountEqualsAndDetailsLike(creditCardAccount, consumption.getFinalAmount(), "%Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan() + "%");
+                } else {
+                    if (minTransactionDate == null || consumption.getTransactionDate().before(minTransactionDate)) {
+                        minTransactionDate = consumption.getTransactionDate();
+                    }
+                    if (maxTransactionDate == null || consumption.getTransactionDate().after(maxTransactionDate)) {
+                        maxTransactionDate = consumption.getTransactionDate();
+                    }
+                    log.debug("Por buscar gasto del {} por {}. Consumption.desc: {}", DateUtils.format(consumption.getTransactionDate()), consumption.getFinalAmount(), consumption.getMerchantName());
+                    foundedExpenses = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, consumption.getTransactionDate(), consumption.getFinalAmount());
+                }
+
+                boolean found = false;
+                for (Expense expense : foundedExpenses) {
+                    if (expensesIdFounded.contains(expense.getId())) {
+                        continue;
+                    }
+
+                    expensesIdFounded.add(expense.getId());
+                    found = true;
+                }
+
+                // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
+                if (!found) {
+                    if (isQuota) {
+                        log.info("No se encontra la expense para el {}", consumption);
+                    } else {
+                        consumptionsToCreate.add(consumption);
+                    }
+                }
             }
 
-            final List<Expense> expensesCreated = consumptions.stream().map(consumption -> createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount())).collect(Collectors.toList());
-            return CommonResult.ok(expensesCreated, "Se sincronizaron " + consumptions.size() + " gastos en la cuenta");
+            log.info("[syncCreditCardAccountMovements] Luego de filtrar los movimientos de la tarjeta de credito {}", consumptionsToCreate.isEmpty()
+                    ? "no me quedaron movimientos por sincronizar"
+                    : "me quedaron " + consumptionsToCreate.size() + " movimientos por sincronizar");
+
+            final List<Expense> expensesCreated;
+            final String resultMessage;
+            if (consumptionsToCreate.isEmpty()) {
+                expensesCreated = new ArrayList<>();
+                resultMessage = "Los gastos de la cuenta estan sincronizados!";
+            } else {
+                expensesCreated = consumptionsToCreate.stream().map(consumption -> createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount())).collect(Collectors.toList());
+                resultMessage = "Se sincronizaron " + consumptionsToCreate.size() + " gastos en la cuenta";
+            }
+
+            List<Expense> creditCardAccountExpensesByDates = expenseRepository.findByAccountAndDateBetween(creditCardAccount, minTransactionDate, maxTransactionDate, Sort.by(Sort.Direction.DESC, "date", "id"));
+            List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesByDates.stream()
+                    // Filtro a los no encontrados y además, los que sean pagos de tarjetas (no vienen en la API)
+                    .filter(expense -> !expensesIdFounded.contains(expense.getId()) && !"Pago de tarjeta".equals(expense.getCategory().getName()))
+                    .collect(Collectors.toList());
+            if (!expensesNotFoundInConsuptions.isEmpty()) {
+                BigDecimal amount = BigDecimal.ZERO;
+                log.info("Los siguientes gastos no fueron encontrados al sincronizar con el banco:");
+                for (Expense expense : expensesNotFoundInConsuptions) {
+                    log.info("{} - {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
+                    amount = amount.add(expense.getAmount());
+                }
+                log.info("En total, estos gastos suman {}", amount);
+            }
+
+            return CommonResult.ok(expensesCreated, resultMessage);
         } else {
             throw new IllegalArgumentException("AccountAPICredentials.provider invalid [" + accountApiCredentials.getProvider() + "]");
         }
