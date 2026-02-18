@@ -287,7 +287,7 @@ public class BankSyncController {
         return "/report-expenses";
     }
 
-    private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeVisaPdf(Account account, String pdfMasterCardAsText) {
+    private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeVisaPdf(Account account, String pdfVisaAsText) {
         final Pattern expenseRowPattern = Pattern.compile(
                 "^"
                         + "(\\d{2}\\.\\d{2}\\.\\d{2})"          // Fecha
@@ -305,7 +305,7 @@ public class BankSyncController {
         boolean startReading = false;
         Date minDate = null, maxDate = null, fixedQuotaDate = null;
         List<Expense> expensesFromPDF = new ArrayList<>();
-        for (String textRow : pdfMasterCardAsText.split("\n")) {
+        for (String textRow : pdfVisaAsText.split("\n")) {
             if (textRow == null) continue;
             String row = textRow.trim();              // quita espacios alrededor
             if (row.isEmpty()) continue;
