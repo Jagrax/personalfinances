@@ -2,6 +2,7 @@ package ar.com.personalfinances.entity;
 
 import javax.persistence.*;
 
+import ar.com.personalfinances.util.DateUtils;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -47,6 +48,15 @@ public class Expense {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "fk_expense_user"))
     private User user;
+
+    public String toDebugString() {
+        return "Expense [" +
+                ((id != null) ? "id=" + id + ", " : "") +
+                ((date != null) ? "date=" + DateUtils.format(date) + ", " : "") +
+                ((description != null) ? "description='" + description + "', " : "") +
+                ((amount != null) ? "amount=" + amount : "") +
+                "]";
+    }
 
     @Override
     public String toString() {

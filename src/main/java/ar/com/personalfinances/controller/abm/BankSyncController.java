@@ -28,6 +28,9 @@ import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -270,7 +273,38 @@ public class BankSyncController {
         Pair<Map<Expense, List<Expense>>, List<Expense>> expensesAnalizedFromPdf;
         if (AccountType.CREDIT_CARD.equals(account.getType())){
             if ("Master Card".equals(account.getName())) {
-                expensesAnalizedFromPdf = parseAndAnalyzeMasterCardPdf(account, pdfAsText);
+                expensesAnalizedFromPdf = parseAndAnalyzeMasterCardPdf(account, Map.of(
+                        file.getName(),
+                        Arrays.stream(pdfAsText.split("\\R"))
+                                .map(String::trim)
+                                .filter(line -> !line.isEmpty())
+                                .collect(Collectors.toList())
+                ));
+                // Si quiero leer los PDFs de un directorio
+//                try (Stream<Path> paths = Files.list(Path.of(folderPath))) {
+//                    Map<String, List<String>> map = paths
+//                            .filter(Files::isRegularFile)
+//                            .filter(p -> p.toString().toLowerCase().endsWith(".pdf"))
+//                            .collect(Collectors.toMap(
+//                                    p -> p.getFileName().toString(),
+//                                    p -> {
+//                                        try {
+//                                            byte[] bytes = Files.readAllBytes(p);
+//                                            return Arrays.stream(pdfService.extractText(bytes).split("\\R"))
+//                                                    .map(String::trim)
+//                                                    .filter(line -> !line.isEmpty())
+//                                                    .collect(Collectors.toList());
+//                                        } catch (IOException e) {
+//                                            throw new UncheckedIOException(e);
+//                                        }
+//                                    },
+//                                    (existing, replacement) -> existing,  // merge function
+//                                    TreeMap::new                          // map supplier
+//                            ));
+//                    expensesAnalizedFromPdf = parseAndAnalyzeMasterCardPdf(account, map);
+//                } catch (IOException e) {
+//                    throw new RuntimeException(e);
+//                }
             } else if ("VISA".equals(account.getName())) {
                 expensesAnalizedFromPdf = parseAndAnalyzeVisaPdf(account, pdfAsText);
             } else {
@@ -406,88 +440,130 @@ public class BankSyncController {
         return matchPdfExpensesWithAccount(expensesFromPDF, account, minDate, maxDate);
     }
 
-    private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeMasterCardPdf(Account account, String pdfMasterCardAsText) {
-        final Pattern expenseRowPattern = Pattern.compile(
-                "^"
-                        + "(\\d{2}-[A-Za-z]{3}-\\d{2})"        // 1 fecha
-                        + "\\s+"
-                        + "(.+?)"                              // 2 descripción (incluye números)
-                        + "(?:\\s+(\\d{2})/(\\d{2}))?"         // 3-4 cuota opcional
+    private final static Pattern FECHA_CIERRE_PATTERN = Pattern.compile("vigente al (\\d{2}/\\d{2}/\\d{4})");
+    private final static Pattern CONSUMPTION_PATTERN = Pattern.compile(
+            "^"
+                    + "(\\d{2}-[A-Za-z]{3}-\\d{2})"        // 1 fecha
+                    + "\\s+"
+                    + "(.+?)"                              // 2 descripción (incluye números)
+                    + "(?:\\s+(\\d{2})/(\\d{2}))?"         // 3-4 cuota opcional
 //                      + "(?:\\s+(\\d{3,}))?"                 // referencia opcional (originalmente decia esto)
-                        + "(?:\\s+(\\d{5,6}))?"                // 5 nro comprobante (ANTES del importe)
+                    + "(?:\\s+(\\d{5,6}))?"                // 5 nro comprobante (ANTES del importe)
 //                      + "\\s+(-?[0-9.,]+)"                   // monto principal (originalmente decia esto)
-                        + "\\s+(-?[0-9.]+,[0-9]{2})"           // 6 importe principal (SIEMPRE último)
+                    + "\\s+(-?[0-9.]+,[0-9]{2})"           // 6 importe principal (SIEMPRE último)
 //                      + "(?:\\s+(-?[0-9.,]+))?"              // segundo monto opcional (originalmente decia esto)
-                        + "(?:\\s+(-?[0-9.]+,[0-9]{2}))?"      // 7 segundo importe opcional
-                        + "$"
-        );
+                    + "(?:\\s+(-?[0-9.]+,[0-9]{2}))?"      // 7 segundo importe opcional
+                    + "$"
+    );
+    private final static Pattern DEV_PERCEP_PATTERN = Pattern.compile(
+            "^"
+                    + "((?:DEV|PERCEP\\.AFIP).+?)"   // 1 descripción
+                    + "\\s+"
+                    + "(-?[0-9.]+,[0-9]{2})"         // 2 importe
+                    + "$"
+    );
 
+    private final static DateTimeFormatter FORMATTER_ARG = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeMasterCardPdf(Account account, Map<String, List<String>> masterCardPdfsWithLines) {
         final String datePattern = "dd-MMM-yy";
-        SimpleDateFormat sdf = new SimpleDateFormat(datePattern, new Locale("es"));
-        boolean startReading = false;
-        boolean areCuotas = false;
+        final SimpleDateFormat sdf = new SimpleDateFormat(datePattern, new Locale("es"));
         Date minDate = null, maxDate = null;
-        List<Expense> expensesFromPDF = new ArrayList<>();
-        for (String textRow : pdfMasterCardAsText.split("\n")) {
-            if (textRow == null) continue;
-            String row = textRow.trim();              // quita espacios alrededor
-            if (row.isEmpty()) continue;
+        final List<Expense> expensesFromPDFs = new ArrayList<>();
+        for (String pdfName : masterCardPdfsWithLines.keySet()) {
+            final List<Expense> expensesFromPDF = new ArrayList<>();
+            final List<String> pdfMasterCardLines = masterCardPdfsWithLines.get(pdfName);
 
-            if (startReading) {
-                // TODO: Discriminar si estoy leyendo la seccion CONSOLIDADO o COMPRAS DEL MES
-                Matcher matcher = expenseRowPattern.matcher(row);
-                if (matcher.find()) {
-                    String description = matcher.group(2).trim();
+            // Resuelvo la fecha de cierre
+            final LocalDate fechaCierre = pdfMasterCardLines.stream()
+                    .filter(StringUtils::hasText)
+                    .map(FECHA_CIERRE_PATTERN::matcher)
+                    .filter(Matcher::find)
+                    .map(matcher -> LocalDate.parse(matcher.group(1), FORMATTER_ARG))
+                    .findFirst().orElse(null);
 
-                    // descartar pagos en dólares
-                    if (description.contains("U$S")) continue;
+            boolean areCuotas = false;
+            boolean isConsumptionSection = false;
+            for (String line : pdfMasterCardLines) {
 
-                    String amount = matcher.group(6).replace(".", "").replace(",", ".");         // 13.600,00
-                    Date date;
-                    try {
-                        date = sdf.parse(matcher.group(1));
-                    } catch (ParseException e) {
+                if (isConsumptionSection) {
+                    // Si llegue a la linea que dice "Cuotas a vencer", entonces ya termine de leer los consumos del resumen
+                    if (line.startsWith("Cuotas a vencer")) break;
+
+                    Matcher matcher = CONSUMPTION_PATTERN.matcher(line);
+                    if (matcher.find()) {
+                        String description = matcher.group(2).trim();
+
+                        // descartar pagos en dólares
+                        if (description.contains("U$S")) continue;
+
+                        String amount = matcher.group(6).replace(".", "").replace(",", ".");         // 13.600,00
+                        Date date;
                         try {
-                            date = new SimpleDateFormat(datePattern, Locale.ENGLISH).parse(matcher.group(1));
-                        } catch (ParseException e2) {
-                            throw new IllegalArgumentException("Fecha inválida: " + e2);
+                            date = sdf.parse(matcher.group(1));
+                        } catch (ParseException e) {
+                            try {
+                                date = new SimpleDateFormat(datePattern, Locale.ENGLISH).parse(matcher.group(1));
+                            } catch (ParseException e2) {
+                                throw new IllegalArgumentException("Fecha inválida: " + e2);
+                            }
+                        }
+
+                        Expense expenseFromPDF = new Expense();
+                        expenseFromPDF.setDate(date);
+                        expenseFromPDF.setDescription(description);
+                        expenseFromPDF.setAmount(new BigDecimal(amount));
+                        String quotaNum = matcher.group(3);
+                        String quotaDen = matcher.group(4);
+                        if (quotaNum != null && quotaDen != null) {
+                            expenseFromPDF.setDetails("Cuota " + Integer.parseInt(quotaNum) + " de " + Integer.parseInt(quotaDen));
+                        }
+                        expensesFromPDF.add(expenseFromPDF);
+
+                        // La fecha minima no la quiero calcular a partir de los gastos de cuotas
+                        if (!areCuotas) {
+                            if (minDate == null) {
+                                minDate = date;
+                            } else if (date.before(minDate)) {
+                                minDate = date;
+                            }
+                        }
+
+                        if (maxDate == null) {
+                            maxDate = date;
+                        } else if (date.after(maxDate)) {
+                            maxDate = date;
+                        }
+                    } else {
+                        matcher = DEV_PERCEP_PATTERN.matcher(line);
+                        if (matcher.find()) {
+                            String description = matcher.group(1).trim();
+                            String amount = matcher.group(2)
+                                    .replace(".", "")
+                                    .replace(",", ".");
+
+                            Expense expenseFromPDF = new Expense();
+                            if (fechaCierre != null) expenseFromPDF.setDate(Date.from(fechaCierre.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+                            expenseFromPDF.setDescription(description);
+                            expenseFromPDF.setAmount(new BigDecimal(amount));
+
+                            expensesFromPDF.add(expenseFromPDF);
+                        } else if (line.equals("CUOTA DEL MES")) {
+                            areCuotas = true;
                         }
                     }
-
-                    Expense expenseFromPDF = new Expense();
-                    expenseFromPDF.setDate(date);
-                    expenseFromPDF.setDescription(description);
-                    expenseFromPDF.setAmount(new BigDecimal(amount));
-                    String quotaNum = matcher.group(3);
-                    String quotaDen = matcher.group(4);
-                    if (quotaNum != null && quotaDen != null) {
-                        expenseFromPDF.setDetails("Cuota " + Integer.parseInt(quotaNum) + " de " + Integer.parseInt(quotaDen));
-                    }
-                    expensesFromPDF.add(expenseFromPDF);
-
-                    // La fecha minima no la quiero calcular a partir de los gastos de cuotas
-                    if (!areCuotas) {
-                        if (minDate == null) {
-                            minDate = date;
-                        } else if (date.before(minDate)) {
-                            minDate = date;
-                        }
-                    }
-
-                    if (maxDate == null) {
-                        maxDate = date;
-                    } else if (date.after(maxDate)) {
-                        maxDate = date;
-                    }
-                } else if (row.equals("CUOTA DEL MES")) {
-                    areCuotas = true;
+                } else {
+                    isConsumptionSection = line.startsWith("CONSOLIDADO");
                 }
-            } else {
-                startReading = row.startsWith("CONSOLIDADO");
             }
+
+            log.debug("{}[fechaCierre: {}, consumos: {}, cantLineas: {}]", pdfName, fechaCierre != null ? fechaCierre.format(FORMATTER_ARG) : "N/A", expensesFromPDF.size(), pdfMasterCardLines.size());
+            expensesFromPDFs.addAll(expensesFromPDF);
         }
 
-        return matchPdfExpensesWithAccount(expensesFromPDF, account, minDate, maxDate);
+        log.debug("Luego de procesar {} obtuve como rango de fechas: {} al {}", masterCardPdfsWithLines.size() + " PDF" + (masterCardPdfsWithLines.size() > 1 ? "s" : ""), DateUtils.format(minDate), DateUtils.format(maxDate));
+
+        return matchPdfExpensesWithAccount(expensesFromPDFs, account, minDate, maxDate);
     }
 
     /**
@@ -506,8 +582,13 @@ public class BankSyncController {
         final List<Expense> allExpenses = expenseRepository.findByAccountAndDateBetween(account, dateFrom, dateTo, Sort.by(Sort.Direction.DESC, "date", "id"));
         final List<Expense> expensesFromPDFMatched = new ArrayList<>();
         for (Expense expense : allExpenses) {
-            List<Expense> foundedExpensesFromPDF = expensesFromPDF.stream()
+            Optional<Expense> match = expensesFromPDF.stream()
                     .filter(expenseFromPDF -> {
+                        // Si ya fue usada para otro gasto
+                        if (expensesFromPDFMatched.contains(expenseFromPDF)) {
+                            return false;
+                        }
+
                         // Distinto importe
                         if (!expenseFromPDF.getAmount().equals(expense.getAmount())) {
                             return false;
@@ -516,20 +597,37 @@ public class BankSyncController {
                         // Es un gasto normal, descarto si no coincide la fecha
                         if (expenseFromPDF.getDetails() != null) {
                             // Es un gasto en cuotas, si coincide el nro de cuota y el total, lo tomo como valido
-                            return expense.getDetails().contains(expenseFromPDF.getDetails());
+                            return expense.getDetails() != null && expense.getDetails().contains(expenseFromPDF.getDetails());
                         } else {
-                            return expenseFromPDF.getDate().equals(expense.getDate());
+                            // Si el expenseFromPDF es un "DEV PER RG 4815 30% -31.275,23", no tiene date
+                            return (expenseFromPDF.getDate() != null && expenseFromPDF.getDate().equals(expense.getDate())) || expenseFromPDF.getDescription().startsWith("DEV");
                         }
                     })
-                    .collect(Collectors.toList());
-            expensesFounded.put(expense, foundedExpensesFromPDF);
-            expensesFromPDFMatched.addAll(foundedExpensesFromPDF);
+                    .findFirst();
+
+            if (match.isPresent()) {
+                expensesFounded.put(expense, List.of(match.get()));
+                expensesFromPDFMatched.add(match.get());
+            } else {
+                expensesFounded.put(expense, Collections.emptyList());
+            }
         }
 
+        // Estos son los gastos del PDF que no encontre en la DB
         expensesNotFounded.addAll(expensesFromPDF.stream()
                 .filter(expenseFromPDF -> !expensesFromPDFMatched.contains(expenseFromPDF))
                 .collect(Collectors.toList())
         );
+
+        // Y estos son los de la DB que no encontre en el PDF
+        List<Expense> unmatchedDB = expensesFounded.entrySet().stream()
+                .filter(e -> e.getValue().isEmpty())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+        if (!CollectionUtils.isEmpty(unmatchedDB)) {
+            log.info("Los siguientes gastos fueron encontrados en el rango de fechas de los gastos del PDF, pero no fueron hayados en el PDF en si:");
+            unmatchedDB.forEach(expense -> log.info(expense.toDebugString()));
+        }
 
         return Pair.of(expensesFounded, expensesNotFounded);
     }
