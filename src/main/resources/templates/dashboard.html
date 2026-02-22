@@ -5,32 +5,59 @@
       layout:decorate="~{fragments/layout}">
 <head>
     <title layout:fragment="page-title">Personal Finances App - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
         <h2>Dashboard</h2>
         <div class="row">
-            <form id="bankSyncForm" th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="col-lg-4 col-xl-3 col-xxl text-center" th:each="account : ${accountsBalances}">
-                <input type="hidden" name="accountName" th:value="${account[0]}">
-                <i th:if="${#strings.isEmpty(account[3])}" class="bi bi-credit-card fs-1"></i>
-                <i th:if="${!#strings.isEmpty(account[3]) and !(account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="bi me-2" th:with="icon=${account[3]}" th:classappend="${'bi-' + icon}"></i>
-                <img th:if="${!#strings.isEmpty(account[3]) and (account[3].endsWith('.svg') or account[3].endsWith('.png'))}" class="me-2" th:src="@{/images/{icon}(icon=${account[3]})}" height="64">
-                <h3 class="fw-normal d-none" th:text="${account[0]}">Account name</h3>
-                <h2>
-                    <span th:text="${#numbers.formatDecimal(account[2], 1, 'POINT', 2, 'COMMA')}"></span>
-                    <span th:text="${account[1]}"></span>
-                </h2>
-                <div class="d-flex justify-content-center gap-5">
-                    <a th:href="@{/expenses(accountName=${account[0]})}" class="btn btn-secondary" title="Ver detalles"><i class="bi bi-journal-text"></i></a>
-                    <div class="input-group" th:if="${'Galicia ARS' == account[0] && account[4]}">
-                        <input type="text" class="form-control" placeholder="ASP.NET_SessionId" aria-label="ASP.NET_SessionId" th:field="*{aspNetSessionId}" required>
-                        <button type="submit" class="btn btn-success" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
-                        <button type="button" class="btn btn-primary" title="Analizar movimientos del banco" onclick="submitAsLearn(this)"><i class="bi bi-eyeglasses"></i></button>
+            <div class="col-lg-4 col-xl-3 col-xxl" th:each="account : ${accountsBalances}">
+                <div class="card mt-3 account-card cursor-pointer" th:attr="data-href=@{/expenses(accountName=${account[1]})}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-4 d-flex">
+                                <i th:if="${#strings.isEmpty(account[4])}" class="bi bi-credit-card fs-1"></i>
+
+                                <i th:if="${!#strings.isEmpty(account[4]) and !(account[4].endsWith('.svg') or account[4].endsWith('.png'))}"
+                                   class="bi me-2"
+                                   th:with="icon=${account[4]}"
+                                   th:classappend="${'bi-' + icon}"></i>
+
+                                <img th:if="${!#strings.isEmpty(account[4]) and (account[4].endsWith('.svg') or account[4].endsWith('.png'))}"
+                                     class="img-fluid align-self-center" style="max-height: 60px"
+                                     th:src="@{/images/{icon}(icon=${account[4]})}">
+                            </div>
+
+                            <div class="col text-end">
+                                <small class="d-block text-body-secondary" th:text="${'Galicia ARS' == account[1] ? 'Saldo actual' : 'Total consumido del período'}"/>
+                                <h3 th:text="'$ ' + ${#numbers.formatDecimal(account[3], 1, 'POINT', 2, 'COMMA')}"/>
+                            </div>
+                        </div>
+
+                        <canvas th:attr="id='chart-' + ${account[0]}" height="200"></canvas>
                     </div>
-                    <button th:unless="${'Galicia ARS' == account[0]}" type="submit" class="btn btn-success" th:if="${account[4]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
-                    <button th:if="${'Master Card' == account[0] or 'VISA' == account[0]}" type="button" class="btn btn-outline-danger" title="Procesar PDF" th:attr="data-account-name=${account[0]}" onclick="tiggerPdfUpload(this.dataset.accountName)"><i class="bi bi-file-earmark-pdf"></i></button>
+                    <div class="card-footer text-body-secondary d-flex justify-content-around gap-3" th:unless="${'SDD' == account[1]}">
+                        <form th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="d-flex justify-content-around gap-3" onclick="event.stopPropagation();">
+                            <input type="hidden" name="accountName" th:value="${account[1]}">
+
+                            <div class="input-group" th:if="${'Galicia ARS' == account[1] && account[5]}">
+                                <input type="text" class="form-control" placeholder="ASP.NET_SessionId" aria-label="ASP.NET_SessionId" th:field="*{aspNetSessionId}" required>
+                                <button type="submit" class="btn btn-success" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                            </div>
+                            <button th:if="${'Galicia ARS' == account[1] && account[5]}" type="button" class="btn btn-primary" title="Analizar movimientos del banco" onclick="submitAsLearn(this)"><i class="bi bi-eyeglasses"></i></button>
+                            <button th:unless="${'Galicia ARS' == account[1]}" type="submit" class="btn btn-success" th:if="${account[5]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                        </form>
+
+                        <button th:if="${'Master Card' == account[1] or 'VISA' == account[1]}"
+                                type="button"
+                                class="btn btn-outline-danger"
+                                th:attr="data-account-name=${account[1]}"
+                                onclick="event.stopPropagation(); tiggerPdfUpload(this.dataset.accountName)">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </button>
+                    </div>
                 </div>
-            </form>
+            </div>
         </div>
         <form id="pdfUploadForm" method="post" enctype="multipart/form-data" th:action="@{/bank-pdf}" class="d-none">
             <input  type="file" id="pdfFileInput" name="file" accept="application/pdf" />
@@ -65,6 +92,42 @@
                 // Submit normal
                 form.submit();
             }
+
+            document.querySelectorAll('.account-card').forEach(card => {
+                card.addEventListener('click', function () {
+                    const href = this.dataset.href;
+                    if (href) {
+                        window.location.href = href;
+                    }
+                });
+            });
+        </script>
+
+        <script th:inline="javascript">
+            const chartsByAccount = /*[[${chartsByAccount}]]*/ {};
+
+            Object.entries(chartsByAccount).forEach(([accountId, chart]) => {
+
+                const canvas = document.getElementById('chart-' + accountId);
+
+                if (!canvas) return;
+                if (!chart || !chart.labels || chart.labels.length === 0) return;
+
+                new Chart(canvas, {
+                    type: 'doughnut', // m�s moderno que pie ?
+                    data: {
+                        labels: chart.labels,
+                        datasets: chart.datasets
+                    },
+                    options: {
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            });
         </script>
     </div>
 </body>

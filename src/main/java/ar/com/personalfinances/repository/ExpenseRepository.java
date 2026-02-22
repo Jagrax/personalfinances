@@ -7,6 +7,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -24,4 +25,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     List<Expense> findByAccountAndDateBetween(Account account, Date dateFrom, Date dateTo, Sort sort);
 
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
+
+    @Query(value = "SELECT c.name, SUM(e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND c.name NOT IN (:excludedCategories) GROUP BY c.name ORDER BY SUM(e.amount) DESC", nativeQuery = true)
+    List<Object[]> getLast30DaysSumary(Account account, List<String> excludedCategories);
 }

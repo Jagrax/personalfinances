@@ -9,6 +9,7 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.ReportsRepository;
+import ar.com.personalfinances.service.ChartJsService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -40,14 +38,16 @@ public class ApplicationController {
     private final AccountRepository accountRepository;
     private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
+    private final ChartJsService chartJsService;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, ChartJsService chartJsService) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
+        this.chartJsService = chartJsService;
     }
 
     @RequestMapping("/expenses/report")
@@ -174,6 +174,15 @@ public class ApplicationController {
     public String getDashboardPage(Model model) {
         model.addAttribute("bankSyncModelAttribute", new BankSyncModelAttribute());
         model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId()));
+
+        final List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
+        final Map<Long, ChartDataDTO> chartsByAccount = userAccounts.stream()
+                .collect(Collectors.toMap(
+                        Account::getId,
+                        chartJsService::buildExpensesSumaryByCategoryChart
+                ));
+        model.addAttribute("chartsByAccount", chartsByAccount);
+
         return "dashboard";
     }
 
