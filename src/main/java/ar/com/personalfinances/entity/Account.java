@@ -47,6 +47,9 @@ public class Account {
     @Column(name = "sync_provider")
     public SyncProvider syncProvider;
 
+    @Column(name = "closing_day")
+    private Integer closingDay;
+
     @Override
     public String toString() {
         return "Account [" +
@@ -56,7 +59,10 @@ public class Account {
                 ((type != null) ? "type=" + type + ", " : "") +
                 ((subtype != null) ? "subtype='" + subtype + "', " : "") +
                 ((currency != null) ? "currency='" + currency + "', " : "") +
-                ((bank != null) ? "bank='" + bank + "', " : "") +
+                ((bank != null) ? "bank=" + bank + ", " : "") +
+                "syncEnabled=" + syncEnabled + ", " +
+                ((syncProvider != null) ? "syncProvider=" + syncProvider + ", " : "") +
+                ((closingDay != null) ? "closingDate=" + closingDay + ", " : "") +
                 "]";
     }
 }

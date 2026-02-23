@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -27,5 +28,20 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
 
     @Query(value = "SELECT c.name, SUM(e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND c.name NOT IN (:excludedCategories) GROUP BY c.name ORDER BY SUM(e.amount) DESC", nativeQuery = true)
-    List<Object[]> getLast30DaysSumary(Account account, List<String> excludedCategories);
+    List<Object[]> getLast30DaysSummary(Account account, List<String> excludedCategories);
+
+    @Query(value = "SELECT c.name, SUM(-1 * e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND c.name NOT IN (:excludedCategories) AND e.description NOT LIKE :excludedDescriptionPattern AND e.amount < 0 GROUP BY c.name ORDER BY SUM(-1 * e.amount) DESC", nativeQuery = true)
+    List<Object[]> getLast30DaysSummaryForBankAccount(Account account, List<String> excludedCategories, String excludedDescriptionPattern);
+
+    @Query(value = "SELECT c.name, SUM(e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= :periodStart AND (e.amount > 0 OR (e.amount < 0 AND c.id IN (:refundCategoryIds)) ) GROUP BY c.name ORDER BY SUM(e.amount) DESC", nativeQuery = true)
+    List<Object[]> getLastPeriodSummaryForCreditCard(Account account, LocalDate periodStart, List<Long> refundCategoryIds);
+
+    @Query(value = "SELECT MAX(e.date) FROM expenses e WHERE e.account_id = :#{#account.id} and e.description = 'Reembolso Gastos'", nativeQuery = true)
+    Date findLastReimbursementDate(Account account);
+
+    @Query(value = "SELECT e.description, SUM(e.amount) FROM expenses e WHERE e.account_id = :#{#account.id} and e.date >= :periodStart and e.amount > 0 GROUP BY e.description", nativeQuery = true)
+    List<Object[]> getLastPeriodSummaryForSDD(Account account, LocalDate periodStart);
+
+    @Query(value = "SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.account = :account")
+    BigDecimal sumByAccount(Account account);
 }
