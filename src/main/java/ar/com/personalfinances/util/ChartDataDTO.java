@@ -13,4 +13,5 @@ public class ChartDataDTO {
 
     private List<String> labels;
     private List<ChartDatasetDTO> datasets;
+    private String subtitle;
 }

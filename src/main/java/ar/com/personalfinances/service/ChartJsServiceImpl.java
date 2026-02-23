@@ -59,7 +59,7 @@ public class ChartJsServiceImpl implements ChartJsService {
         }
         final List<String> labels = results.stream().map(r -> (String) r[0]).collect(Collectors.toList());
         final List<Number> dataValues = results.stream().map(r -> ((BigDecimal) r[1]).doubleValue()).collect(Collectors.toList());
-        return new ChartDataDTO(labels, List.of(new ChartDatasetDTO("Gastos últimos 30 días", dataValues)));
+        return new ChartDataDTO(labels, List.of(new ChartDatasetDTO("Total", dataValues)), "Desde " + periodStart.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
     }
 
     public LocalDate resolvePeriodStart(Account account) {
