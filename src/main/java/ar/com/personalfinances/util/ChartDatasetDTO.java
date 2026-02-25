@@ -13,4 +13,5 @@ public class ChartDatasetDTO {
 
     private String label;
     private List<Number> data;
+    private List<String> backgroundColor;
 }

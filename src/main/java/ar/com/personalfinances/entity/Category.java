@@ -26,12 +26,16 @@ public class Category {
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "fk_category_user"))
     private User owner;
 
+    @Column(name = "color")
+    private String color;
+
     @Override
     public String toString() {
         return "Category [" +
                 ((id != null) ? "id=" + id + ", " : "") +
                 ((name != null) ? "name='" + name + "', " : "") +
                 ((owner != null) ? "user=" + owner + ", " : "") +
+                ((color != null) ? "color='" + color + "', " : "") +
                 "]";
     }
 }
