@@ -52,8 +52,10 @@ public class ExpensesController {
                                   @ModelAttribute ExpenseSearch expenseSearch,
                                   @RequestParam("page") Optional<Integer> page,
                                   @RequestParam("size") Optional<Integer> size,
+                                  @RequestParam("categoryName") Optional<String> categoryName,
                                   @RequestParam("accountType") Optional<String> accountType,
-                                  @RequestParam("accountName") Optional<String> accountName) {
+                                  @RequestParam("accountName") Optional<String> accountName,
+                                  @RequestParam("accountId") Optional<Long> accountId) {
         int currentPage = page.orElse(ApplicationController.DEFAULT_PAGE_INDEX);
         int pageSize = size.orElse(ApplicationController.DEFAULT_PAGE_SIZE);
 
@@ -76,6 +78,22 @@ public class ExpensesController {
             expenseSearch.setAccountName(s);
             accountSearch.setName(s);
         });
+        // Y si me vino un accountName, lo uso para filtrar
+        accountId.ifPresent(s -> {
+            expenseSearch.setAccountId(s);
+            accountSearch.setId(s);
+        });
+
+        List<Category> userCategories = getUserCategories(new CategorySearch(), Sort.by(Sort.Direction.ASC,"name"));
+        categoryName.ifPresent(s -> {
+            expenseSearch.setCategoryName(s);
+            for (Category userCategory : userCategories) {
+                if (s.equals(userCategory.getName())) {
+                    expenseSearch.setCategoryId(userCategory.getId());
+                    break;
+                }
+            }
+        });
 
         // Me traigo las expenses ordenadas por fecha y id desc y las paso por el paginador
         ExpensePage expensesPage = getExpensesPaginated(PageRequest.of(currentPage - 1, pageSize), expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
@@ -89,7 +107,7 @@ public class ExpensesController {
         }
 
         // Categorias que se muestran en el filtro de Categorias
-        model.addAttribute("categories", getUserCategories(new CategorySearch(), Sort.by(Sort.Direction.ASC,"name")));
+        model.addAttribute("categories", userCategories);
         // Cuentas que se muestran en el filtro Cuentas
         List<Account> accounts = getUserAccounts(accountSearch, Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", accounts);

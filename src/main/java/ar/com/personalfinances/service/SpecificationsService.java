@@ -89,6 +89,10 @@ public class SpecificationsService {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            if (accountSearch.getId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("id"), accountSearch.getId()));
+            }
+
             if (accountSearch.getOwnerId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("owner").get("id"), accountSearch.getOwnerId()));
             }

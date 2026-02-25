@@ -9,6 +9,7 @@ import java.util.List;
 @Setter
 @Getter
 public class AccountSearch {
+    private Long id;
     private String name;
     private AccountType accountType;
     private Long ownerId;
