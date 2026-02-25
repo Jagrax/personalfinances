@@ -5,6 +5,7 @@ import lombok.Setter;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -50,6 +51,9 @@ public class Account {
     @Column(name = "closing_day")
     private Integer closingDay;
 
+    @Column(name = "last_sync_at")
+    private LocalDateTime lastSyncAt;
+
     @Override
     public String toString() {
         return "Account [" +
@@ -63,6 +67,7 @@ public class Account {
                 "syncEnabled=" + syncEnabled + ", " +
                 ((syncProvider != null) ? "syncProvider=" + syncProvider + ", " : "") +
                 ((closingDay != null) ? "closingDate=" + closingDay + ", " : "") +
+                ((lastSyncAt != null) ? "lastSyncAt=" + lastSyncAt + ", " : "") +
                 "]";
     }
 }

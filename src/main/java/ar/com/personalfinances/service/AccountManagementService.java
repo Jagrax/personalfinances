@@ -1,6 +1,7 @@
 package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.entity.Account;
+import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.util.CommonResult;
 
 public interface AccountManagementService {
@@ -12,4 +13,6 @@ public interface AccountManagementService {
     CommonResult learnFromBankMovements(Account account, String appNetSessionId);
 
     CommonResult syncAccountMovements(Account account, String aspNetSessionId);
+
+    CommonResult syncUserAccounts(User user);
 }

@@ -1,6 +1,8 @@
 package ar.com.personalfinances.configuration;
 
-import ar.com.personalfinances.entity.*;
+import ar.com.personalfinances.entity.Account;
+import ar.com.personalfinances.entity.EntityEvent;
+import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.service.AccountManagementService;
 import ar.com.personalfinances.service.AlertEventService;
@@ -15,7 +17,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
-import org.springframework.util.CollectionUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -23,6 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Configuration
@@ -72,20 +74,27 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
     }
 
     private void syncUserAccounts(User user, HttpServletRequest request) {
-        List<Account> userAccounts = accountRepository.findByOwner(user);
-        for (Account userAccount : userAccounts) {
-            if (userAccount.isSyncEnabled() && userAccount.getType().equals(AccountType.CREDIT_CARD)) {
-                CommonResult syncResult = accountManagementService.syncCreditCardAccountMovements(userAccount);
-                if (syncResult.isError()) {
-                    applicationMessageService.add(request, ApplicationMessage.error("Error del Galicia al sincronizar la cuenta [" + userAccount.getId() + "|" + userAccount.getName() + "]: " + syncResult.getMessage()));
-                } else if (syncResult.isWarning()) {
-                    applicationMessageService.add(request, ApplicationMessage.error("Error del configuracion/validacion al sincronizar la cuenta [" + userAccount.getId() + "|" + userAccount.getName() + "]: " + syncResult.getMessage()));
-                } else {
-                    List<Expense> expensesSyncronized = (List<Expense>) syncResult.getPayload();
-                    if (!CollectionUtils.isEmpty(expensesSyncronized)) {
-                        applicationMessageService.add(request, ApplicationMessage.info("Hay " + expensesSyncronized.size() + " gasto(s) nuevo(s) en la tarjeta " + userAccount.getName()));
-                    }
+        CommonResult syncUserAccountsResult = accountManagementService.syncUserAccounts(user);
+        if (syncUserAccountsResult.isError()) {
+            applicationMessageService.add(request, ApplicationMessage.error(syncUserAccountsResult.getMessage()));
+        } else if (syncUserAccountsResult.isWarning()) {
+            applicationMessageService.add(request, ApplicationMessage.error(syncUserAccountsResult.getMessage()));
+        } else {
+            List<Account> syncedAccounts = (List<Account>) syncUserAccountsResult.getPayload();
+            if (!syncedAccounts.isEmpty()) {
+                String names = syncedAccounts.stream()
+                        .map(Account::getName)
+                        .collect(Collectors.joining(", "));
+
+                // reemplaza la última coma por " y "
+                int lastComma = names.lastIndexOf(", ");
+                if (lastComma != -1) {
+                    names = names.substring(0, lastComma)
+                            + " y "
+                            + names.substring(lastComma + 2);
                 }
+
+                applicationMessageService.add(request, ApplicationMessage.info("Cuentas " + names + " sincronizadas"));
             }
         }
     }

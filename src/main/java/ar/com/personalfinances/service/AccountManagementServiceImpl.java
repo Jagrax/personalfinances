@@ -5,6 +5,7 @@ import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountApiCredentialsRepository;
+import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
@@ -15,7 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import javax.transaction.Transactional;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,14 +29,16 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final AccountApiCredentialsRepository accountApiCredentialsRepository;
     private final GaliciaApiService galiciaApiService;
     private final ExpenseRepository expenseRepository;
+    private final AccountRepository accountRepository;
     private final AlertEventService alertEventService;
     private final ExpenseMappingService expenseMappingService;
     private final Category automaticCategory;
 
-    public AccountManagementServiceImpl(AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository) {
+    public AccountManagementServiceImpl(AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository) {
         this.accountApiCredentialsRepository = accountApiCredentialsRepository;
         this.galiciaApiService = galiciaApiService;
         this.expenseRepository = expenseRepository;
+        this.accountRepository = accountRepository;
         this.alertEventService = alertEventService;
         this.expenseMappingService = expenseMappingService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
@@ -375,5 +380,29 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
+    }
+
+    @Override
+    @Transactional
+    public CommonResult syncUserAccounts(User user) {
+        final List<Account> syncedAccounts = new ArrayList<>();
+        final List<Account> userAccounts = accountRepository.findByOwner(user);
+        for (Account userAccount : userAccounts) {
+            if (userAccount.isSyncEnabled() && userAccount.getType() == AccountType.CREDIT_CARD
+                    && (userAccount.getLastSyncAt() == null || userAccount.getLastSyncAt().isBefore(LocalDateTime.now().minusMinutes(30)))) {
+
+                CommonResult syncResult = syncCreditCardAccountMovements(userAccount);
+                if (syncResult.isError()) {
+                    return CommonResult.error("Error del Galicia al sincronizar la cuenta [" + userAccount.getId() + "|" + userAccount.getName() + "]: " + syncResult.getMessage());
+                } else if (syncResult.isWarning()) {
+                    return CommonResult.warn("Error del configuracion/validacion al sincronizar la cuenta [" + userAccount.getId() + "|" + userAccount.getName() + "]: " + syncResult.getMessage());
+                } else {
+                    userAccount.setLastSyncAt(LocalDateTime.now());
+                    syncedAccounts.add(userAccount);
+                }
+            }
+        }
+
+        return CommonResult.ok(syncedAccounts);
     }
 }
