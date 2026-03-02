@@ -2,15 +2,16 @@ package ar.com.personalfinances.task;
 
 import ar.com.personalfinances.entity.InstanceTask;
 import ar.com.personalfinances.util.CommonResult;
+import ar.com.personalfinances.util.DateUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +33,7 @@ public class DbBackupService extends BaseInstanceTaskService {
         final String backupFilePattern = configs.get("backupFilePattern");
 
         // Obtener la fecha actual en formato yyyyMMdd
-        final String currentDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        final String currentDate = DateUtils.format(LocalDate.now(), DateTimeFormatter.ofPattern("yyyyMMdd"));
         final String fileName = filePattern.replace("$dbName", dbName).replace("$currentDate", currentDate);
         final String filePath = Paths.get(BACKUP_DIRECTORY, fileName).toString();
 

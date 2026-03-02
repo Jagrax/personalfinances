@@ -4,14 +4,14 @@ import ar.com.personalfinances.entity.EntityEvent;
 import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.UserService;
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
 import java.util.List;
 
 @Controller

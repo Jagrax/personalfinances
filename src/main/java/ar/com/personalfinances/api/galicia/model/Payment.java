@@ -9,7 +9,7 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Getter
@@ -31,8 +31,8 @@ public class Payment implements Serializable {
     private String status;
 
     @JsonProperty("payment_date")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
-    private Date paymentDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate paymentDate;
 
     @JsonProperty("payment_owner")
     private String paymentOwner;

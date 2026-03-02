@@ -4,13 +4,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 
 @Getter
 @Setter
 public class ExpenseImportItem {
 
-    private Date date;
+    private LocalDate date;
     private String description;
     private BigDecimal amount;
     private boolean selected = true;

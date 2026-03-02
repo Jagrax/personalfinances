@@ -11,9 +11,11 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -120,8 +122,7 @@ public class ChartJsServiceImpl implements ChartJsService {
                 return thisMonthClosing.minusMonths(1).plusDays(1);
             }
         } else if (account.getName().equals("SDD")) {
-            final Date lastReimbursementDate = expenseRepository.findLastReimbursementDate(account);
-            return lastReimbursementDate != null ? lastReimbursementDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate() : null;
+            return expenseRepository.findLastReimbursementDate(account);
         } else {
             return LocalDate.now().minusMonths(1);
         }

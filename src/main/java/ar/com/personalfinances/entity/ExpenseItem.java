@@ -2,11 +2,9 @@ package ar.com.personalfinances.entity;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
-import java.util.Date;
 
 @Getter
 @Setter

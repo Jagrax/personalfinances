@@ -5,6 +5,7 @@ import ar.com.personalfinances.api.galicia.model.Error;
 import ar.com.personalfinances.api.galicia.util.Credentials;
 import ar.com.personalfinances.service.GaliciaApiService;
 import ar.com.personalfinances.util.CmdEncrypt;
+import ar.com.personalfinances.util.DateUtils;
 import ar.com.personalfinances.util.SimpleCache;
 import ar.com.personalfinances.webclient.RestConnector;
 import ar.com.personalfinances.webclient.RestConnectorException;
@@ -20,8 +21,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,7 +52,7 @@ public class GaliciaApiConnector implements RestSecurityManager {
         this.password = credentials.getPassword();
     }
 
-    public GetMovimientosCuentaResponse getMovimientosCuenta(String aspNetSessionId, Date fechaDesde, Date fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
+    public GetMovimientosCuentaResponse getMovimientosCuenta(String aspNetSessionId, LocalDate fechaDesde, LocalDate fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
         final RestConnector connector = new RestConnector("https://cuentas.bancogalicia.com.ar", new RestSecurityManager() {
             @Override
             public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
@@ -72,11 +73,13 @@ public class GaliciaApiConnector implements RestSecurityManager {
                 return false;
             }
         });
-        final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+
+        // Este formatter coincide con el formatter de DateUtils (porque es el formato de AR), pero como es especifico de la API, lo quiero tener declarado aca
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         final MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        if (fechaDesde != null) formData.add("fd", sdf.format(fechaDesde));
-        if (fechaHasta != null) formData.add("fh", sdf.format(fechaHasta));
+        if (fechaDesde != null) formData.add("fd", DateUtils.format(fechaDesde, formatter));
+        if (fechaHasta != null) formData.add("fh", DateUtils.format(fechaHasta, formatter));
         if (tipoMovimiento != null) formData.add("motivo", tipoMovimiento.getValue());
         if (pageNumber != null) formData.add("pagina", String.valueOf(pageNumber));
 

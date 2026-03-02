@@ -9,7 +9,7 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Getter
@@ -22,12 +22,12 @@ public class Adjustment implements Serializable {
     private String status;
     
     @JsonProperty("transaction_date")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
-    private Date transactionDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate transactionDate;
     
     @JsonProperty("presentation_date")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
-    private Date presentationDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate presentationDate;
     
     @JsonProperty("adjustment_code")
     private String adjustmentCode;

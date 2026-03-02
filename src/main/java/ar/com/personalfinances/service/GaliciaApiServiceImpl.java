@@ -10,8 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 @Slf4j
@@ -19,7 +19,7 @@ import java.util.List;
 public class GaliciaApiServiceImpl implements GaliciaApiService {
 
     @Override
-    public CommonResult getMovimientosCuenta(String aspNetSessionId, Date from, Date to) {
+    public CommonResult getMovimientosCuenta(String aspNetSessionId, LocalDate from, LocalDate to) {
         final List<BankAccountMovement> movimientos = new ArrayList<>();
         long actualPage = 0;
         Long totalPaginas = null;

@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>ar.com</groupId>
 	<artifactId>personalfinances</artifactId>
-	<version>0.2.21</version>
+	<version>0.2.22</version>
 	<packaging>war</packaging>
 	<name>personalfinances</name>
 	<description>Application to register income and expenses of money in different accounts</description>
@@ -97,6 +97,10 @@
 			<artifactId>jsoup</artifactId>
 			<version>1.22.1</version>
 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.datatype</groupId>
+			<artifactId>jackson-datatype-jsr310</artifactId>
 		</dependency>
 	</dependencies>
 

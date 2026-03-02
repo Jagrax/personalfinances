@@ -10,7 +10,7 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Getter
@@ -29,8 +29,8 @@ public class BankAccountMovement implements Serializable {
     private String iconoLabel;
 
     @JsonProperty("Fecha")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy", timezone = "GMT-03:00")
-    private Date fecha;
+    @JsonFormat(pattern = "dd/MM/yyyy")
+    private LocalDate fecha;
 
     @JsonProperty("DescripcionAMostrar")
     private String descripcionAMostrar;

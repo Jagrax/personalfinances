@@ -1,6 +1,8 @@
 package ar.com.personalfinances.webclient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.util.Pair;
@@ -13,12 +15,16 @@ import org.springframework.web.client.RestTemplate;
 @Getter
 public class RestConnector {
 
+    private final ObjectMapper objectMapper;
     private final String baseUrl;
     private final RestSecurityManager securityManager;
 
     public RestConnector(String baseUrl, RestSecurityManager securityManager) {
         this.baseUrl = baseUrl;
         this.securityManager = securityManager;
+        this.objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     // ------------------------- [GET] -------------------------
@@ -106,7 +112,6 @@ public class RestConnector {
         if (errorType != null) {
             try {
                 // Usamos ObjectMapper para deserializar el String a un objeto del tipo errorType
-                ObjectMapper objectMapper = new ObjectMapper();
                 entityResponseError = objectMapper.readValue(errorEntityAsString, errorType);
                 log.trace("[RestConnector] Entity responseError [{}]", entityResponseError);
             } catch (Exception e) {
@@ -138,7 +143,6 @@ public class RestConnector {
         }
 
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
             Res entityResponse = objectMapper.readValue(responseBody, responseType);
             log.trace("[RestConnector] Entity response [{}]", entityResponse);
             return entityResponse;

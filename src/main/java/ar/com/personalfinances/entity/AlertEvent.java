@@ -1,11 +1,12 @@
 package ar.com.personalfinances.entity;
 
-import javax.persistence.*;
+import ar.com.personalfinances.util.DateUtils;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.util.Date;
+import javax.persistence.*;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -19,8 +20,8 @@ public class AlertEvent {
     private Long id;
 
     @Column(name = "timestamp", nullable = false)
-    @DateTimeFormat(pattern = "yyyy-MM-dd HH24:mm:ss")
-    private Date timestamp;
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime timestamp;
 
     @Column(name = "entity_type")
     @Enumerated(EnumType.STRING)
@@ -45,11 +46,24 @@ public class AlertEvent {
     }
 
     public AlertEvent(EntityType entityType, Long entityId, Long userId, EntityEvent event, String details) {
-        this.timestamp = new Date();
+        this.timestamp = LocalDateTime.now();
         this.entityType = entityType;
         this.entityId = entityId;
         this.userId = userId;
         this.event = event;
         this.details = details;
+    }
+
+    @Override
+    public String toString() {
+        return "AlertEvent [" +
+                ((id != null) ? "id=" + id + ", " : "") +
+                ((timestamp != null) ? "timestamp=" + DateUtils.format(timestamp) + ", " : "") +
+                ((entityType != null) ? "entityType=" + entityType + ", " : "") +
+                ((entityId != null) ? "entityId=" + entityId + ", " : "") +
+                ((userId != null) ? "userId=" + userId + ", " : "") +
+                ((event != null) ? "event=" + event + ", " : "") +
+                ((details != null) ? "details='" + details + "', " : "") +
+                "]";
     }
 }

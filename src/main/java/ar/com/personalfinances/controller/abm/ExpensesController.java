@@ -26,6 +26,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -131,7 +132,7 @@ public class ExpensesController {
         Expense expense = new Expense();
         expense.setUser(ApplicationUtils.getUserFromSession());
         expense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
-        expense.setDate(new Date());
+        expense.setDate(LocalDate.now());
         backUrl.ifPresent(urlString -> {
             if (urlString.contains("?") && (urlString.contains("accountType") || urlString.contains("accountName"))) {
                 URI url;

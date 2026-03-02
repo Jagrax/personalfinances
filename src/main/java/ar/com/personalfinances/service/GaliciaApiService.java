@@ -4,7 +4,7 @@ import ar.com.personalfinances.api.galicia.util.Credentials;
 import ar.com.personalfinances.util.CommonResult;
 import lombok.Getter;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 public interface GaliciaApiService {
 
@@ -26,7 +26,7 @@ public interface GaliciaApiService {
         MASTER,
     }
 
-    CommonResult getMovimientosCuenta(String aspNetSessionId, Date from, Date to);
+    CommonResult getMovimientosCuenta(String aspNetSessionId, LocalDate from, LocalDate to);
 
     CommonResult getMovimientosTarjeta(Credentials credentials, String cookies);
 

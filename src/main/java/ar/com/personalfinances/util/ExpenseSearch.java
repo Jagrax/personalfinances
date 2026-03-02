@@ -6,18 +6,18 @@ import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 
 @Getter
 @Setter
 public class ExpenseSearch {
 
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date date;
+    private LocalDate date;
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date dateFrom;
+    private LocalDate dateFrom;
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date dateTo;
+    private LocalDate dateTo;
     private String description;
     private BigDecimal amount;
     private BigDecimal amountFrom;

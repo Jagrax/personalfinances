@@ -1,12 +1,12 @@
 package ar.com.personalfinances.entity;
 
+import ar.com.personalfinances.util.DateUtils;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.*;
-import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -23,7 +23,7 @@ public class ExpenseMapping {
 
     @Column(name = "creation_date", nullable = false)
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date creationDate;
+    private LocalDate creationDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "fk_expense_mapping_user"))
@@ -60,7 +60,7 @@ public class ExpenseMapping {
     public String toString() {
         return "ExpenseMapping [" +
                 ((id != null) ? "id=" + id + ", " : "") +
-                ((creationDate != null) ? "creationDate=" + creationDate + ", " : "") +
+                ((creationDate != null) ? "creationDate=" + DateUtils.format(creationDate) + ", " : "") +
                 ((user != null) ? "user=" + user + ", " : "") +
                 ((bankDescription != null) ? "bankDescription='" + bankDescription + "', " : "") +
                 ((regexPattern != null) ? "regexPattern='" + regexPattern + "', " : "") +

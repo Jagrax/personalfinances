@@ -12,7 +12,6 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 
 @Repository
@@ -20,10 +19,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByUser(User user, Sort sort);
 
-    List<Expense> findByAccountAndDateAndAmountEquals(Account account, Date date, BigDecimal amount);
+    List<Expense> findByAccountAndDateAndAmountEquals(Account account, LocalDate date, BigDecimal amount);
 
     @EntityGraph(attributePaths = "category")
-    List<Expense> findByAccountAndDateBetween(Account account, Date dateFrom, Date dateTo, Sort sort);
+    List<Expense> findByAccountAndDateBetween(Account account, LocalDate dateFrom, LocalDate dateTo, Sort sort);
 
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
 
@@ -37,7 +36,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     List<Object[]> getLastPeriodSummaryForCreditCard(Account account, LocalDate periodStart, List<Long> refundCategoryIds);
 
     @Query(value = "SELECT MAX(e.date) FROM expenses e WHERE e.account_id = :#{#account.id} and e.description = 'Reembolso Gastos'", nativeQuery = true)
-    Date findLastReimbursementDate(Account account);
+    LocalDate findLastReimbursementDate(Account account);
 
     @Query(value = "SELECT e.description, CASE WHEN e.description = 'Desayuno' THEN '#ffc107' WHEN e.description = 'Almuerzo' THEN '#0d6efd' ELSE NULL END AS color, SUM(e.amount) FROM expenses e WHERE e.account_id = :#{#account.id} and e.date >= :periodStart and e.amount > 0 GROUP BY e.description", nativeQuery = true)
     List<Object[]> getLastPeriodSummaryForSDD(Account account, LocalDate periodStart);

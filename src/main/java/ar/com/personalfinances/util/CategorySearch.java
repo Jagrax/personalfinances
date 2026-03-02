@@ -1,6 +1,5 @@
 package ar.com.personalfinances.util;
 
-import ar.com.personalfinances.entity.AccountType;
 import lombok.Getter;
 import lombok.Setter;
 

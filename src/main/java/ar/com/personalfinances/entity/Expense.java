@@ -1,14 +1,13 @@
 package ar.com.personalfinances.entity;
 
-import javax.persistence.*;
-
 import ar.com.personalfinances.util.DateUtils;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import javax.persistence.*;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -23,7 +22,7 @@ public class Expense {
 
     @Column(name = "date", nullable = false)
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private Date date;
+    private LocalDate date;
 
     @Column(name = "description", nullable = false)
     private String description;

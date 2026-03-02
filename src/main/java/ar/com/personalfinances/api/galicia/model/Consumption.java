@@ -9,7 +9,7 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Getter
@@ -23,10 +23,10 @@ public class Consumption implements Serializable {
     
     @JsonProperty("receipt_number")
     private String receiptNumber;
-    
+
     @JsonProperty("transaction_date")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
-    private Date transactionDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate transactionDate;
     
     @JsonProperty("auth_code")
     private String authCode;
@@ -47,8 +47,8 @@ public class Consumption implements Serializable {
     private BigDecimal transactionAmount;
     
     @JsonProperty("submission_date")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
-    private Date submissionDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate submissionDate;
     
     @JsonProperty("final_currency")
     private String finalCurrency;

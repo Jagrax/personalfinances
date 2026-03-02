@@ -9,7 +9,8 @@ import lombok.Setter;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Getter
@@ -19,8 +20,8 @@ import java.util.Objects;
 public class Authorization implements Serializable {
 
     @JsonProperty("transaction_date")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd", timezone = "GMT-03:00")
-    private Date transactionDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate transactionDate;
     
     @JsonProperty("merchant_number")
     private String merchantNumber;
@@ -89,8 +90,8 @@ public class Authorization implements Serializable {
     private String rejectedMotive;
     
     @JsonProperty("date_front_format")
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm", timezone = "GMT-03:00")
-    private Date dateFrontFormat;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm")
+    private LocalDateTime dateFrontFormat;
 
     @Override
     public String toString() {

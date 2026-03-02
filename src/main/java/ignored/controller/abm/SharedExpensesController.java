@@ -3,15 +3,17 @@ package ignored.controller.abm;
 import ar.com.personalfinances.controller.ApplicationController;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
-import ignored.entity.SharedExpense;
-import ignored.entity.SharedExpenseMember;
-import ar.com.personalfinances.repository.*;
+import ar.com.personalfinances.repository.CategoryRepository;
+import ar.com.personalfinances.repository.ExpensesGroupRepository;
+import ar.com.personalfinances.repository.UserRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.util.ApplicationMessage;
 import ar.com.personalfinances.util.ApplicationUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ignored.entity.SharedExpense;
+import ignored.entity.SharedExpenseMember;
 import ignored.repository.SharedExpenseMemberRepository;
 import ignored.repository.SharedExpenseRepository;
 import lombok.Getter;
@@ -34,6 +36,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -118,7 +121,7 @@ public class SharedExpensesController {
         SharedExpense sharedExpense = new SharedExpense();
         sharedExpense.setPayer(ApplicationUtils.getUserFromSession());
         sharedExpense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
-        sharedExpense.setDate(new Date());
+        sharedExpense.setDate(LocalDate.now());
         AtomicLong sharedExpensesGroupId = new AtomicLong(-1L);
         backUrl.ifPresent(urlString -> {
             if (urlString.contains("?") && urlString.contains("sharedExpensesGroupId")) {

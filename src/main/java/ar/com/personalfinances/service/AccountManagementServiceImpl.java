@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -54,12 +55,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             return CommonResult.warn("The requested account to sync is not allowed for sync: " + account);
         }
 
-        final Date to = new Date();
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(to);
-        calendar.add(Calendar.DATE, -30);
-        final Date from = calendar.getTime();
+        final LocalDate to = LocalDate.now();
+        final LocalDate from = to.minusDays(30);
 
         final String strFrom = DateUtils.format(from);
         final String strTo = DateUtils.format(to);
@@ -107,14 +104,13 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             }
 
             // Si llegue a este punto, es que no encontre el gasto por cuenta, fecha e importe exacto, asi me fijo si tengo que buscar dias para atras hasta el proximo dia habil
-            final Calendar cal = Calendar.getInstance();
-            cal.setTime(movement.getFecha());
+            LocalDate date = movement.getFecha();
             boolean isWorkingDay = false;
             while (!isWorkingDay) {
                 // Retrocedo un dia
-                cal.add(Calendar.DATE, -1);
-                if (DateUtils.isWeekend(cal) || DateUtils.esFeriado(cal.getTime())) {
-                    expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, cal.getTime(), movement.getAmount());
+                date = date.minusDays(1);
+                if (DateUtils.isWeekend(date) || DateUtils.esFeriado(date)) {
+                    expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, date, movement.getAmount());
                     for (Expense expense : expensesByDateAndAmount) {
                         if (expensesIdFounded.contains(expense.getId())) {
                             continue;
@@ -154,9 +150,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
      */
     @Override
     public CommonResult learnFromBankMovements(Account account, String appNetSessionId) {
-        final int monthsGap = -3;
-        Date to = new Date();
-        Date from = DateUtils.addMonths(to, monthsGap);
+        final int monthsGap = 3;
+        LocalDate to = LocalDate.now();
+        LocalDate from = to.minusMonths(monthsGap);
         CommonResult getMovimientosCuentaResult = CommonResult.ok();
         boolean hasMovements = true;
 
@@ -180,7 +176,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     }
 
                     to = from;
-                    from = DateUtils.addMonths(to, monthsGap);
+                    from = to.minusMonths(monthsGap);
                 }
             }
         }
@@ -270,8 +266,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     .collect(Collectors.toList());
 
             final List<Long> expensesIdFounded = new ArrayList<>();
-            Date minTransactionDate = null;
-            Date maxTransactionDate = null;
+            LocalDate minTransactionDate = null;
+            LocalDate maxTransactionDate = null;
 
             List<Consumption> consumptionsToCreate = new ArrayList<>();
             for (Consumption consumption : consumptions) {
@@ -282,12 +278,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     log.debug("Por buscar gasto con cuota {} de {} por {}", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
                     foundedExpenses = expenseRepository.findByAccountAndAmountEqualsAndDetailsLike(creditCardAccount, consumption.getFinalAmount(), "%Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan() + "%");
                 } else {
-                    if (minTransactionDate == null || consumption.getTransactionDate().before(minTransactionDate)) {
-                        minTransactionDate = consumption.getTransactionDate();
-                    }
-                    if (maxTransactionDate == null || consumption.getTransactionDate().after(maxTransactionDate)) {
-                        maxTransactionDate = consumption.getTransactionDate();
-                    }
+
+                    if (minTransactionDate == null || consumption.getTransactionDate().isBefore(minTransactionDate)) minTransactionDate = consumption.getTransactionDate();
+                    if (maxTransactionDate == null || consumption.getTransactionDate().isAfter(maxTransactionDate)) maxTransactionDate = consumption.getTransactionDate();
                     log.debug("Por buscar gasto del {} por {}. Consumption.desc: {}", DateUtils.format(consumption.getTransactionDate()), consumption.getFinalAmount(), consumption.getMerchantName());
                     foundedExpenses = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, consumption.getTransactionDate(), consumption.getFinalAmount());
                 }
@@ -358,7 +351,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         return description;
     }
 
-    private Expense createExpense(User user, Date date, Account account, String bankDescription, BigDecimal amount) {
+    private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount) {
         Expense expense = new Expense();
         expense.setUser(user);
         expense.setDate(date);

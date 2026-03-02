@@ -24,11 +24,10 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.math.BigDecimal;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -356,9 +355,10 @@ public class BankSyncController {
         );
 
         final String datePattern = "dd.MM.yy";
-        SimpleDateFormat sdf = new SimpleDateFormat(datePattern, new Locale("es"));
+        final DateTimeFormatter formatterEs = DateTimeFormatter.ofPattern(datePattern, new Locale("es"));
+        final DateTimeFormatter formatterEn = DateTimeFormatter.ofPattern(datePattern, Locale.ENGLISH);
         boolean startReading = false;
-        Date minDate = null, maxDate = null, fixedQuotaDate = null;
+        LocalDate minDate = null, maxDate = null, fixedQuotaDate = null;
         List<Expense> expensesFromPDF = new ArrayList<>();
         for (String textRow : pdfVisaAsText.split("\n")) {
             if (textRow == null) continue;
@@ -390,13 +390,9 @@ public class BankSyncController {
                                 throw new IllegalArgumentException("Mes inválido: " + monthStr);
                         }
 
-                        Calendar cal = Calendar.getInstance();
-                        cal.set(Calendar.DATE, Integer.parseInt(m.group(1)));
-                        cal.set(Calendar.MONTH, month);
-                        cal.set(Calendar.YEAR, 2000 + Integer.parseInt(m.group(3)));
-                        // Le sumo 1 dia para que simule el 1er dia del periodo actual
-                        cal.add(Calendar.DATE, 1);
-                        fixedQuotaDate = cal.getTime();
+                        fixedQuotaDate = LocalDate.of(2000 + Integer.parseInt(m.group(3)), month + 1, Integer.parseInt(m.group(1)))
+                                // Le sumo 1 dia para que simule el 1er dia del periodo actual
+                                .plusDays(1);
                     }
                 }
             }
@@ -417,14 +413,14 @@ public class BankSyncController {
                     );
                     if (amountRaw.endsWith("-")) amount = amount.negate();
 
-                    Date date;
+                    LocalDate date;
                     try {
-                        date = sdf.parse(matcher.group(1));
-                    } catch (ParseException e) {
+                        date = LocalDate.parse(matcher.group(1), formatterEs);
+                    } catch (DateTimeParseException e) {
                         try {
-                            date = new SimpleDateFormat(datePattern, Locale.ENGLISH).parse(matcher.group(1));
-                        } catch (ParseException e2) {
-                            throw new IllegalArgumentException("Fecha inválida: " + e2);
+                            date = LocalDate.parse(matcher.group(1), formatterEn);
+                        } catch (DateTimeParseException e2) {
+                            throw new IllegalArgumentException("Fecha inválida: " + matcher.group(1));
                         }
                     }
 
@@ -441,17 +437,8 @@ public class BankSyncController {
                     expensesFromPDF.add(expenseFromPDF);
 
                     // La fecha minima no la quiero calcular a partir de los gastos de cuotas
-                    if (minDate == null) {
-                        minDate = date;
-                    } else if (date.before(minDate)) {
-                        minDate = date;
-                    }
-
-                    if (maxDate == null) {
-                        maxDate = date;
-                    } else if (date.after(maxDate)) {
-                        maxDate = date;
-                    }
+                    if (minDate == null || date.isBefore(minDate)) minDate = date;
+                    if (maxDate == null || date.isAfter(maxDate)) maxDate = date;
                 }
             } else {
                 startReading = row.startsWith("FECHA");
@@ -488,8 +475,9 @@ public class BankSyncController {
 
     private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeMasterCardPdf(Account account, Map<String, List<String>> masterCardPdfsWithLines) {
         final String datePattern = "dd-MMM-yy";
-        final SimpleDateFormat sdf = new SimpleDateFormat(datePattern, new Locale("es"));
-        Date minDate = null, maxDate = null;
+        final DateTimeFormatter formatterEs = DateTimeFormatter.ofPattern(datePattern, new Locale("es"));
+        final DateTimeFormatter formatterEn = DateTimeFormatter.ofPattern(datePattern, Locale.ENGLISH);
+        LocalDate minDate = null, maxDate = null;
         final List<Expense> expensesFromPDFs = new ArrayList<>();
         for (String pdfName : masterCardPdfsWithLines.keySet()) {
             final List<Expense> expensesFromPDF = new ArrayList<>();
@@ -519,14 +507,14 @@ public class BankSyncController {
                         if (description.contains("U$S")) continue;
 
                         String amount = matcher.group(6).replace(".", "").replace(",", ".");         // 13.600,00
-                        Date date;
+                        LocalDate date;
                         try {
-                            date = sdf.parse(matcher.group(1));
-                        } catch (ParseException e) {
+                            date = LocalDate.parse(matcher.group(1), formatterEs);
+                        } catch (DateTimeParseException e) {
                             try {
-                                date = new SimpleDateFormat(datePattern, Locale.ENGLISH).parse(matcher.group(1));
-                            } catch (ParseException e2) {
-                                throw new IllegalArgumentException("Fecha inválida: " + e2);
+                                date = LocalDate.parse(matcher.group(1), formatterEn);
+                            } catch (DateTimeParseException e2) {
+                                throw new IllegalArgumentException("Fecha inválida: " + matcher.group(1));
                             }
                         }
 
@@ -542,19 +530,8 @@ public class BankSyncController {
                         expensesFromPDF.add(expenseFromPDF);
 
                         // La fecha minima no la quiero calcular a partir de los gastos de cuotas
-                        if (!areCuotas) {
-                            if (minDate == null) {
-                                minDate = date;
-                            } else if (date.before(minDate)) {
-                                minDate = date;
-                            }
-                        }
-
-                        if (maxDate == null) {
-                            maxDate = date;
-                        } else if (date.after(maxDate)) {
-                            maxDate = date;
-                        }
+                        if (!areCuotas) if (minDate == null || date.isBefore(minDate)) minDate = date;
+                        if (maxDate == null || date.isAfter(maxDate)) maxDate = date;
                     } else {
                         matcher = DEV_PERCEP_PATTERN.matcher(line);
                         if (matcher.find()) {
@@ -564,7 +541,7 @@ public class BankSyncController {
                                     .replace(",", ".");
 
                             Expense expenseFromPDF = new Expense();
-                            if (fechaCierre != null) expenseFromPDF.setDate(Date.from(fechaCierre.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+                            if (fechaCierre != null) expenseFromPDF.setDate(fechaCierre);
                             expenseFromPDF.setDescription(description);
                             expenseFromPDF.setAmount(new BigDecimal(amount));
 
@@ -591,7 +568,7 @@ public class BankSyncController {
      * Devuelve del lado izq un Map donde la key es un Expense de la DB asociado a todos los Expense creados dinamicamente a partir de las lineas del PDF
      * Y del lado der el listado de Expenses creados dinamicamente a partir de las lineas del PDF que NO fueron encontradas en la DB
      */
-    private Pair<Map<Expense, List<Expense>>, List<Expense>> matchPdfExpensesWithAccount(List<Expense> expensesFromPDF, Account account, Date dateFrom, Date dateTo) {
+    private Pair<Map<Expense, List<Expense>>, List<Expense>> matchPdfExpensesWithAccount(List<Expense> expensesFromPDF, Account account, LocalDate dateFrom, LocalDate dateTo) {
         final Map<Expense, List<Expense>> expensesFounded = new HashMap<>();
         final List<Expense> expensesNotFounded = new ArrayList<>();
 
