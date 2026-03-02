@@ -8,30 +8,46 @@
 </head>
 <body>
 <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
-    <table class="table table-sm table-bordered table-striped">
-        <thead class="text-center">
-        <tr>
-            <th>Fecha</th>
-            <th>Descripci&oacute;n</th>
-            <th>Importe</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:if="${#lists.isEmpty(expensesNotFounded)}">
-            <td colspan="9">No hay registros para mostrar!</td>
-        </tr>
-        <tr th:unless="${#lists.isEmpty(expensesNotFounded)}" th:each="expense : ${expensesNotFounded}">
-            <td class="text-center" style="width:100px" th:text="${#dates.format(expense.date, 'dd/MM/yyyy')}"></td>
-            <td class="text-start" th:text="${expense.description}"></td>
-            <td class="text-center">
-                <div class="d-flex flex-nowrap">
-                    <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
-                    <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
-                </div>
-            </td>
-        </tr>
-        </tbody>
-    </table>
+    <form th:action="@{/bank-pdf/save-expenses}" th:object="${expenseImportForm}" method="post">
+
+        <input type="hidden" name="accountId" th:value="${accountId}" />
+
+        <table class="table table-sm table-bordered table-striped">
+            <thead class="text-center">
+            <tr>
+                <th></th>
+                <th>Fecha</th>
+                <th>Descripci&oacute;n</th>
+                <th>Importe</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(expensesNotFounded)}">
+                <td colspan="4">No hay registros para mostrar!</td>
+            </tr>
+            <tr th:unless="${#lists.isEmpty(expensesNotFounded)}" th:each="expense, iterStat : *{expenses}">
+                <td class="text-center"><input type="checkbox" th:field="*{expenses[__${iterStat.index}__].selected}" /></td>
+                <td class="text-center" style="width:100px">
+                    <span th:text="${#dates.format(expense.date, 'dd/MM/yyyy')}"></span>
+                    <input type="hidden" th:field="*{expenses[__${iterStat.index}__].date}" />
+                </td>
+                <td class="text-start">
+                    <span th:text="${expense.description}"></span>
+                    <input type="hidden" th:field="*{expenses[__${iterStat.index}__].description}" />
+                </td>
+                <td class="text-center">
+                    <input type="hidden" th:field="*{expenses[__${iterStat.index}__].amount}" />
+                    <div class="d-flex flex-nowrap">
+                        <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
+                        <span class="col-auto px-2" th:text="${currency}"></span>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <button th:if="${!#lists.isEmpty(expensesNotFounded)}" type="submit" class="btn btn-success mt-3">Guardar gastos faltantes</button>
+    </form>
 </div>
 </body>
 </html>

@@ -1,26 +1,24 @@
 package ar.com.personalfinances.controller.abm;
 
-import ar.com.personalfinances.entity.Account;
-import ar.com.personalfinances.entity.AccountType;
-import ar.com.personalfinances.entity.Expense;
-import ar.com.personalfinances.entity.User;
+import ar.com.personalfinances.entity.*;
+import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
+import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
-import ar.com.personalfinances.service.AccountManagementService;
-import ar.com.personalfinances.service.ApplicationMessageService;
-import ar.com.personalfinances.service.PDFService;
-import ar.com.personalfinances.service.SpecificationsService;
+import ar.com.personalfinances.service.*;
 import ar.com.personalfinances.util.*;
+import ar.com.personalfinances.web.form.ExpenseImportForm;
+import ar.com.personalfinances.web.form.ExpenseImportItem;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.propertyeditors.CustomDateEditor;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
@@ -46,14 +44,18 @@ public class BankSyncController {
     private final AccountManagementService accountManagementService;
     private final PDFService pdfService;
     private final ExpenseRepository expenseRepository;
+    private final ExpenseService expenseService;
+    private final CategoryRepository categoryRepository;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService, PDFService pdfService, ExpenseRepository expenseRepository) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService, PDFService pdfService, ExpenseRepository expenseRepository, ExpenseService expenseService, CategoryRepository categoryRepository) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.applicationMessageService = applicationMessageService;
         this.accountManagementService = accountManagementService;
         this.pdfService = pdfService;
         this.expenseRepository = expenseRepository;
+        this.expenseService = expenseService;
+        this.categoryRepository = categoryRepository;
     }
 
     @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
@@ -315,8 +317,27 @@ public class BankSyncController {
             applicationMessageService.add(request, ApplicationMessage.error("Invalid account type: " + account.getType()));
             return backUrl;
         }
+        List<Expense> expensesNotFounded = expensesAnalizedFromPdf.getSecond();
+
+        ExpenseImportForm form = new ExpenseImportForm();
+        List<ExpenseImportItem> items = expensesAnalizedFromPdf.getSecond()
+                .stream()
+                .map(e -> {
+                    ExpenseImportItem item = new ExpenseImportItem();
+                    item.setDate(e.getDate());
+                    item.setDescription(e.getDescription());
+                    item.setAmount(e.getAmount());
+                    return item;
+                })
+                .collect(Collectors.toList());
+
+        form.setExpenses(items);
+
+        model.addAttribute("expenseImportForm", form);
+        model.addAttribute("accountId", account.getId());
+        model.addAttribute("currency", account.getCurrency() != null ? account.getCurrency() : "ARS");
         model.addAttribute("expensesFounded", expensesAnalizedFromPdf.getFirst());
-        model.addAttribute("expensesNotFounded", expensesAnalizedFromPdf.getSecond());
+        model.addAttribute("expensesNotFounded", expensesNotFounded);
 
         return "/report-expenses";
     }
@@ -630,5 +651,38 @@ public class BankSyncController {
         }
 
         return Pair.of(expensesFounded, expensesNotFounded);
+    }
+
+    @PostMapping("/bank-pdf/save-expenses")
+    public String saveExpenses(@ModelAttribute ExpenseImportForm expenseImportForm,
+                               @RequestParam Long accountId) {
+
+        Account account = accountRepository.findById(accountId).orElseThrow();
+        User user = ApplicationUtils.getUserFromSession();
+        final Category automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
+
+        for (ExpenseImportItem item : expenseImportForm.getExpenses()) {
+            if (item.isSelected()) {
+                Expense expense = new Expense();
+                expense.setDate(item.getDate());
+                expense.setDescription(item.getDescription());
+                expense.setAmount(item.getAmount());
+                expense.setAccount(account);
+                expense.setCategory(automaticCategory);
+                expense.setUser(user);
+
+                expenseService.saveWithAudit(expense, user);
+            }
+        }
+
+        return "redirect:/expenses";
+    }
+
+    @InitBinder
+    public void initBinder(WebDataBinder binder) {
+        binder.registerCustomEditor(
+                Date.class,
+                new CustomDateEditor(new SimpleDateFormat("dd/MM/yyyy"), true)
+        );
     }
 }

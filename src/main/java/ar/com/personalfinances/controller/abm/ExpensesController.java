@@ -7,6 +7,7 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.AlertEventService;
+import ar.com.personalfinances.service.ExpenseService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
@@ -38,13 +39,15 @@ public class ExpensesController {
     private final SpecificationsService specificationsService;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
+    private final ExpenseService expenseService;
 
-    public ExpensesController(ExpenseRepository expenseRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository) {
+    public ExpensesController(ExpenseRepository expenseRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository, ExpenseService expenseService) {
         this.expenseRepository = expenseRepository;
         this.alertEventService = alertEventService;
         this.specificationsService = specificationsService;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
+        this.expenseService = expenseService;
     }
 
     @RequestMapping("/expenses")
@@ -245,13 +248,7 @@ public class ExpensesController {
             return "abm/expenses-edit";
         }
 
-        EntityEvent event = expense.getId() == null ? EntityEvent.CREATED : EntityEvent.UPDATED;
-        String eventDetails = "";
-        if (event.equals(EntityEvent.UPDATED)) {
-            eventDetails = ApplicationUtils.getChangeLog(expense, expenseRepository.findById(expense.getId()).orElseThrow());
-        }
-        expense = expenseRepository.save(expense);
-        alertEventService.saveExpenseAlert(event, expense.getId(), eventDetails, ApplicationUtils.getUserFromSession().getId());
+        expenseService.saveWithAudit(expense, ApplicationUtils.getUserFromSession());
 
         if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
             return "redirect:" + backUrl.get();
