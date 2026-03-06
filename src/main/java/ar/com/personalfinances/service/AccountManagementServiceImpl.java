@@ -34,8 +34,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final AlertEventService alertEventService;
     private final ExpenseMappingService expenseMappingService;
     private final Category automaticCategory;
+    private final ChartJsServiceImpl chartJsServiceImpl;
 
-    public AccountManagementServiceImpl(AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository) {
+    public AccountManagementServiceImpl(AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository, ChartJsServiceImpl chartJsServiceImpl) {
         this.accountApiCredentialsRepository = accountApiCredentialsRepository;
         this.galiciaApiService = galiciaApiService;
         this.expenseRepository = expenseRepository;
@@ -43,6 +44,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         this.alertEventService = alertEventService;
         this.expenseMappingService = expenseMappingService;
         this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
+        this.chartJsServiceImpl = chartJsServiceImpl;
     }
 
     @Override
@@ -266,6 +268,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     .collect(Collectors.toList());
 
             final List<Long> expensesIdFounded = new ArrayList<>();
+            final LocalDate periodStart = chartJsServiceImpl.resolvePeriodStart(creditCardAccount);
             LocalDate minTransactionDate = null;
             LocalDate maxTransactionDate = null;
 
@@ -278,9 +281,11 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     log.debug("Por buscar gasto con cuota {} de {} por {}", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
                     foundedExpenses = expenseRepository.findByAccountAndAmountEqualsAndDetailsLike(creditCardAccount, consumption.getFinalAmount(), "%Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan() + "%");
                 } else {
-
-                    if (minTransactionDate == null || consumption.getTransactionDate().isBefore(minTransactionDate)) minTransactionDate = consumption.getTransactionDate();
-                    if (maxTransactionDate == null || consumption.getTransactionDate().isAfter(maxTransactionDate)) maxTransactionDate = consumption.getTransactionDate();
+                    // Solo contemplo las fechas si el consumo es de este periodo (cuotas/devoluciones pueden tener como fecha de transaccion la fecha de compra)
+                    if (consumption.getTransactionDate().isAfter(periodStart)) {
+                        if (minTransactionDate == null || consumption.getTransactionDate().isBefore(minTransactionDate)) minTransactionDate = consumption.getTransactionDate();
+                        if (maxTransactionDate == null || consumption.getTransactionDate().isAfter(maxTransactionDate))  maxTransactionDate = consumption.getTransactionDate();
+                    }
                     log.debug("Por buscar gasto del {} por {}. Consumption.desc: {}", DateUtils.format(consumption.getTransactionDate()), consumption.getFinalAmount(), consumption.getMerchantName());
                     foundedExpenses = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, consumption.getTransactionDate(), consumption.getFinalAmount());
                 }
