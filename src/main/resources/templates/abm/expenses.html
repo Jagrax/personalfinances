@@ -139,7 +139,7 @@
             </tbody>
             <tfoot>
             <tr th:each="onPageTotalAmountsAcumByCurrency : ${expensesPage.getOnPageTotalAmountsAcumByCurrency()}">
-                <td class="text-end" colspan="5">Total en pantalla</td>
+                <td class="text-end" th:colspan="${expenseSearch.accountId == null ? 5 : 4}">Total en pantalla</td>
                 <td class="text-end">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(onPageTotalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
@@ -149,7 +149,7 @@
                 <td colspan="4"></td>
             </tr>
             <tr th:each="totalAmountsAcumByCurrency : ${expensesPage.getTotalAmountsAcumByCurrency()}">
-                <td class="text-end" colspan="5">Total de todos los registros</td>
+                <td class="text-end" th:colspan="${expenseSearch.accountId == null ? 5 : 4}">Total de todos los registros</td>
                 <td class="text-end">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(totalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
