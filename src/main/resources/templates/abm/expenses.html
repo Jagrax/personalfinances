@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
-    <form th:action="@{${'/expenses' + urlParams}}" th:object="${expenseSearch}" method="post"
+    <form id="expenseSearchForm" th:action="@{${'/expenses' + urlParams}}" th:object="${expenseSearch}" method="post"
           th:with="urlParams=${#strings.isEmpty(httpServletRequest.queryString) ? '' : '?' + httpServletRequest.queryString},backUrl=${'/expenses' + urlParams}">
         <div class="row g-3">
             <div class="col-12 col-lg-4 col-xxl-2">
@@ -97,9 +97,9 @@
                 </div>
             </div>
             <div class="col-auto">
-                <a th:href="@{/expenses/create(backUrl=${backUrl})}" class="btn btn-sm btn-success text-nowrap">
+                <button type="button" class="btn btn-sm btn-success text-nowrap" onclick="addExpenseRow()">
                     <i class="bi bi-plus me-2"></i>Nuevo registro
-                </a>
+                </button>
             </div>
         </div>
 
@@ -115,7 +115,7 @@
                 <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
             </tr>
             </thead>
-            <tbody>
+            <tbody id="expensesTableBody">
             <tr th:if="${#lists.isEmpty(expensesPage.content)}">
                 <td colspan="9">No hay registros para mostrar!</td>
             </tr>
@@ -183,11 +183,110 @@
                 </th:block>
             </ul>
         </nav>
+
+        <template id="expenseEditRowTemplate">
+            <tr class="table-warning">
+                <td><input type="date" class="form-control form-control-sm" name="date"></td>
+                <td><input class="form-control form-control-sm" name="description"></td>
+                <td class="d-none d-lg-table-cell"><input class="form-control form-control-sm" name="details"></td>
+                <td class="d-none d-lg-table-cell">
+                    <select class="form-select form-select-sm" name="category.id">
+                        <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
+                    </select>
+                </td>
+                <td th:if="${expenseSearch.accountId == null}" class="d-none d-lg-table-cell">
+                    <select class="form-select form-select-sm" name="account.id">
+                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}">
+                        </option>
+                    </select>
+                </td>
+
+                <input type="hidden" th:if="${expenseSearch.accountId != null}" name="account.id" th:value="${expenseSearch.accountId}" />
+
+                <td><input class="form-control form-control-sm text-end" type="number" step=".01" name="amount"></td>
+                <td colspan="2" class="text-center">
+                    <button type="button" class="btn btn-sm btn-success" onclick="saveExpense(this)">
+                        <i class="bi bi-save"></i>
+                    </button>
+                </td>
+                <td colspan="2" class="text-center">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(this)">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </td>
+            </tr>
+        </template>
     </form>
 
+    <script th:inline="javascript">
+        const expenseSaveUrlAjax = [[@{/expenses/save-ajax}]];
+    </script>
     <script>
         const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
         const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+
+        function addExpenseRow() {
+            if (document.querySelector(".editing-row")) {
+                return;
+            }
+
+            const template = document.querySelector("#expenseEditRowTemplate");
+            const clone = template.content.cloneNode(true);
+
+            const row = clone.querySelector("tr");
+            row.classList.add("editing-row");
+
+            // Fecha de hoy
+            const today = new Date().toISOString().split("T")[0];
+
+            row.querySelector("[name=date]").value = today;
+
+            document.querySelector("#expensesTableBody").prepend(clone);
+
+            row.querySelector("[name=description]").focus();
+        }
+
+        function cancelEdit(button) {
+            const row = button.closest("tr");
+            row.remove();
+        }
+
+        function saveExpense(button){
+
+            const row = button.closest("tr");
+
+            const data = {
+                date: row.querySelector("[name='date']").value,
+                description: row.querySelector("[name='description']").value,
+                details: row.querySelector("[name='details']").value,
+                amount: row.querySelector("[name='amount']").value,
+                category: {
+                    id: row.querySelector("[name='category.id']").value
+                },
+                account: {
+                    id: row.querySelector("[name='account.id']").value
+                }
+            };
+
+            button.disabled = true;
+            button.innerHTML = '<i class="bi bi-hourglass"></i>';
+
+            fetch(expenseSaveUrlAjax, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            })
+                .then(() => {
+                    const row = button.closest("tr");
+
+                    row.querySelectorAll("input,select").forEach(el => {
+                        el.disabled = true;
+                    });
+                    document.getElementById("expenseSearchForm").submit();
+                });
+        }
     </script>
 </div>
 </body>

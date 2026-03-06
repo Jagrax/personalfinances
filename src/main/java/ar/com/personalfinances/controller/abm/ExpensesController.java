@@ -258,6 +258,14 @@ public class ExpensesController {
         return "redirect:/expenses";
     }
 
+    @PostMapping(value = "/expenses/save-ajax")
+    @ResponseBody
+    public void createOrUpdateExpenseAjax(@RequestBody Expense expense) {
+        User user = ApplicationUtils.getUserFromSession();
+        expense.setUser(user);
+        expenseService.saveWithAudit(expense, user);
+    }
+
     @GetMapping("/expenses/delete/{id}")
     public String deleteExpense(@PathVariable("id") long id, Optional<String> backUrl) {
         Expense expense = expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Expense", "id", id));
