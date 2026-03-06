@@ -12,19 +12,19 @@
             <div class="row g-3">
                 <div class="col-12 col-lg-4 col-xxl-2">
                     <div class="form-floating">
-                        <input type="date" class="form-control" id="expenseFilterDate" name="date" th:value="${#dates.format(expenseSearch.getDate(), 'yyyy-MM-dd')}" placeholder="Fecha">
+                        <input type="date" class="form-control" id="expenseFilterDate" name="date" th:value="${#temporals.format(expenseSearch.getDate(), 'yyyy-MM-dd')}" placeholder="Fecha">
                         <label for="expenseFilterDate">Fecha</label>
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
                     <div class="form-floating">
-                        <input type="date" class="form-control" id="expenseFilterDateFrom" name="dateFrom" th:value="${#dates.format(expenseSearch.getDateFrom(), 'yyyy-MM-dd')}" placeholder="Fecha desde">
+                        <input type="date" class="form-control" id="expenseFilterDateFrom" name="dateFrom" th:value="${#temporals.format(expenseSearch.getDateFrom(), 'yyyy-MM-dd')}" placeholder="Fecha desde">
                         <label for="expenseFilterDateFrom">Fecha desde</label>
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
                     <div class="form-floating">
-                        <input type="date" class="form-control" id="expenseFilterDateTo" name="dateTo" th:value="${#dates.format(expenseSearch.getDateTo(), 'yyyy-MM-dd')}" placeholder="Fecha hasta">
+                        <input type="date" class="form-control" id="expenseFilterDateTo" name="dateTo" th:value="${#temporals.format(expenseSearch.getDateTo(), 'yyyy-MM-dd')}" placeholder="Fecha hasta">
                         <label for="expenseFilterDateTo">Fecha hasta</label>
                     </div>
                 </div>

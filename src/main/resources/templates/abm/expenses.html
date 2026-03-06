@@ -13,19 +13,19 @@
         <div class="row g-3">
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
-                    <input type="date" class="form-control" id="expenseFilterDate" name="date" th:value="${#dates.format(expenseSearch.getDate(), 'yyyy-MM-dd')}" placeholder="Fecha">
+                    <input type="date" class="form-control" id="expenseFilterDate" name="date" th:value="${#temporals.format(expenseSearch.getDate(), 'yyyy-MM-dd')}" placeholder="Fecha">
                     <label for="expenseFilterDate">Fecha</label>
                 </div>
             </div>
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
-                    <input type="date" class="form-control" id="expenseFilterDateFrom" name="dateFrom" th:value="${#dates.format(expenseSearch.getDateFrom(), 'yyyy-MM-dd')}" placeholder="Fecha desde">
+                    <input type="date" class="form-control" id="expenseFilterDateFrom" name="dateFrom" th:value="${#temporals.format(expenseSearch.getDateFrom(), 'yyyy-MM-dd')}" placeholder="Fecha desde">
                     <label for="expenseFilterDateFrom">Fecha desde</label>
                 </div>
             </div>
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
-                    <input type="date" class="form-control" id="expenseFilterDateTo" name="dateTo" th:value="${#dates.format(expenseSearch.getDateTo(), 'yyyy-MM-dd')}" placeholder="Fecha hasta">
+                    <input type="date" class="form-control" id="expenseFilterDateTo" name="dateTo" th:value="${#temporals.format(expenseSearch.getDateTo(), 'yyyy-MM-dd')}" placeholder="Fecha hasta">
                     <label for="expenseFilterDateTo">Fecha hasta</label>
                 </div>
             </div>
@@ -110,7 +110,7 @@
                 <th>Descripci&oacute;n</th>
                 <th class="d-none d-lg-table-cell">Detalle</th>
                 <th class="d-none d-lg-table-cell">Categor&iacute;a</th>
-                <th class="d-none d-lg-table-cell">Cuenta</th>
+                <th class="d-none d-lg-table-cell" th:if="${expenseSearch.accountId == null}">Cuenta</th>
                 <th>Importe</th>
                 <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
             </tr>
@@ -120,11 +120,11 @@
                 <td colspan="9">No hay registros para mostrar!</td>
             </tr>
             <tr th:unless="${#lists.isEmpty(expensesPage.content)}" th:each="expense : ${expensesPage.content}">
-                <td class="text-center" style="width:100px" th:text="${#dates.format(expense.date, 'dd/MM/yyyy')}"></td>
+                <td class="text-center" style="width:100px" th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></td>
                 <td class="text-start" th:text="${expense.description}"></td>
                 <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
                 <td class="text-center d-none d-lg-table-cell" th:text="${expense.category.name}"></td>
-                <td class="text-center d-none d-lg-table-cell" th:text="${expense.account != null ? expense.account.name : ''}"></td>
+                <td class="text-center d-none d-lg-table-cell" th:text="${expense.account != null ? expense.account.name : ''}" th:if="${expenseSearch.accountId == null}"></td>
                 <td class="text-center">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>

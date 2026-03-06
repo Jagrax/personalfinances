@@ -28,7 +28,7 @@
             <tr th:unless="${#lists.isEmpty(expensesNotFounded)}" th:each="expense, iterStat : *{expenses}">
                 <td class="text-center"><input type="checkbox" th:field="*{expenses[__${iterStat.index}__].selected}" /></td>
                 <td class="text-center" style="width:100px">
-                    <span th:text="${#dates.format(expense.date, 'dd/MM/yyyy')}"></span>
+                    <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
                     <input type="hidden" th:field="*{expenses[__${iterStat.index}__].date}" />
                 </td>
                 <td class="text-start">
