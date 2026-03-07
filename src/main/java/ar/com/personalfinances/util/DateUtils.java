@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 public class DateUtils {
 
@@ -24,6 +25,20 @@ public class DateUtils {
                 , LocalDate.of(2025, 11, 24) // Día de la Soberanía Nacional (20/11)
                 , LocalDate.of(2026,  2, 16) // Feriado por carnaval
                 , LocalDate.of(2026,  2, 17) // Feriado por carnaval
+    );
+    public static final Map<String, String> MONTHS_ES = Map.ofEntries(
+            Map.entry("Ene","Jan"),
+            Map.entry("Feb","Feb"),
+            Map.entry("Mar","Mar"),
+            Map.entry("Abr","Apr"),
+            Map.entry("May","May"),
+            Map.entry("Jun","Jun"),
+            Map.entry("Jul","Jul"),
+            Map.entry("Ago","Aug"),
+            Map.entry("Sep","Sep"),
+            Map.entry("Oct","Oct"),
+            Map.entry("Nov","Nov"),
+            Map.entry("Dic","Dec")
     );
 
     public static String format(Date date) {

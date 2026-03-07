@@ -475,7 +475,6 @@ public class BankSyncController {
 
     private Pair<Map<Expense, List<Expense>>, List<Expense>> parseAndAnalyzeMasterCardPdf(Account account, Map<String, List<String>> masterCardPdfsWithLines) {
         final String datePattern = "dd-MMM-yy";
-        final DateTimeFormatter formatterEs = DateTimeFormatter.ofPattern(datePattern, new Locale("es"));
         final DateTimeFormatter formatterEn = DateTimeFormatter.ofPattern(datePattern, Locale.ENGLISH);
         LocalDate minDate = null, maxDate = null;
         final List<Expense> expensesFromPDFs = new ArrayList<>();
@@ -507,15 +506,17 @@ public class BankSyncController {
                         if (description.contains("U$S")) continue;
 
                         String amount = matcher.group(6).replace(".", "").replace(",", ".");         // 13.600,00
+
+                        String rawDate = matcher.group(1);
+                        for (Map.Entry<String, String> entry : DateUtils.MONTHS_ES.entrySet()) {
+                            rawDate = rawDate.replace(entry.getKey(), entry.getValue());
+                        }
+
                         LocalDate date;
                         try {
-                            date = LocalDate.parse(matcher.group(1), formatterEs);
+                            date = LocalDate.parse(rawDate, formatterEn);
                         } catch (DateTimeParseException e) {
-                            try {
-                                date = LocalDate.parse(matcher.group(1), formatterEn);
-                            } catch (DateTimeParseException e2) {
-                                throw new IllegalArgumentException("Fecha inválida: " + matcher.group(1));
-                            }
+                            throw new IllegalArgumentException("Fecha inválida: " + matcher.group(1));
                         }
 
                         Expense expenseFromPDF = new Expense();
@@ -621,6 +622,7 @@ public class BankSyncController {
         List<Expense> unmatchedDB = expensesFounded.entrySet().stream()
                 .filter(e -> e.getValue().isEmpty())
                 .map(Map.Entry::getKey)
+                .sorted(Comparator.comparing(Expense::getDate).reversed())
                 .collect(Collectors.toList());
         if (!CollectionUtils.isEmpty(unmatchedDB)) {
             log.info("Los siguientes gastos fueron encontrados en el rango de fechas de los gastos del PDF, pero no fueron hayados en el PDF en si:");
