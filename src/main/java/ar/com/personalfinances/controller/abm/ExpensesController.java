@@ -14,13 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -103,10 +102,20 @@ public class ExpensesController {
         ExpensePage expensesPage = getExpensesPaginated(PageRequest.of(currentPage - 1, pageSize), expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
         // Agrego la pagina de expensas que tengo que dibujar en pantalla
         model.addAttribute("expensesPage", expensesPage);
-        // Si tengo 1 pagina o mas, entonces calculo los numero de paginas del paginador. Estos se dibujan al pie de la tabla de expenses
-        int totalPages = expensesPage.getTotalPages();
+        model.addAttribute("hasPrevious", expensesPage.hasPrevious());
+        model.addAttribute("hasNext", expensesPage.hasNext());
+        model.addAttribute("currentPage", currentPage);
+
+        final int totalPages = expensesPage.getTotalPages();
+        model.addAttribute("totalPages", totalPages);
         if (totalPages > 0) {
-            List<Integer> pageNumbers = IntStream.rangeClosed(1, totalPages).boxed().collect(Collectors.toList());
+            int startPage = Math.max(1, currentPage - 10);
+            int endPage = Math.min(totalPages, currentPage + 10);
+
+            List<Integer> pageNumbers = IntStream.rangeClosed(startPage, endPage)
+                    .boxed()
+                    .collect(Collectors.toList());
+
             model.addAttribute("pageNumbers", pageNumbers);
         }
 
@@ -189,75 +198,6 @@ public class ExpensesController {
         return getExpensesEditPage(model, expense, backUrl);
     }
 
-    @RequestMapping(value = "/expenses/edit", method = RequestMethod.GET)
-    public String editExpense(Model model, @RequestParam(name = "expenseIdToEdit") Optional<Long> expenseIdToEdit, @RequestParam("backUrl") Optional<String> backUrl) {
-        Optional<Expense> expenseToEdit;
-        if (expenseIdToEdit.isPresent()) {
-            expenseToEdit = expenseRepository.findById(expenseIdToEdit.get());
-            if (expenseToEdit.isPresent()) {
-                User user = ApplicationUtils.getUserFromSession();
-                if (expenseToEdit.get().getUser().getId().equals(user.getId())) {
-                    return getExpensesEditPage(model, expenseToEdit.get(), backUrl);
-                } else {
-                    model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no le pertenece"));
-                }
-            } else {
-                model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado editar no existe"));
-            }
-        } else {
-            model.addAttribute("applicationMessage", ApplicationMessage.warn("No se especifico el id del gasto a editar"));
-        }
-
-        return createExpense(model, backUrl);
-    }
-
-    @RequestMapping(value = "/expenses/duplicate", method = RequestMethod.GET)
-    public String duplicateExpense(Model model, @RequestParam(name = "cloneExpenseId") Optional<Long> cloneExpenseId, @RequestParam("backUrl") Optional<String> backUrl) {
-        Optional<Expense> expenseToClone;
-        if (cloneExpenseId.isPresent()) {
-            expenseToClone = expenseRepository.findById(cloneExpenseId.get());
-            if (expenseToClone.isPresent()) {
-                User user = ApplicationUtils.getUserFromSession();
-                if (expenseToClone.get().getUser().getId().equals(user.getId())) {
-                    Expense expense = ApplicationUtils.cloneEntity(expenseToClone.get(), true);
-                    expense.setUser(user);
-                    return getExpensesEditPage(model, expense, backUrl);
-                } else {
-                    model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no le pertenece"));
-                }
-            } else {
-                model.addAttribute("applicationMessage", ApplicationMessage.warn("El gasto que esta intentado clonar no existe"));
-            }
-        } else {
-            model.addAttribute("applicationMessage", ApplicationMessage.warn("No se especifico el id del gasto del cual clonar"));
-        }
-
-        return createExpense(model, backUrl);
-    }
-
-    @RequestMapping(value = "/expenses/save", method = RequestMethod.POST)
-    public String createOrUpdateExpense(Model model, @Valid Expense expense, BindingResult result, @RequestParam("backUrl") Optional<String> backUrl) {
-        if (result.hasErrors()) {
-            model.addAttribute("applicationMessage", ApplicationMessage.error("Error de datos en el registro"));
-            model.addAttribute("bindingResult", result);
-
-            model.addAttribute("expense", expense);
-            model.addAttribute("categories", categoryRepository.findAll());
-            model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
-            // Atributo usado para settear la clase 'active' en el item del menu que corresponda
-            model.addAttribute("module", "expenses");
-            return "abm/expenses-edit";
-        }
-
-        expenseService.saveWithAudit(expense, ApplicationUtils.getUserFromSession());
-
-        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
-            return "redirect:" + backUrl.get();
-        }
-
-        return "redirect:/expenses";
-    }
-
     @PostMapping(value = "/expenses/save-ajax")
     @ResponseBody
     public void createOrUpdateExpenseAjax(@RequestBody Expense expense) {
@@ -266,17 +206,12 @@ public class ExpensesController {
         expenseService.saveWithAudit(expense, user);
     }
 
-    @GetMapping("/expenses/delete/{id}")
-    public String deleteExpense(@PathVariable("id") long id, Optional<String> backUrl) {
+    @PostMapping("/expenses/delete-ajax/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteExpenseAjax(@PathVariable("id") long id) {
         Expense expense = expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Expense", "id", id));
         expenseRepository.delete(expense);
         alertEventService.saveExpenseAlert(EntityEvent.DELETED, expense.getId(), "", ApplicationUtils.getUserFromSession().getId());
-
-        if (backUrl.isPresent() && StringUtils.hasLength(backUrl.get())) {
-            return "redirect:" + backUrl.get();
-        }
-
-        return "redirect:/expenses";
     }
 
     private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {

@@ -10,6 +10,7 @@
 <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
     <form id="expenseSearchForm" th:action="@{${'/expenses' + urlParams}}" th:object="${expenseSearch}" method="post"
           th:with="urlParams=${#strings.isEmpty(httpServletRequest.queryString) ? '' : '?' + httpServletRequest.queryString},backUrl=${'/expenses' + urlParams}">
+        <input type="hidden" id="page" name="page" th:value="${currentPage}">
         <div class="row g-3">
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
@@ -119,7 +120,16 @@
             <tr th:if="${#lists.isEmpty(expensesPage.content)}">
                 <td colspan="9">No hay registros para mostrar!</td>
             </tr>
-            <tr th:unless="${#lists.isEmpty(expensesPage.content)}" th:each="expense : ${expensesPage.content}">
+            <tr th:unless="${#lists.isEmpty(expensesPage.content)}"
+                th:each="expense : ${expensesPage.content}"
+                th:attr="
+                data-expense-id=${expense.id},
+                data-date=${#temporals.format(expense.date,'yyyy-MM-dd')},
+                data-description=${expense.description},
+                data-details=${expense.details},
+                data-amount=${expense.amount},
+                data-category-id=${expense.category.id},
+                data-account-id=${expense.account != null ? expense.account.id : ''}">
                 <td class="text-center" style="width:100px" th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></td>
                 <td class="text-start" th:text="${expense.description}"></td>
                 <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
@@ -132,9 +142,9 @@
                     </div>
                 </td>
                 <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/edit(expenseIdToEdit=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></a></td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/duplicate(cloneExpenseId=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-files"></i></a></td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><a th:href="@{/expenses/delete/{id}(id=${expense.id},backUrl=${backUrl})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button type="button"class="btn btn-link p-0"onclick="editExpenseRow(this)"><i class="bi bi-pencil-square"></i></button></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button type="button" class="btn btn-link p-0" onclick="duplicateExpenseRow(this)"><i class="bi bi-files"></i></button></td>
+                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button type="button" class="btn btn-link p-0" th:onclick="'deleteExpense(' + ${expense.id} + ')'"><i class="bi bi-trash text-danger"></i></button></td>
             </tr>
             </tbody>
             <tfoot>
@@ -161,26 +171,55 @@
             </tfoot>
         </table>
 
-        <nav th:if="${expensesPage.totalPages > 1}">
+        <nav th:if="${totalPages > 1}">
             <ul class="pagination pagination-sm justify-content-center">
-                <th:block th:each="pageNumber : ${pageNumbers}">
-                    <li class="page-item" th:if="${pageNumber == 1}">
-                        <button name="page" class="page-link" th:classappend="${expensesPage.number == 0 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-left"></i></button>
-                    </li>
-                    <li class="page-item" th:if="${pageNumber == 1}">
-                        <button name="page" class="page-link" th:classappend="${expensesPage.number == 0 ? ' disabled' : ''}" th:value="${expensesPage.number}" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
-                    </li>
-                    <li class="page-item" th:classappend="${pageNumber==expensesPage.number + 1 ? ' active' : ''}">
-                        <span th:if="${pageNumber == expensesPage.number - 10 or pageNumber == expensesPage.number + 12}" th:class="page-link" th:text="..."></span>
-                        <button name="page" th:if="${pageNumber > expensesPage.number - 10 and pageNumber < expensesPage.number + 12}" th:value="${pageNumber}" th:text="${pageNumber}" th:class="page-link"></button>
-                    </li>
-                    <li class="page-item" th:if="${pageNumber == expensesPage.totalPages}">
-                        <button name="page" class="page-link" th:classappend="${expensesPage.number == expensesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${expensesPage.number + 2}" aria-label="Previous"><i class="bi bi-chevron-right"></i></button>
-                    </li>
-                    <li class="page-item" th:if="${pageNumber == expensesPage.totalPages}">
-                        <button name="page" class="page-link" th:classappend="${expensesPage.number == expensesPage.totalPages - 1 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Previous"><i class="bi bi-chevron-double-right"></i></button>
-                    </li>
-                </th:block>
+
+                <!-- primera -->
+                <li class="page-item" th:classappend="${!hasPrevious ? 'disabled' : ''}">
+                    <button class="page-link" type="button" onclick="setPage(1)">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </button>
+                </li>
+
+                <!-- anterior -->
+                <li class="page-item" th:classappend="${!hasPrevious ? 'disabled' : ''}">
+                    <button class="page-link"
+                            type="button"
+                            th:onclick="'setPage(' + ${currentPage - 1} + ')'">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                </li>
+
+                <!-- páginas -->
+                <li class="page-item"
+                    th:each="pageNumber : ${pageNumbers}"
+                    th:classappend="${pageNumber == currentPage ? 'active' : ''}">
+
+                    <button type="button"
+                            class="page-link"
+                            th:onclick="'setPage(' + ${pageNumber} + ')'"
+                            th:text="${pageNumber}">
+                    </button>
+
+                </li>
+
+                <!-- siguiente -->
+                <li class="page-item" th:classappend="${!hasNext ? 'disabled' : ''}">
+                    <button class="page-link"
+                            type="button"
+                            th:onclick="'setPage(' + ${currentPage + 1} + ')'">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </li>
+
+                <!-- última -->
+                <li class="page-item" th:classappend="${!hasNext ? 'disabled' : ''}">
+                    <button class="page-link"
+                            type="button"
+                            th:onclick="'setPage(' + ${totalPages} + ')'">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </button>
+                </li>
             </ul>
         </nav>
 
@@ -220,56 +259,116 @@
 
     <script th:inline="javascript">
         const expenseSaveUrlAjax = [[@{/expenses/save-ajax}]];
-    </script>
-    <script>
-        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
-        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+        const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
+
+        $(function () {
+            $('[data-bs-toggle="popover"]').each(function () {
+                new bootstrap.Popover(this);
+            });
+        });
 
         function addExpenseRow() {
-            if (document.querySelector(".editing-row")) {
-                return;
-            }
+            if ($(".editing-row").length) return;
 
-            const template = document.querySelector("#expenseEditRowTemplate");
+            const template = $("#expenseEditRowTemplate")[0];
             const clone = template.content.cloneNode(true);
 
-            const row = clone.querySelector("tr");
-            row.classList.add("editing-row");
+            const row = $(clone).find("tr");
 
-            // Fecha de hoy
+            row.addClass("editing-row");
+            row.data("expense-id", null);
+
             const today = new Date().toISOString().split("T")[0];
 
-            row.querySelector("[name=date]").value = today;
+            row.find("[name=date]").val(today);
 
-            document.querySelector("#expensesTableBody").prepend(clone);
+            $("#expensesTableBody").prepend(row);
 
-            row.querySelector("[name=description]").focus();
+            row.find("[name=description]").focus();
+        }
+
+        function duplicateExpenseRow(button) {
+            if ($(".editing-row").length) return;
+
+            const sourceRow = $(button).closest("tr");
+
+            const template = $("#expenseEditRowTemplate")[0];
+            const clone = template.content.cloneNode(true);
+
+            const row = $(clone).find("tr");
+
+            row.addClass("editing-row");
+
+            row.find("[name=date]").val(sourceRow.data("date"));
+            row.find("[name=description]").val(sourceRow.data("description"));
+            row.find("[name=details]").val(sourceRow.data("details"));
+            row.find("[name=amount]").val(sourceRow.data("amount"));
+
+            row.find("[name='category.id']").val(sourceRow.data("category-id"));
+            row.find("[name='account.id']").val(sourceRow.data("account-id"));
+
+            $("#expensesTableBody").prepend(row);
+        }
+
+        function editExpenseRow(button) {
+            if ($(".editing-row").length) return;
+
+            const sourceRow = $(button).closest("tr");
+
+            const template = $("#expenseEditRowTemplate")[0];
+            const clone = template.content.cloneNode(true);
+
+            const row = $(clone).find("tr");
+
+            row.addClass("editing-row");
+
+            row.data("expense-id", sourceRow.data("expense-id"));
+            row.data("original-row", sourceRow);
+
+            row.find("[name=date]").val(sourceRow.data("date"));
+            row.find("[name=description]").val(sourceRow.data("description"));
+            row.find("[name=details]").val(sourceRow.data("details"));
+            row.find("[name=amount]").val(sourceRow.data("amount"));
+
+            row.find("[name='category.id']").val(sourceRow.data("category-id"));
+            row.find("[name='account.id']").val(sourceRow.data("account-id"));
+
+            sourceRow.replaceWith(row);
         }
 
         function cancelEdit(button) {
-            const row = button.closest("tr");
-            row.remove();
+            const row = $(button).closest("tr");
+            const originalRow = row.data("original-row");
+
+            if (originalRow) {
+                row.replaceWith(originalRow);
+            } else {
+                row.remove();
+            }
         }
 
-        function saveExpense(button){
+        function saveExpense(button) {
 
-            const row = button.closest("tr");
+            const row = $(button).closest("tr");
 
             const data = {
-                date: row.querySelector("[name='date']").value,
-                description: row.querySelector("[name='description']").value,
-                details: row.querySelector("[name='details']").value,
-                amount: row.querySelector("[name='amount']").value,
+                id: row.data("expense-id") || null,
+                date: row.find("[name='date']").val(),
+                description: row.find("[name='description']").val(),
+                details: row.find("[name='details']").val(),
+                amount: row.find("[name='amount']").val(),
                 category: {
-                    id: row.querySelector("[name='category.id']").value
+                    id: row.find("[name='category.id']").val()
                 },
                 account: {
-                    id: row.querySelector("[name='account.id']").value
+                    id: row.find("[name='account.id']").val()
                 }
             };
 
-            button.disabled = true;
-            button.innerHTML = '<i class="bi bi-hourglass"></i>';
+            const $button = $(button);
+
+            $button.prop("disabled", true);
+            $button.html('<i class="bi bi-hourglass"></i>');
 
             fetch(expenseSaveUrlAjax, {
                 method: "POST",
@@ -279,13 +378,36 @@
                 body: JSON.stringify(data)
             })
                 .then(() => {
-                    const row = button.closest("tr");
-
-                    row.querySelectorAll("input,select").forEach(el => {
-                        el.disabled = true;
-                    });
-                    document.getElementById("expenseSearchForm").submit();
+                    row.find("input,select").prop("disabled", true);
+                    $("#expenseSearchForm").submit();
                 });
+        }
+
+        function deleteExpense(id){
+            fetch(expenseDeleteUrlAjax + id, {
+                method: "POST"
+            })
+                .then(() => {
+                    $("#expenseSearchForm").submit();
+                });
+        }
+
+        $(document).on("keydown", ".editing-row input", function(e){
+            if (e.key === "Enter"){
+                e.preventDefault();
+                saveExpense($(this).closest("tr").find(".btn-success")[0]);
+            }
+        });
+
+        $("#expenseSearchForm input, #expenseSearchForm select")
+            .not("[name=page]")
+            .on("change", function(){
+                $("input[name=page]").val(1);
+            });
+
+        function setPage(page){
+            $("#page").val(page);
+            $("#expenseSearchForm").submit();
         }
     </script>
 </div>
