@@ -10,6 +10,7 @@ import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.ExpenseService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
+import ar.com.personalfinances.web.model.FilterChip;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -122,15 +123,23 @@ public class ExpensesController {
         // Categorias que se muestran en el filtro de Categorias
         model.addAttribute("categories", userCategories);
         // Cuentas que se muestran en el filtro Cuentas
-        List<Account> accounts = getUserAccounts(accountSearch, Sort.by(Sort.Direction.ASC,"name"));
-        model.addAttribute("accounts", accounts);
-        if (accounts.size() == 1) expenseSearch.setAccountId(accounts.iterator().next().getId());
+        List<Account> userAccounts = getUserAccounts(accountSearch, Sort.by(Sort.Direction.ASC,"name"));
+        model.addAttribute("accounts", userAccounts);
+        if (userAccounts.size() == 1) expenseSearch.setAccountId(userAccounts.iterator().next().getId());
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";
         if (accountType.isPresent()) {
             module += "-" + accountType.get().toLowerCase();
         }
         model.addAttribute("module", module);
+
+        List<FilterChip> filterChips = expenseSearch.getActiveFilters();
+        for (FilterChip chip : filterChips) {
+            if ("categoryId".equals(chip.getField())) userCategories.stream().filter(category -> category.getId().equals(Long.valueOf(chip.getValue()))).findFirst().ifPresent(category -> chip.setValue(category.getName()));
+            if ("accountId".equals(chip.getField())) userAccounts.stream().filter(account -> account.getId().equals(Long.valueOf(chip.getValue()))).findFirst().ifPresent(account -> chip.setValue(account.getName()));
+        }
+        model.addAttribute("filterChips", filterChips);
+
         // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
         model.addAttribute("expenseSearch", expenseSearch);
         return "abm/expenses";
