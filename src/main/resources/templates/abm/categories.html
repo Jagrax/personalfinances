@@ -94,7 +94,7 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                     <label class="form-label" for="color">Color</label>
-                                    <input class="form-control form-control-sm" type="color" th:field="*{name}" id="color"/>
+                                    <input class="form-control form-control-sm" type="color" th:field="*{color}" id="color"/>
                                     <span th:if="${#fields.hasErrors('color')}" th:errors="*{color}"></span>
                                 </div>
                             </div>
@@ -110,6 +110,23 @@
         </div>
 
         <script th:if="${categoryIdToEdit != null}">$("#btnOpenModal").click()</script>
+        <script>
+            $(function() {
+                const $colorInput = $("#color");
+                $colorInput.data("changed", false);
+
+                $colorInput.on("input", function() {
+                    $colorInput.data("changed", true);
+                });
+
+                $("form").on("submit", function() {
+                    if (!$colorInput.data("changed")) {
+                        $colorInput.prop("disabled", true);
+                    }
+                });
+
+            });
+        </script>
     </div>
 </body>
 </html>
