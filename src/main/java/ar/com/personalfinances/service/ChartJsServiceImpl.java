@@ -91,7 +91,7 @@ public class ChartJsServiceImpl implements ChartJsService {
             if (StringUtils.hasText(dbColor)) {
                 backgroundColors.add(dbColor);
             } else {
-                final int familyIndex = i == 0 ? 0 : (i % MATERIAL_PALETTE.size()) + 3;
+                final int familyIndex = (i + 3) % MATERIAL_PALETTE.size();
                 //final int intensityIndex = i % 10; // Intensidad incremental: 50, 100, 200, 300, 400, 500, etc...
                 final int intensityIndex = 5; // Intensidad fija: 500
 
