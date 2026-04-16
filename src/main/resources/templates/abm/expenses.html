@@ -97,7 +97,7 @@
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
                     <div class="form-floating">
-                        <select class="form-select" id="expenseFilterAccountId" name="accountId" th:disabled="${accounts.size() == 1}">
+                        <select class="form-select" id="expenseFilterAccountId" name="accountId">
                             <option th:if="${accounts.size() > 1}" th:selected="${expenseSearch.accountId == null}" th:value="${null}">Todas las cuentas</option>
                             <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.accountId}"></option>
                         </select>
@@ -151,11 +151,26 @@
                 data-amount=${expense.amount},
                 data-category-id=${expense.category.id},
                 data-account-id=${expense.account != null ? expense.account.id : ''}">
-                <td class="text-center" style="width:100px" th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></td>
-                <td class="text-start" th:text="${expense.description}"></td>
-                <td class="text-start d-none d-lg-table-cell" th:text="${expense.details}"></td>
-                <td class="text-center d-none d-lg-table-cell" th:text="${expense.category.name}"></td>
-                <td class="text-center d-none d-lg-table-cell" th:text="${expense.account != null ? expense.account.name : ''}" th:if="${expenseSearch.accountId == null}"></td>
+                <td class="text-center filterable" data-field="date" style="width:100px">
+                    <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
+                    <i class="bi bi-funnel filter-icon"></i>
+                </td>
+                <td class="text-start filterable" data-field="description">
+                    <span th:text="${expense.description}"></span>
+                    <i class="bi bi-funnel filter-icon"></i>
+                </td>
+                <td class="text-start d-none d-lg-table-cell filterable" data-field="details">
+                    <span th:text="${expense.details}"></span>
+                    <i class="bi bi-funnel filter-icon"></i>
+                </td>
+                <td class="text-center d-none d-lg-table-cell filterable" data-field="categoryId" th:attr="data-value=${expense.category.id}">
+                    <span th:text="${expense.category.name}"></span>
+                    <i class="bi bi-funnel filter-icon" th:title="${'Filtrar por categor&iacute;a: ' + expense.category.name}"></i>
+                </td>
+                <td class="text-center d-none d-lg-table-cell filterable" th:if="${expenseSearch.accountId == null}" data-field="accountId" th:attr="data-value=${expense.account.id}">
+                    <span th:text="${expense.account != null ? expense.account.name : ''}"></span>
+                    <i class="bi bi-funnel filter-icon" th:title="${'Filtrar por cuenta: ' + (expense.account != null ? expense.account.name : '')}"></i>
+                </td>
                 <td class="text-center">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
@@ -442,6 +457,34 @@
             }
             setPage(1);
         }
+
+        $(document).on("click", ".filter-icon", function(e){
+
+            e.stopPropagation();
+
+            if ($(".editing-row").length) return;
+
+            const td = $(this).closest("td");
+
+            const field = td.data("field");
+
+            let value = td.data("value");
+
+            if (value === undefined){
+                value = td.text().trim();
+            }
+
+            const $input = $("#expenseSearchForm [name='" + field + "']");
+
+            if ($input.is("select")){
+                $input.val(value);
+            } else {
+                $input.val(value);
+            }
+
+            setPage(1);
+
+        });
     </script>
 </div>
 </body>
