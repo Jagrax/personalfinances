@@ -490,6 +490,48 @@
             setPage(1);
 
         });
+
+        $(document).on("mouseup", ".filterable", function(e){
+
+            if ($(".editing-group").length) return;
+
+            const selection = window.getSelection().toString().trim();
+
+            if (!selection) {
+                $("#selectionFilterButton").remove();
+                return;
+            }
+
+            const td = $(this);
+
+            const button = $(`
+        <button id="selectionFilterButton"
+                class="btn btn-sm btn-dark position-absolute">
+            <i class="bi bi-funnel"></i>
+        </button>
+    `);
+
+            button.css({
+                top: e.pageY + 5,
+                left: e.pageX + 5,
+                zIndex: 9999
+            });
+
+            $("body").append(button);
+
+            button.on("click", function(){
+
+                const field = td.data("field");
+
+                const $input = $("#expenseSearchForm [name='" + field + "']");
+
+                $input.val(selection);
+
+                setPage(1);
+
+            });
+
+        });
     </script>
 </div>
 </body>
