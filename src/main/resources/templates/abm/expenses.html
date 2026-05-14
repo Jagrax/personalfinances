@@ -13,20 +13,19 @@
         <input type="hidden" id="page" name="page" th:value="${currentPage}">
 
         <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+<!--            TODO Agregar el icono y nombre de la cuenta antes de los filtros -->
             <th:block th:each="chip : ${filterChips}">
-                <div class="badge rounded-pill" style="--bs-badge-font-size:.875rem"
-                     th:classappend="${chip.field == 'accountId' and accounts.size() == 1} ? 'bg-secondary' : 'bg-primary'">
+                <div class="badge rounded-pill bg-primary" style="--bs-badge-font-size:.875rem">
                     <span th:text="|${chip.label} ${chip.operator.symbol} ${chip.value}|"></span>
                     <!-- Replico el comportamiento del select de cuentas, si vino solo 1, no puedo sacar este filtro -->
                     <a href="#" th:if="${!(chip.field == 'accountId' and accounts.size() == 1)}"
                        th:attr="data-field=${chip.field}" onclick="clearFilter(this)" class="text-white ms-1">
                         <i class="bi bi-x-lg ms-1"></i>
                     </a>
-                    <i class="bi bi-lock-fill ms-1" th:if="${chip.field == 'accountId' and accounts.size() == 1}"></i>
                 </div>
             </th:block>
-
-            <a th:if="${expenseSearch.hasFilters()}" th:href="@{/expenses}" class="btn btn-sm btn-outline-danger ms-2"><i class="bi bi-x-circle me-1"></i>Limpiar</a>
+<!-- FIXME: Este boton en realidad no esta limpiando filtros, sino que esta llamando a la pagina sin ningun filtro puesto, y pierdo la cuenta elegida -->
+<!--            <a th:if="${expenseSearch.hasFilters()}" th:href="@{/expenses}" class="btn btn-sm btn-outline-danger ms-2"><i class="bi bi-x-circle me-1"></i>Limpiar</a>-->
 
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#filtersPanel"><i class="bi bi-filter me-2"></i>Filtros</button>
         </div>
@@ -95,15 +94,6 @@
                         <label for="expenseFilterCategoryId">Categor&iacute;a</label>
                     </div>
                 </div>
-                <div class="col-12 col-lg-4 col-xxl-2">
-                    <div class="form-floating">
-                        <select class="form-select" id="expenseFilterAccountId" name="accountId">
-                            <option th:if="${accounts.size() > 1}" th:selected="${expenseSearch.accountId == null}" th:value="${null}">Todas las cuentas</option>
-                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${account.id == expenseSearch.accountId}"></option>
-                        </select>
-                        <label for="expenseFilterAccountId">Cuenta</label>
-                    </div>
-                </div>
                 <div class="col-12 text-lg-end">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
                 </div>
@@ -125,68 +115,63 @@
             </div>
         </div>
 
-        <table class="table table-sm table-bordered table-striped">
+        <table class="table table-sm table-bordered align-middle">
             <thead class="text-center">
             <tr>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
-                <th class="d-none d-lg-table-cell" colspan="2">Detalle</th>
-                <th class="d-none d-lg-table-cell">Categor&iacute;a</th>
-                <th class="d-none d-lg-table-cell" th:if="${expenseSearch.accountId == null}">Cuenta</th>
+                <th>Detalle</th>
+                <th>Categor&iacute;a</th>
                 <th>Importe</th>
-                <th class="d-none d-lg-table-cell" colspan="4">Acciones</th>
+                <th colspan="4">Acciones</th>
             </tr>
             </thead>
-            <tbody id="expensesTableBody">
-            <tr th:if="${#lists.isEmpty(expensesPage.content)}">
-                <td colspan="9">No hay registros para mostrar!</td>
-            </tr>
-            <tr th:unless="${#lists.isEmpty(expensesPage.content)}"
-                th:each="expense : ${expensesPage.content}"
-                th:attr="
-                data-expense-id=${expense.id},
-                data-date=${#temporals.format(expense.date,'yyyy-MM-dd')},
-                data-description=${expense.description},
-                data-details=${expense.details},
-                data-amount=${expense.amount},
-                data-category-id=${expense.category.id},
-                data-account-id=${expense.account != null ? expense.account.id : ''},
-                data-comments=${expense.comments}">
-                <td class="text-center filterable" data-field="date" style="width:100px">
-                    <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
-                    <i class="bi bi-funnel filter-icon"></i>
-                </td>
-                <td class="text-start filterable" data-field="description">
-                    <span th:text="${expense.description}"></span>
-                    <i class="bi bi-funnel filter-icon"></i>
-                </td>
-                <td class="text-start d-none d-lg-table-cell filterable" data-field="details" colspan="2">
-                    <span th:text="${expense.details}"></span>
-                    <i class="bi bi-funnel filter-icon"></i>
-                </td>
-                <td class="text-center d-none d-lg-table-cell filterable" data-field="categoryId" th:attr="data-value=${expense.category.id}">
-                    <span th:text="${expense.category.name}"></span>
-                    <i class="bi bi-funnel filter-icon" th:title="${'Filtrar por categor&iacute;a: ' + expense.category.name}"></i>
-                </td>
-                <td class="text-center d-none d-lg-table-cell filterable" th:if="${expenseSearch.accountId == null}" data-field="accountId" th:attr="data-value=${expense.account.id}">
-                    <span th:text="${expense.account != null ? expense.account.name : ''}"></span>
-                    <i class="bi bi-funnel filter-icon" th:title="${'Filtrar por cuenta: ' + (expense.account != null ? expense.account.name : '')}"></i>
-                </td>
-                <td class="text-center">
-                    <div class="d-flex flex-nowrap">
-                        <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
-                        <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
-                    </div>
-                </td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button type="button"class="btn btn-link p-0"onclick="editExpenseRow(this)"><i class="bi bi-pencil-square"></i></button></td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button type="button" class="btn btn-link p-0" onclick="duplicateExpenseRow(this)"><i class="bi bi-files"></i></button></td>
-                <td class="text-center d-none d-lg-table-cell" style="width:35px"><button type="button" class="btn btn-link p-0" th:onclick="'deleteExpense(' + ${expense.id} + ')'"><i class="bi bi-trash text-danger"></i></button></td>
-            </tr>
+            <tbody th:if="${#lists.isEmpty(expensesPage.content)}">
+                <tr><td colspan="9">No hay registros para mostrar!</td></tr>
+            </tbody>
+            <tbody th:unless="${#lists.isEmpty(expensesPage.content)}" class="expense-group"
+                   th:each="expense : ${expensesPage.content}"
+                   th:attr="
+                   data-expense-id=${expense.id},
+                   data-date=${#temporals.format(expense.date,'yyyy-MM-dd')},
+                   data-description=${expense.description},
+                   data-details=${expense.details},
+                   data-amount=${expense.amount},
+                   data-category-id=${expense.category.id},
+                   data-account-id=${expense.account != null ? expense.account.id : ''},
+                   data-comments=${expense.comments}">
+                <tr>
+                    <td class="text-center filterable" data-field="date" style="width:100px">
+                        <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
+                        <i class="bi bi-funnel filter-icon"></i>
+                    </td>
+                    <td class="text-start filterable" data-field="description">
+                        <span th:text="${expense.description}"></span>
+                        <i class="bi bi-funnel filter-icon"></i>
+                    </td>
+                    <td class="text-start filterable" data-field="details">
+                        <span th:text="${expense.details}"></span>
+                        <i class="bi bi-funnel filter-icon"></i>
+                    </td>
+                    <td class="text-center filterable" data-field="categoryId" th:attr="data-value=${expense.category.id}">
+                        <span th:text="${expense.category.name}"></span>
+                        <i class="bi bi-funnel filter-icon" th:title="${'Filtrar por categor&iacute;a: ' + expense.category.name}"></i>
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex flex-nowrap">
+                            <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
+                            <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
+                        </div>
+                    </td>
+                    <td class="text-center" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
+                    <td class="text-center" style="width:35px"><button type="button"class="btn btn-link p-0"onclick="editExpenseRow(this)"><i class="bi bi-pencil-square"></i></button></td>
+                    <td class="text-center" style="width:35px"><button type="button" class="btn btn-link p-0" onclick="duplicateExpenseRow(this)"><i class="bi bi-files"></i></button></td>
+                    <td class="text-center" style="width:35px"><button type="button" class="btn btn-link p-0" th:onclick="'deleteExpense(' + ${expense.id} + ')'"><i class="bi bi-trash text-danger"></i></button></td>
+                </tr>
             </tbody>
             <tfoot>
             <tr th:each="onPageTotalAmountsAcumByCurrency : ${expensesPage.getOnPageTotalAmountsAcumByCurrency()}">
-                <td class="text-end" th:colspan="${expenseSearch.accountId == null ? 5 : 4}">Total en pantalla</td>
+                <td class="text-end" colspan="4">Total en pantalla</td>
                 <td class="text-end">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(onPageTotalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
@@ -196,7 +181,7 @@
                 <td colspan="4"></td>
             </tr>
             <tr th:each="totalAmountsAcumByCurrency : ${expensesPage.getTotalAmountsAcumByCurrency()}">
-                <td class="text-end" th:colspan="${expenseSearch.accountId == null ? 5 : 4}">Total de todos los registros</td>
+                <td class="text-end" colspan="4">Total de todos los registros</td>
                 <td class="text-end">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(totalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
@@ -260,38 +245,41 @@
             </ul>
         </nav>
 
-        <template id="expenseEditRowTemplate">
-            <tr class="table-warning">
-                <td><input type="date" class="form-control form-control-sm" name="date"></td>
-                <td><input class="form-control form-control-sm" name="description"></td>
-                <td class="d-none d-lg-table-cell"><input class="form-control form-control-sm" name="details"></td>
-                <td class="d-none d-lg-table-cell"><input class="form-control form-control-sm" name="comments" placeholder="Comentario"></td>
-                <td class="d-none d-lg-table-cell">
-                    <select class="form-select form-select-sm" name="category.id">
-                        <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
-                    </select>
-                </td>
-                <td th:if="${expenseSearch.accountId == null}" class="d-none d-lg-table-cell">
-                    <select class="form-select form-select-sm" name="account.id">
-                        <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}">
-                        </option>
-                    </select>
-                </td>
-
-                <input type="hidden" th:if="${expenseSearch.accountId != null}" name="account.id" th:value="${expenseSearch.accountId}" />
-
-                <td><input class="form-control form-control-sm text-end" type="number" step=".01" name="amount"></td>
-                <td colspan="2" class="text-center">
-                    <button type="button" class="btn btn-sm btn-success" onclick="saveExpense(this)">
-                        <i class="bi bi-save"></i>
-                    </button>
-                </td>
-                <td colspan="2" class="text-center">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(this)">
-                        <i class="bi bi-x"></i>
-                    </button>
-                </td>
-            </tr>
+        <template id="expenseEditGroupTemplate">
+            <tbody class="editing-group table-warning">
+                <tr>
+                    <td><input type="date" class="form-control form-control-sm" name="date"></td>
+                    <td><input class="form-control form-control-sm" name="description"></td>
+                    <td><input class="form-control form-control-sm" name="details"></td>
+                    <td>
+                        <select class="form-select form-select-sm" name="category.id">
+                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
+                        </select>
+                    </td>
+                    <td><input class="form-control form-control-sm text-end" type="number" step=".01" name="amount"></td>
+                    <td colspan="2" rowspan="2" class="text-center" style="width:70px">
+                        <button type="button" class="btn btn-sm btn-success" onclick="saveExpense(this)">
+                            <i class="bi bi-save"></i>
+                        </button>
+                    </td>
+                    <td colspan="2" rowspan="2" class="text-center" style="width:70px">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(this)">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-end">Comentario</td>
+                    <td colspan="2"><input class="form-control form-control-sm" name="comments"></td>
+                    <td class="text-end">Cuenta</td>
+                    <td>
+                        <select class="form-select form-select-sm" name="account.id">
+                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}">
+                            </option>
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
         </template>
     </form>
 
@@ -306,103 +294,101 @@
         });
 
         function addExpenseRow() {
-            if ($(".editing-row").length) return;
+            if ($(".editing-group").length) return;
 
-            const template = $("#expenseEditRowTemplate")[0];
+            const template = $("#expenseEditGroupTemplate")[0];
             const clone = template.content.cloneNode(true);
 
-            const row = $(clone).find("tr");
+            const group = $(clone).find(".editing-group");
 
-            row.addClass("editing-row");
-            row.data("expense-id", null);
+            group.data("expense-id", null);
 
             const today = new Date().toISOString().split("T")[0];
 
-            row.find("[name=date]").val(today);
+            group.find("[name=date]").val(today);
 
-            $("#expensesTableBody").prepend(row);
+            $(".expense-group").first().before(group);
 
-            row.find("[name=description]").focus();
+            group.find("[name=description]").focus();
         }
 
         function duplicateExpenseRow(button) {
-            if ($(".editing-row").length) return;
+            if ($(".editing-group").length) return;
 
-            const sourceRow = $(button).closest("tr");
+            const sourceGroup = $(button).closest(".expense-group");
 
-            const template = $("#expenseEditRowTemplate")[0];
+            const template = $("#expenseEditGroupTemplate")[0];
             const clone = template.content.cloneNode(true);
 
-            const row = $(clone).find("tr");
+            const group = $(clone).find(".editing-group");
 
-            row.addClass("editing-row");
+            group.find("[name=date]").val(sourceGroup.data("date"));
+            group.find("[name=description]").val(sourceGroup.data("description"));
+            group.find("[name=details]").val(sourceGroup.data("details"));
+            group.find("[name=amount]").val(sourceGroup.data("amount"));
+            group.find("[name=comments]").val(sourceGroup.data("comments"));
 
-            row.find("[name=date]").val(sourceRow.data("date"));
-            row.find("[name=description]").val(sourceRow.data("description"));
-            row.find("[name=details]").val(sourceRow.data("details"));
-            row.find("[name=amount]").val(sourceRow.data("amount"));
-            row.find("[name=comments]").val(sourceRow.data("comments"));
+            group.find("[name='category.id']").val(sourceGroup.data("category-id"));
+            group.find("[name='account.id']").val(sourceGroup.data("account-id"));
 
-            row.find("[name='category.id']").val(sourceRow.data("category-id"));
-            row.find("[name='account.id']").val(sourceRow.data("account-id"));
+            $(".expense-group").first().before(group);
 
-            $("#expensesTableBody").prepend(row);
+            group.find("[name=description]").focus();
         }
 
         function editExpenseRow(button) {
-            if ($(".editing-row").length) return;
+            if ($(".editing-group").length) return;
 
-            const sourceRow = $(button).closest("tr");
+            const sourceGroup = $(button).closest(".expense-group");
 
-            const template = $("#expenseEditRowTemplate")[0];
+            const template = $("#expenseEditGroupTemplate")[0];
             const clone = template.content.cloneNode(true);
 
-            const row = $(clone).find("tr");
+            const group = $(clone).find(".editing-group");
 
-            row.addClass("editing-row");
+            group.data("expense-id", sourceGroup.data("expense-id"));
+            group.data("original-group", sourceGroup);
 
-            row.data("expense-id", sourceRow.data("expense-id"));
-            row.data("original-row", sourceRow);
+            group.find("[name=date]").val(sourceGroup.data("date"));
+            group.find("[name=description]").val(sourceGroup.data("description"));
+            group.find("[name=details]").val(sourceGroup.data("details"));
+            group.find("[name=amount]").val(sourceGroup.data("amount"));
+            group.find("[name=comments]").val(sourceGroup.data("comments"));
+            group.find("[name='category.id']").val(sourceGroup.data("category-id"));
+            group.find("[name='account.id']").val(sourceGroup.data("account-id"));
 
-            row.find("[name=date]").val(sourceRow.data("date"));
-            row.find("[name=description]").val(sourceRow.data("description"));
-            row.find("[name=details]").val(sourceRow.data("details"));
-            row.find("[name=amount]").val(sourceRow.data("amount"));
-            row.find("[name=comments]").val(sourceRow.data("comments"));
+            sourceGroup.replaceWith(group);
 
-            row.find("[name='category.id']").val(sourceRow.data("category-id"));
-            row.find("[name='account.id']").val(sourceRow.data("account-id"));
-
-            sourceRow.replaceWith(row);
+            group.find("[name=description]").focus();
         }
 
         function cancelEdit(button) {
-            const row = $(button).closest("tr");
-            const originalRow = row.data("original-row");
+            const group = $(button).closest(".editing-group");
+            const originalGroup = group.data("original-group");
 
-            if (originalRow) {
-                row.replaceWith(originalRow);
+            if (originalGroup) {
+                group.replaceWith(originalGroup);
             } else {
-                row.remove();
+                group.remove();
             }
         }
 
         function saveExpense(button) {
 
-            const row = $(button).closest("tr");
+            const group = $(button).closest(".editing-group");
 
             const data = {
-                id: row.data("expense-id") || null,
-                date: row.find("[name='date']").val(),
-                description: row.find("[name='description']").val(),
-                details: row.find("[name='details']").val(),
-                amount: row.find("[name='amount']").val(),
-                comments: row.find("[name='comments']").val(),
+                id: group.data("expense-id") || null,
+                date: group.find("[name='date']").val(),
+                description: group.find("[name='description']").val(),
+                details: group.find("[name='details']").val(),
+                amount: group.find("[name='amount']").val(),
+                comments: group.find("[name='comments']").val(),
                 category: {
-                    id: row.find("[name='category.id']").val()
+                    id: group.find("[name='category.id']").val()
                 },
                 account: {
-                    id: row.find("[name='account.id']").val()
+                    id: group.find("[name='account.id']").val()
                 }
             };
 
@@ -419,7 +405,7 @@
                 body: JSON.stringify(data)
             })
                 .then(() => {
-                    row.find("input,select").prop("disabled", true);
+                    group.find("input,select").prop("disabled", true);
                     $("#expenseSearchForm").submit();
                 });
         }
@@ -433,10 +419,10 @@
                 });
         }
 
-        $(document).on("keydown", ".editing-row input", function(e){
+        $(document).on("keydown", ".editing-group input", function(e){
             if (e.key === "Enter"){
                 e.preventDefault();
-                saveExpense($(this).closest("tr").find(".btn-success")[0]);
+                saveExpense($(this).closest(".editing-group").find(".btn-success")[0]);
             }
         });
 
@@ -467,7 +453,7 @@
 
             e.stopPropagation();
 
-            if ($(".editing-row").length) return;
+            if ($(".editing-group").length) return;
 
             const td = $(this).closest("td");
 

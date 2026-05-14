@@ -37,3 +37,9 @@
 .editing-row .filter-icon {
     display: none !important;
 }
+
+/* Replico la clase table-striped porque ahora dibujo N <tbody> con un solo <tr> dentro y no le aplica la clase de bootstrap*/
+.expense-group:nth-of-type(odd) tr {
+    --bs-table-color-type: var(--bs-table-striped-color);
+    --bs-table-bg-type: var(--bs-table-striped-bg);
+}
