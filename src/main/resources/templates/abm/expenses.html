@@ -420,9 +420,14 @@
         }
 
         $(document).on("keydown", ".editing-group input", function(e){
+            const group = $(this).closest(".editing-group");
             if (e.key === "Enter"){
                 e.preventDefault();
-                saveExpense($(this).closest(".editing-group").find(".btn-success")[0]);
+                saveExpense(group.find(".btn-success")[0]);
+            }
+            if (e.key === "Escape") {
+                e.preventDefault();
+                cancelEdit(group.find(".btn-secondary")[0]);
             }
         });
 
