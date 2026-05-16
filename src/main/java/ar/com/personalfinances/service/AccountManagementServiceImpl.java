@@ -298,6 +298,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
 
                     expensesIdFounded.add(expense.getId());
                     found = true;
+                    break;
                 }
 
                 // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
