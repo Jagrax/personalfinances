@@ -13,4 +13,18 @@ public class FilterChip {
     private String label;
     private FilterOperator operator;
     private String value;
+
+    public String getDisplayValue() {
+        if (operator == null) {
+            return label + " " + value;
+        }
+
+        switch (operator) {
+            case EMPTY:
+            case NOT_EMPTY:
+                return label + " " + operator.getLabel();
+            default:
+                return label + " " + operator.getSymbol() + " " + value;
+        }
+    }
 }

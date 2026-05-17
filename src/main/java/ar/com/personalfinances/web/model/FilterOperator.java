@@ -10,7 +10,9 @@ public enum FilterOperator {
     GTE("≥", "mayor o igual"),
     LT("<", "menor que"),
     LTE("≤", "menor o igual"),
-    CONTAINS("~", "contiene");
+    CONTAINS("~", "contiene"),
+    EMPTY("Ø", "vacio"),
+    NOT_EMPTY("!Ø", "no vacio");
 
     private final String symbol;
     private final String label;

@@ -16,7 +16,7 @@
 <!--            TODO Agregar el icono y nombre de la cuenta antes de los filtros -->
             <th:block th:each="chip : ${filterChips}">
                 <div class="badge rounded-pill bg-primary" style="--bs-badge-font-size:.875rem">
-                    <span th:text="|${chip.label} ${chip.operator.symbol} ${chip.value}|"></span>
+                    <span th:text="${chip.displayValue}"></span>
                     <!-- Replico el comportamiento del select de cuentas, si vino solo 1, no puedo sacar este filtro -->
                     <a href="#" th:if="${!(chip.field == 'accountId' and accounts.size() == 1)}"
                        th:attr="data-field=${chip.field}" onclick="clearFilter(this)" class="text-white ms-1">
@@ -68,21 +68,45 @@
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
-                    <div class="form-floating">
-                        <input type="text" class="form-control" id="expenseFilterDescription" name="description" th:value="${expenseSearch.getDescription()}" placeholder="Descripci&oacute;n">
-                        <label for="expenseFilterDescription">Descripci&oacute;n</label>
+                    <label for="expenseFilterDescription" class="form-label mb-1">Descripci&oacute;n</label>
+                    <div class="input-group">
+                        <select class="form-select" id="expenseFilterDescriptionOperator" name="descriptionOperator" data-default-operator="CONTAINS" style="max-width:75px">
+                            <option th:each="operator : ${stringFilterOperators}"
+                                    th:value="${operator.name()}"
+                                    th:selected="${operator == expenseSearch.descriptionOperator}"
+                                    th:text="${operator.symbol}">
+                            </option>
+                        </select>
+
+                        <input type="text" class="form-control" id="expenseFilterDescription" name="description" th:value="${expenseSearch.description}" placeholder="Descripci&oacute;n">
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
-                    <div class="form-floating">
-                        <input type="text" class="form-control" id="expenseFilterDetails" name="details" th:value="${expenseSearch.getDetails()}" placeholder="Detalle">
-                        <label for="expenseFilterDetails">Detalle</label>
+                    <label for="expenseFilterDetails" class="form-label mb-1">Detalle</label>
+                    <div class="input-group">
+                        <select class="form-select" id="expenseFilterDetailsOperator" name="detailsOperator" data-default-operator="CONTAINS" style="max-width:75px">
+                            <option th:each="operator : ${stringFilterOperators}"
+                                    th:value="${operator.name()}"
+                                    th:selected="${operator == expenseSearch.detailsOperator}"
+                                    th:text="${operator.symbol}">
+                            </option>
+                        </select>
+
+                        <input type="text" class="form-control" id="expenseFilterDetails" name="details" th:value="${expenseSearch.details}" placeholder="Detalle">
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
-                    <div class="form-floating">
-                        <input type="text" class="form-control" id="expenseFilterComments" name="comments" th:value="${expenseSearch.getComments()}" placeholder="Comentario">
-                        <label for="expenseFilterComments">Comentario</label>
+                    <label for="expenseFilterComments" class="form-label mb-1">Comentario</label>
+                    <div class="input-group">
+                        <select class="form-select" id="expenseFilterCommentsOperator" name="commentsOperator" data-default-operator="CONTAINS" style="max-width:75px">
+                            <option th:each="operator : ${stringFilterOperators}"
+                                    th:value="${operator.name()}"
+                                    th:selected="${operator == expenseSearch.commentsOperator}"
+                                    th:text="${operator.symbol}">
+                            </option>
+                        </select>
+
+                        <input type="text" class="form-control" id="expenseFilterComments" name="comments" th:value="${expenseSearch.comments}" placeholder="Comentario">
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
@@ -291,6 +315,14 @@
             $('[data-bs-toggle="popover"]').each(function () {
                 new bootstrap.Popover(this);
             });
+
+            ["expenseFilterDescription", "expenseFilterDetails", "expenseFilterComments"].forEach(function(field){
+                $("#" + field + "Operator").on("change", function(){
+                    toggleStringFilterInput(field);
+                });
+
+                toggleStringFilterInput(field);
+            });
         });
 
         function addExpenseRow() {
@@ -446,40 +478,48 @@
             event.preventDefault();
             const field = $(el).data("field");
             const $input = $("#expenseSearchForm [name='" + field + "']");
-            if ($input.is("select")){
+            const $operator = $("#expenseSearchForm [name='" + field + "Operator']");
+            if ($input.is("select")) {
                 $input.prop("selectedIndex", 0);
             } else {
                 $input.val("");
+            }
+
+            if ($operator.length) {
+                const defaultOperator = $operator.data("default-operator");
+                $operator.val(defaultOperator);
+                $operator.trigger("change");
             }
             setPage(1);
         }
 
         $(document).on("click", ".filter-icon", function(e){
-
             e.stopPropagation();
 
             if ($(".editing-group").length) return;
 
             const td = $(this).closest("td");
-
             const field = td.data("field");
-
             let value = td.data("value");
-
-            if (value === undefined){
-                value = td.text().trim();
-            }
-
+            if (value === undefined) value = td.text().trim();
+            const isEmpty = value === null || value === undefined || value === "";
             const $input = $("#expenseSearchForm [name='" + field + "']");
+            const $operator = $("#expenseSearchForm [name='" + field + "Operator']");
+            if ($operator.length) {
+                if (isEmpty) {
+                    $operator.val("EMPTY");
+                    $input.val("");
+                } else {
+                    $operator.val("CONTAINS");
+                    $input.val(value);
+                }
 
-            if ($input.is("select")){
-                $input.val(value);
+                $operator.trigger("change");
             } else {
                 $input.val(value);
             }
 
             setPage(1);
-
         });
 
         $(document).on("mousedown", function(e){
@@ -536,6 +576,11 @@
             });
 
         });
+
+        function toggleStringFilterInput(field){
+            const operator = $("#" + field + "Operator").val();
+            $("#" + field).prop("disabled", operator === "EMPTY" || operator === "NOT_EMPTY");
+        }
     </script>
 </div>
 </body>

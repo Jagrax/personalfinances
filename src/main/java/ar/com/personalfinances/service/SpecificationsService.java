@@ -3,13 +3,17 @@ package ar.com.personalfinances.service;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.Expense;
+import ar.com.personalfinances.exception.InvalidSearchFilterException;
 import ar.com.personalfinances.util.AccountSearch;
 import ar.com.personalfinances.util.CategorySearch;
 import ar.com.personalfinances.util.ExpenseSearch;
+import ar.com.personalfinances.web.model.FilterOperator;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,17 +49,11 @@ public class SpecificationsService {
                 predicates.add(criteriaBuilder.le(root.get("amount"), expenseSearch.getAmountTo()));
             }
 
-            if (StringUtils.hasText(expenseSearch.getDescription())) {
-                predicates.add(criteriaBuilder.like(root.get("description"), "%" + expenseSearch.getDescription() + "%"));
-            }
+            addStringFilter(predicates, criteriaBuilder, root.get("description"), "description", expenseSearch.getDescription(), expenseSearch.getDescriptionOperator());
 
-            if (StringUtils.hasText(expenseSearch.getDetails())) {
-                predicates.add(criteriaBuilder.like(root.get("details"), "%" + expenseSearch.getDetails() + "%"));
-            }
+            addStringFilter(predicates, criteriaBuilder, root.get("details"), "details", expenseSearch.getDetails(), expenseSearch.getDetailsOperator());
 
-            if (StringUtils.hasText(expenseSearch.getComments())) {
-                predicates.add(criteriaBuilder.like(root.get("comments"), "%" + expenseSearch.getComments() + "%"));
-            }
+            addStringFilter(predicates, criteriaBuilder, root.get("comments"), "comments", expenseSearch.getComments(), expenseSearch.getCommentsOperator());
 
             if (expenseSearch.getCategoryId() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("category").get("id"), expenseSearch.getCategoryId()));
@@ -83,6 +81,40 @@ public class SpecificationsService {
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private void addStringFilter(List<Predicate> predicates, CriteriaBuilder cb, Path<String> path, String fieldName, String value, FilterOperator operator) {
+        // Default operator
+        if (operator == null) operator = FilterOperator.CONTAINS;
+
+        switch (operator) {
+            case EMPTY:
+                predicates.add(cb.or(
+                        cb.isNull(path),
+                        cb.equal(cb.trim(path), "")
+                        )
+                );
+                break;
+            case NOT_EMPTY:
+                predicates.add(cb.and(
+                        cb.isNotNull(path),
+                        cb.notEqual(cb.trim(path), "")
+                        )
+                );
+            case EQ:
+                if (StringUtils.hasText(value)) {
+                    predicates.add(cb.equal(path, value));
+                }
+
+                break;
+            case CONTAINS:
+                if (StringUtils.hasText(value)) {
+                    predicates.add(cb.like(path, "%" + value + "%"));
+                }
+                break;
+            default:
+                throw new InvalidSearchFilterException(fieldName, operator, value);
+        }
     }
 
     public Specification<Account> getAccounts(AccountSearch accountSearch) {

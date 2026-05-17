@@ -11,6 +11,7 @@ import ar.com.personalfinances.service.ExpenseService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import ar.com.personalfinances.web.model.FilterChip;
+import ar.com.personalfinances.web.model.FilterOperator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -142,6 +143,7 @@ public class ExpensesController {
 
         // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
         model.addAttribute("expenseSearch", expenseSearch);
+        model.addAttribute("stringFilterOperators", List.of(FilterOperator.CONTAINS, FilterOperator.EQ, FilterOperator.EMPTY, FilterOperator.NOT_EMPTY));
         return "abm/expenses";
     }
 
