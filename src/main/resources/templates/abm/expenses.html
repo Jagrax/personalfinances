@@ -482,14 +482,27 @@
 
         });
 
+        $(document).on("mousedown", function(e){
+            // Si hice click en el boton para filtrar por texto seleccionado, no hago nada
+            if ($(e.target).closest("#selectionFilterButton").length) {
+                return;
+            }
+
+            // Sino elimino cualquier boton que este dibujado (porque no hice click en el boton)
+            $("#selectionFilterButton").remove();
+
+        });
+
         $(document).on("mouseup", ".filterable", function(e){
 
             if ($(".editing-group").length) return;
 
+            // Elimino cualquier boton que se haya generado
+            $("#selectionFilterButton").remove();
+
             const selection = window.getSelection().toString().trim();
 
             if (!selection) {
-                $("#selectionFilterButton").remove();
                 return;
             }
 
