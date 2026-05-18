@@ -165,7 +165,7 @@
                    data-account-id=${expense.account != null ? expense.account.id : ''},
                    data-comments=${expense.comments}">
                 <tr>
-                    <td class="text-center filterable" data-field="date" style="width:100px">
+                    <td class="text-center filterable" data-field="date" style="width:100px" th:attr="data-value=${#temporals.format(expense.date,'yyyy-MM-dd')}">
                         <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
