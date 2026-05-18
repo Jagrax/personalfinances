@@ -1,5 +1,6 @@
 package ar.com.personalfinances.service;
 
+import ar.com.personalfinances.configuration.ApplicationProperties;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountType;
 import ar.com.personalfinances.entity.Role;
@@ -11,10 +12,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
 
@@ -22,9 +21,11 @@ import static java.util.stream.Collectors.groupingBy;
 public class MenuService {
 
     final AccountRepository accountRepository;
+    final ApplicationProperties applicationProperties;
 
-    public MenuService(AccountRepository accountRepository) {
+    public MenuService(AccountRepository accountRepository, ApplicationProperties applicationProperties) {
         this.accountRepository = accountRepository;
+        this.applicationProperties = applicationProperties;
     }
 
     @CacheEvict(value = "userMenuCache", allEntries = true)
@@ -35,7 +36,7 @@ public class MenuService {
 
             List<MenuItem> expensesSubMenu = new ArrayList<>();
             expensesSubMenu.add(new MenuItem(null, "journal-text", "Unificados", "/expenses", null));
-            expensesSubMenu.add(new MenuItem(null, "people-fill", "Compartidos", "/sharedExpenses", null));
+            if (applicationProperties.isLocalRuntime()) expensesSubMenu.add(new MenuItem(null, "people-fill", "Compartidos", "/sharedExpenses", null));
             List<Account> userAccounts = accountRepository.findByOwner(user);
             if (!CollectionUtils.isEmpty(userAccounts)) {
                 Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparingInt((Account a) -> a.getType().getOrder()).thenComparing(Account::getName)).collect(groupingBy(Account::getType, LinkedHashMap::new, Collectors.toList()));
@@ -72,7 +73,7 @@ public class MenuService {
             List<MenuItem> administracionSubMenu = new ArrayList<>();
             administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
             administracionSubMenu.add(new MenuItem(null, "tags", "Categorias", "/categories", null));
-            if (user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name()))) {
+            if (applicationProperties.isLocalRuntime() && user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name()))) {
                 administracionSubMenu.add(new MenuItem(null, "people", "Grupos", "/expensesGroups", null));
             }
             menuItems.add(new MenuItem("administracion", "gear", "Administración", "#", administracionSubMenu));
