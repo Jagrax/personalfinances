@@ -124,13 +124,18 @@
             </div>
         </div>
 
-        <div class="row g-0 align-items-center my-2">
+        <div class="row gy-0 gx-3 align-items-center my-2">
             <div class="col-12 col-md me-auto"><h3>Registro de ingresos/egresos</h3></div>
             <div class="col-auto">
-                <div class="input-group input-group-sm me-3">
+                <div class="input-group input-group-sm">
                     <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${expensesPage.size}">
                     <span class="input-group-text" th:text="${'/ ' + expensesPage.totalElements}"></span>
                 </div>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" onclick="toggleBulkEditMode()">
+                    <i class="bi bi-table me-2"></i>Edici&oacute;n m&uacute;ltiple
+                </button>
             </div>
             <div class="col-auto">
                 <button type="button" class="btn btn-sm btn-success text-nowrap" onclick="addExpenseRow()">
@@ -142,12 +147,49 @@
         <table class="table table-sm table-bordered align-middle">
             <thead class="text-center">
             <tr>
+                <th class="bulk-edit-column d-none" style="width:35px"><input type="checkbox" id="bulkSelectAll" checked></th>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
                 <th>Detalle</th>
                 <th>Categor&iacute;a</th>
                 <th>Importe</th>
                 <th colspan="4">Acciones</th>
+            </tr>
+            <tr id="bulkEditRow" class="table-warning d-none">
+                <td class="bulk-edit-column text-center"><i class="bi bi-lightning-charge"></i></td>
+                <td class="bulk-cell" data-field="date">
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
+                        <input type="date" class="form-control form-control-sm d-none bulk-input">
+                    </div>
+                </td>
+                <td class="bulk-cell" data-field="description">
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
+                        <input type="text" class="form-control form-control-sm d-none bulk-input" placeholder="Descripcioacute;n">
+                    </div>
+                </td>
+                <td class="bulk-cell d-none d-lg-table-cell" data-field="details">
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
+                        <input type="text" class="form-control form-control-sm d-none bulk-input" placeholder="Detalle">
+                    </div>
+                </td>
+                <td class="bulk-cell d-none d-lg-table-cell" data-field="categoryId">
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
+                        <select class="form-select form-select-sm d-none bulk-input">
+                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
+                        </select>
+                    </div>
+                </td>
+                <td></td>
+                <td colspan="4" class="text-center">
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="button" id="bulkSaveButton" class="btn btn-sm btn-success" disabled onclick="saveBulkEdit()"><i class="bi bi-save"></i></button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleBulkEditMode(false)"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </td>
             </tr>
             </thead>
             <tbody th:if="${#lists.isEmpty(expensesPage.content)}">
@@ -165,6 +207,9 @@
                    data-account-id=${expense.account != null ? expense.account.id : ''},
                    data-comments=${expense.comments}">
                 <tr>
+                    <td class="bulk-edit-column text-center d-none">
+                        <input type="checkbox" class="bulk-expense-selector" th:value="${expense.id}" checked>
+                    </td>
                     <td class="text-center filterable" data-field="date" style="width:100px" th:attr="data-value=${#temporals.format(expense.date,'yyyy-MM-dd')}">
                         <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
                         <i class="bi bi-funnel filter-icon"></i>
@@ -310,6 +355,7 @@
     <script th:inline="javascript">
         const expenseSaveUrlAjax = [[@{/expenses/save-ajax}]];
         const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
+        const expenseBulkUpdateUrl = [[@{/expenses/bulk-update}]];
 
         $(function () {
             $('[data-bs-toggle="popover"]').each(function () {
@@ -580,6 +626,96 @@
         function toggleStringFilterInput(field){
             const operator = $("#" + field + "Operator").val();
             $("#" + field).prop("disabled", operator === "EMPTY" || operator === "NOT_EMPTY");
+        }
+
+        function toggleBulkEditMode(forceState){
+            const enabled = forceState !== undefined
+                    ? forceState
+                    : $("#bulkEditRow").hasClass("d-none");
+            $("#bulkEditRow").toggleClass("d-none", !enabled);
+            $(".bulk-edit-column").toggleClass("d-none", !enabled);
+        }
+
+        $(document).on("change", "#bulkSelectAll", function(){
+            $(".bulk-expense-selector").prop( "checked", this.checked);
+        });
+
+        $(document).on("click", ".bulk-toggle", function(){
+            const $cell = $(this).closest(".bulk-cell");
+            const $input = $cell.find(".bulk-input");
+            const enabled = !$input.hasClass("d-none");
+            if (enabled){
+                $input.addClass("d-none");
+                $cell.removeClass("table-active");
+                if ($input.is("select")){
+                    $input.prop("selectedIndex", 0);
+                } else {
+                    $input.val("");
+                }
+            } else {
+                $input.removeClass("d-none");
+                $cell.addClass("table-active");
+                $input.focus();
+            }
+
+            refreshBulkSaveButton();
+        });
+
+        function refreshBulkSaveButton(){
+            const hasActiveFields = $(".bulk-input").filter(function(){
+                return !$(this).hasClass("d-none");
+            }).length > 0;
+
+            $("#bulkSaveButton").prop("disabled", !hasActiveFields);
+        }
+
+        function saveBulkEdit(){
+            const expenseIds = $(".bulk-expense-selector:checked")
+                .map(function(){
+                    return Number($(this).val());
+                })
+                .get();
+
+            if (!expenseIds.length){
+                alert("No hay registros seleccionados");
+                return;
+            }
+
+            const data = {
+                expenseIds: expenseIds
+            };
+
+            $("#bulkEditRow .bulk-cell").each(function(){
+                const $cell = $(this);
+                const field = $cell.data("field");
+                const $input = $cell.find(".bulk-input");
+
+                // solo procesar campos activos
+                if ($input.hasClass("d-none")) {
+                    return;
+                }
+
+                let value = $input.val();
+
+                // normalizar strings vacíos
+                if (typeof value === "string"){
+                    value = value.trim();
+                }
+
+                data[field] = value;
+            });
+
+            $("#bulkSaveButton").prop("disabled", true).html('<i class="bi bi-hourglass"></i>');
+
+            fetch(expenseBulkUpdateUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            }).then(() => {
+                $("#expenseSearchForm").submit();
+            });
         }
     </script>
 </div>

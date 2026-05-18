@@ -10,6 +10,7 @@ import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.ExpenseService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
+import ar.com.personalfinances.web.model.BulkExpenseUpdateRequest;
 import ar.com.personalfinances.web.model.FilterChip;
 import ar.com.personalfinances.web.model.FilterOperator;
 import lombok.extern.slf4j.Slf4j;
@@ -215,6 +216,13 @@ public class ExpensesController {
         User user = ApplicationUtils.getUserFromSession();
         expense.setUser(user);
         expenseService.saveWithAudit(expense, user);
+    }
+
+    @PostMapping("/expenses/bulk-update")
+    @ResponseBody
+    public void bulkUpdateExpenses(@RequestBody BulkExpenseUpdateRequest request) {
+        User user = ApplicationUtils.getUserFromSession();
+        expenseService.bulkUpdateExpenses(request, user);
     }
 
     @PostMapping("/expenses/delete-ajax/{id}")
