@@ -62,29 +62,6 @@ public class BankSyncController {
         this.categoryRepository = categoryRepository;
     }
 
-    @RequestMapping(value = "/bank-sync", method = RequestMethod.GET)
-    public String getBankSyncPage(Model model) {
-        model.addAttribute("bankSyncModelAttribute", new BankSyncModelAttribute());
-
-        List<Long> accountSearchOwnerIds = new ArrayList<>();
-        accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
-
-        User user = ApplicationUtils.getUserFromSession(false);
-        if (user != null) {
-            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
-            accountSearchOwnerIds.add(user.getId());
-        }
-
-        AccountSearch accountSearch = new AccountSearch();
-        accountSearch.setOwnerIds(accountSearchOwnerIds);
-        model.addAttribute("accounts", accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC,"name")));
-
-        // Atributo usado para settear la clase 'active' en el item del menu que corresponda
-        model.addAttribute("module", "expenses");
-
-        return "abm/bank-sync";
-    }
-
     @RequestMapping(value = "/bank-learn", method = RequestMethod.POST)
     public String postBankLearn(@Valid BankSyncModelAttribute bankSyncModelAttribute, HttpServletRequest request) {
         String backUrl = ApplicationUtils.getCurrentPage(request, false);

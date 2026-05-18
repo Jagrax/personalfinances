@@ -62,8 +62,6 @@ public class MenuService {
                         expensesSubMenu.add(new MenuItem(null, icon, account.getName(), "/expenses?accountType=" + type.name() + "&accountName=" + account.getName(), null));
                     }
                 }
-                expensesSubMenu.add(new MenuItem(null, null, "Sincronizar con el banco", null, null));
-                expensesSubMenu.add(new MenuItem(null, "cloud-download", "Galicia", "/bank-sync", null));
             }
             menuItems.add(new MenuItem("expenses", "cash-coin", "Ingresos/Egresos", "#", expensesSubMenu));
 
