@@ -38,7 +38,7 @@ public class MenuService {
             expensesSubMenu.add(new MenuItem(null, "people-fill", "Compartidos", "/sharedExpenses", null));
             List<Account> userAccounts = accountRepository.findByOwner(user);
             if (!CollectionUtils.isEmpty(userAccounts)) {
-                Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparingInt((Account a) -> a.getType().getOrder()).thenComparing(Account::getName)).collect(groupingBy(Account::getType));
+                Map<AccountType, List<Account>> accountsByType = userAccounts.stream().sorted(Comparator.comparingInt((Account a) -> a.getType().getOrder()).thenComparing(Account::getName)).collect(groupingBy(Account::getType, LinkedHashMap::new, Collectors.toList()));
                 for (AccountType type : accountsByType.keySet()) {
                     expensesSubMenu.add(new MenuItem(null, null, resolveAccountTypeLabel(type), null, null));
                     for (Account account : accountsByType.get(type)) {
