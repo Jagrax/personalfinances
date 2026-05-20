@@ -267,7 +267,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     .sorted(Comparator.comparing(Consumption::getTransactionDate))
                     .collect(Collectors.toList());
 
-            final List<Long> expensesIdFounded = new ArrayList<>();
+            final Set<Long> expensesIdFounded = new HashSet<>();
             final LocalDate periodStart = chartJsServiceImpl.resolvePeriodStart(creditCardAccount);
             LocalDate minTransactionDate = null;
             LocalDate maxTransactionDate = null;
@@ -322,6 +322,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 resultMessage = "Los gastos de la cuenta estan sincronizados!";
             } else {
                 expensesCreated = consumptionsToCreate.stream().map(consumption -> createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount())).collect(Collectors.toList());
+                // Agrego los gastos recien creados al listado de IDs de gastos encontrados
+                expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
                 resultMessage = "Se sincronizaron " + consumptionsToCreate.size() + " gastos en la cuenta";
             }
 
