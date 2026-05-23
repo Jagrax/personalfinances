@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -63,9 +64,9 @@ public class ApplicationController {
         List<String[]> serviciosReport = new ArrayList<>(Collections.singleton(new String[]{
                 "Fecha", "Descripcion", "Importe", "Detalles", "Comentarios", "Categoria", "Cuenta"
         }));
-        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM");
+        final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
         serviciosReport.addAll(expenses.stream().map(e -> new String[]{
-                sdf.format(e.getDate()), e.getDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getCategory().getName(), e.getAccount().getName()
+                e.getDate().format(dateTimeFormatter), e.getDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getCategory().getName(), e.getAccount().getName()
         }).collect(Collectors.toList()));
         model.addAttribute("serviciosReport", serviciosReport);
 
