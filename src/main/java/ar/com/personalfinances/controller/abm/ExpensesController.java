@@ -65,8 +65,6 @@ public class ExpensesController {
         int currentPage = page.orElse(ApplicationController.DEFAULT_PAGE_INDEX);
         int pageSize = size.orElse(ApplicationController.DEFAULT_PAGE_SIZE);
 
-        AccountSearch accountSearch = new AccountSearch();
-
         // Intento recuperar el Usuario logueado
         User user = ApplicationUtils.getUserFromSession();
 
@@ -74,21 +72,11 @@ public class ExpensesController {
         expenseSearch.setUserId(user.getId());
 
         // Si me vino el tipo de cuenta, lo uso para filtrar
-        accountType.ifPresent(s -> {
-            AccountType accountTypeEnum = AccountType.valueOf(s);
-            expenseSearch.setAccountType(accountTypeEnum);
-            accountSearch.setAccountType(accountTypeEnum);
-        });
+        accountType.ifPresent(s -> expenseSearch.setAccountType(AccountType.valueOf(s)));
         // Y si me vino un accountName, lo uso para filtrar
-        accountName.ifPresent(s -> {
-            expenseSearch.setAccountName(s);
-            accountSearch.setName(s);
-        });
+        accountName.ifPresent(expenseSearch::setAccountName);
         // Y si me vino un accountName, lo uso para filtrar
-        accountId.ifPresent(s -> {
-            expenseSearch.setAccountId(s);
-            accountSearch.setId(s);
-        });
+        accountId.ifPresent(expenseSearch::setAccountId);
 
         List<Category> userCategories = getUserCategories(new CategorySearch(), Sort.by(Sort.Direction.ASC,"name"));
         categoryName.ifPresent(s -> {
@@ -124,8 +112,8 @@ public class ExpensesController {
 
         // Categorias que se muestran en el filtro de Categorias
         model.addAttribute("categories", userCategories);
-        // Cuentas que se muestran en el filtro Cuentas
-        List<Account> userAccounts = getUserAccounts(accountSearch, Sort.by(Sort.Direction.ASC,"name"));
+        // Cuentas disponibles para editar/duplicar registros.
+        List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", userAccounts);
         if (userAccounts.size() == 1) expenseSearch.setAccountId(userAccounts.iterator().next().getId());
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
