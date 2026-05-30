@@ -71,6 +71,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
         if (CollectionUtils.isEmpty(movements)) {
             log.info("[syncBankAccount] No se recuperaron movimientos de la cuenta {} para sincronizar entre las fechas {} y {}", account.getName(), strFrom, strTo);
+            markAccountAsSynced(account);
             return CommonResult.ok("No se recuperaron movimientos de la cuenta para sincronizar entre las fechas " + strFrom + " y " + strTo);
         }
 
@@ -135,6 +136,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 : "me quedaron " + movements.size() + " movimientos por sincronizar");
 
         if (movements.isEmpty()) {
+            markAccountAsSynced(account);
             return CommonResult.ok(movements, "Los gastos de la cuenta estan sincronizados!");
         }
 
@@ -144,6 +146,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), bankAccountMovement.getAmount()));
         }
 
+        markAccountAsSynced(account);
         return CommonResult.ok(expensesCreated, "Se " + (movements.size() > 1 ? "sincronizaron " + movements.size() + " gastos" : "sincronizo " + movements.size() + " gasto") +  " en la cuenta");
     }
 
@@ -239,6 +242,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
             if (CollectionUtils.isEmpty(consumptions)) {
                 log.info("[syncCreditCardAccountMovements] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
+                markAccountAsSynced(creditCardAccount);
                 return CommonResult.ok(consumptions, "No se recuperaron movimientos de la tarjeta de credito");
             }
 
@@ -342,10 +346,16 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 log.info("En total, estos gastos suman {}", amount);
             }
 
+            markAccountAsSynced(creditCardAccount);
             return CommonResult.ok(expensesCreated, resultMessage);
         } else {
             throw new IllegalArgumentException("AccountAPICredentials.provider invalid [" + accountApiCredentials.getProvider() + "]");
         }
+    }
+
+    private void markAccountAsSynced(Account account) {
+        account.setLastSyncAt(LocalDateTime.now());
+        accountRepository.save(account);
     }
 
     private String getDescription(BankAccountMovement movimiento) {
@@ -398,7 +408,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 } else if (syncResult.isWarning()) {
                     return CommonResult.warn("Error del configuracion/validacion al sincronizar la cuenta [" + userAccount.getId() + "|" + userAccount.getName() + "]: " + syncResult.getMessage());
                 } else {
-                    userAccount.setLastSyncAt(LocalDateTime.now());
                     syncedAccounts.add(userAccount);
                 }
             }
