@@ -115,6 +115,7 @@ public class ExpensesController {
         // Cuentas disponibles para editar/duplicar registros.
         List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", userAccounts);
+        model.addAttribute("editableAccounts", getEditableAccounts(userAccounts));
         if (userAccounts.size() == 1) expenseSearch.setAccountId(userAccounts.iterator().next().getId());
 
         Optional<Account> selectedAccount = resolveSelectedAccountFromUrl(userAccounts, accountId, accountType, accountName);
@@ -234,7 +235,7 @@ public class ExpensesController {
     private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {
         model.addAttribute("expense", expense);
         model.addAttribute("categories", categoryRepository.findAll());
-        model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
+        model.addAttribute("accounts", getEditableAccounts(getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"))));
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
 
@@ -276,6 +277,12 @@ public class ExpensesController {
 
         accountSearch.setOwnerIds(accountSearchOwnerIds);
         return accountRepository.findAll(specificationsService.getAccounts(accountSearch), sort);
+    }
+
+    private List<Account> getEditableAccounts(List<Account> accounts) {
+        return accounts.stream()
+                .filter(account -> StringUtils.hasText(account.getName()))
+                .collect(Collectors.toList());
     }
 
     private Optional<Account> resolveSelectedAccountFromUrl(List<Account> userAccounts, Optional<Long> accountId, Optional<String> accountType, Optional<String> accountName) {

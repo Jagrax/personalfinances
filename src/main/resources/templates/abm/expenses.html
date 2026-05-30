@@ -361,8 +361,7 @@
                     <td class="text-end">Cuenta</td>
                     <td>
                         <select class="form-select form-select-sm" name="account.id">
-                            <option th:each="account : ${accounts}" th:value="${account.id}" th:text="${account.name}">
-                            </option>
+                            <option th:each="account : ${editableAccounts}" th:value="${account.id}" th:text="${account.name}" th:selected="${selectedAccount != null and account.id == selectedAccount.id}"></option>
                         </select>
                     </td>
                 </tr>
