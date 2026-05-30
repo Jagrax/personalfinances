@@ -116,6 +116,13 @@ public class ExpensesController {
         List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", userAccounts);
         if (userAccounts.size() == 1) expenseSearch.setAccountId(userAccounts.iterator().next().getId());
+
+        Optional<Account> selectedAccount = resolveSelectedAccountFromUrl(userAccounts, accountId, accountType, accountName);
+        selectedAccount.ifPresent(account -> {
+            model.addAttribute("selectedAccount", account);
+            String selectedAccountIcon = resolveAccountIcon(account);
+            model.addAttribute("selectedAccountIcon", selectedAccountIcon != null ? selectedAccountIcon : "");
+        });
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";
         if (accountType.isPresent()) {
@@ -124,6 +131,9 @@ public class ExpensesController {
         model.addAttribute("module", module);
 
         List<FilterChip> filterChips = expenseSearch.getActiveFilters();
+        if (selectedAccount.isPresent()) {
+            filterChips.removeIf(chip -> "accountId".equals(chip.getField()));
+        }
         for (FilterChip chip : filterChips) {
             if ("categoryId".equals(chip.getField())) userCategories.stream().filter(category -> category.getId().equals(Long.valueOf(chip.getValue()))).findFirst().ifPresent(category -> chip.setValue(category.getName()));
             if ("accountId".equals(chip.getField())) userAccounts.stream().filter(account -> account.getId().equals(Long.valueOf(chip.getValue()))).findFirst().ifPresent(account -> chip.setValue(account.getName()));
@@ -266,6 +276,52 @@ public class ExpensesController {
 
         accountSearch.setOwnerIds(accountSearchOwnerIds);
         return accountRepository.findAll(specificationsService.getAccounts(accountSearch), sort);
+    }
+
+    private Optional<Account> resolveSelectedAccountFromUrl(List<Account> userAccounts, Optional<Long> accountId, Optional<String> accountType, Optional<String> accountName) {
+        if (accountId.isPresent()) {
+            return userAccounts.stream()
+                    .filter(account -> accountId.get().equals(account.getId()))
+                    .findFirst();
+        }
+
+        if (accountName.isPresent()) {
+            List<Account> accountsByName = userAccounts.stream()
+                    .filter(account -> accountName.get().equals(account.getName()))
+                    .collect(Collectors.toList());
+
+            if (accountType.isPresent()) {
+                AccountType accountTypeEnum = AccountType.valueOf(accountType.get());
+                return accountsByName.stream()
+                        .filter(account -> accountTypeEnum.equals(account.getType()))
+                        .findFirst();
+            }
+
+            if (accountsByName.size() == 1) {
+                return Optional.of(accountsByName.get(0));
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private String resolveAccountIcon(Account account) {
+        if (AccountType.BANK_ACCOUNT.equals(account.getType()) && account.getBank() != null) {
+            return account.getBank().getLogo();
+        }
+
+        String accountName = account.getName().replaceAll(" ", "");
+        if (accountName.equalsIgnoreCase("visa")) {
+            return "visa.svg";
+        } else if (accountName.equalsIgnoreCase("mastercard")) {
+            return "mastercard.svg";
+        } else if (accountName.equalsIgnoreCase("mercadopago")) {
+            return "mercadopago.svg";
+        } else if (accountName.equalsIgnoreCase("sdd")) {
+            return "sdd.png";
+        }
+
+        return null;
     }
 
     private List<Category> getUserCategories(CategorySearch categorySearch, Sort sort) {

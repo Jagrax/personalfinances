@@ -13,7 +13,35 @@
         <input type="hidden" id="page" name="page" th:value="${currentPage}">
 
         <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-<!--            TODO Agregar el icono y nombre de la cuenta antes de los filtros -->
+            <div th:if="${selectedAccount != null}" class="d-flex flex-wrap align-items-center gap-3 pe-3 me-1 border-end">
+                <div class="d-flex align-items-center gap-2">
+                    <img th:if="${!#strings.isEmpty(selectedAccountIcon)}"
+                         th:src="@{/images/{image}(image=${selectedAccountIcon})}"
+                         th:alt="${selectedAccount.name}"
+                         style="width:28px;height:28px;object-fit:contain">
+                    <i th:if="${#strings.isEmpty(selectedAccountIcon)}"
+                       class="bi fs-4"
+                       th:classappend="${selectedAccount.type.name() == 'BANK_ACCOUNT' ? ' bi-bank2' : (selectedAccount.type.name() == 'CREDIT_CARD' ? ' bi-credit-card' : ' bi-wallet2')}"></i>
+                    <div class="lh-sm">
+                        <div class="fw-semibold" th:text="${selectedAccount.name}"></div>
+                        <small class="text-body-secondary" th:text="${selectedAccount.currency}"></small>
+                    </div>
+                </div>
+                <div th:if="${selectedAccount.syncEnabled || selectedAccount.lastSyncAt != null}" class="lh-sm">
+                    <small class="d-block text-body-secondary">&Uacute;ltima sincronizaci&oacute;n</small>
+                    <span class="small" th:if="${selectedAccount.lastSyncAt != null}" th:text="${#temporals.format(selectedAccount.lastSyncAt, 'dd/MM/yyyy HH:mm:ss')}"></span>
+                    <span class="small" th:unless="${selectedAccount.lastSyncAt != null}">Pendiente</span>
+                </div>
+                <div class="lh-sm">
+                    <small class="d-block text-body-secondary">Total de todos los registros</small>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="fw-semibold" th:each="totalAmount : ${expensesPage.getTotalAmountsAcumByCurrency()}">
+                            <span th:text="${#numbers.formatDecimal(totalAmount.value, 1, 'POINT', 2, 'COMMA')}"></span>
+                            <span th:text="${totalAmount.key}"></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
             <th:block th:each="chip : ${filterChips}">
                 <div class="badge rounded-pill bg-primary" style="--bs-badge-font-size:.875rem">
                     <span th:text="${chip.displayValue}"></span>
@@ -245,16 +273,6 @@
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(onPageTotalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
                         <span class="col-auto px-2" th:text="${onPageTotalAmountsAcumByCurrency.key}"></span>
-                    </div>
-                </td>
-                <td colspan="4"></td>
-            </tr>
-            <tr th:each="totalAmountsAcumByCurrency : ${expensesPage.getTotalAmountsAcumByCurrency()}">
-                <td class="text-end" colspan="4">Total de todos los registros</td>
-                <td class="text-end">
-                    <div class="d-flex flex-nowrap">
-                        <span class="col text-end" th:text="${#numbers.formatDecimal(totalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
-                        <span class="col-auto px-2" th:text="${totalAmountsAcumByCurrency.key}"></span>
                     </div>
                 </td>
                 <td colspan="4"></td>
