@@ -32,7 +32,7 @@ import java.util.stream.IntStream;
 public class ApplicationController {
 
     public final static int DEFAULT_PAGE_INDEX = 1;
-    public final static int DEFAULT_PAGE_SIZE = 10;
+    public final static int DEFAULT_PAGE_SIZE = 15;
 
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
