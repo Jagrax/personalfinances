@@ -32,9 +32,12 @@
 <body>
     <nav class="navbar navbar-expand-md sticky-top bg-body-tertiary shadow">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">
-                <img class="d-inline-block align-text-top" th:src="@{/images/logo.svg}" alt="Personal Finances APP" width="24" height="24">
-                Personal Finances
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <img class="d-inline-block" th:src="@{/images/logo.svg}" alt="Personal Finances APP" width="24" height="24">
+                <span class="lh-sm">
+                    <span class="d-block">Personal Finances</span>
+                    <small class="d-block text-body-secondary" style="font-size:.65rem" th:text="${'v' + appVersion}"></small>
+                </span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
