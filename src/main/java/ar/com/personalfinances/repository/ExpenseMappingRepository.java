@@ -3,11 +3,12 @@ package ar.com.personalfinances.repository;
 import ar.com.personalfinances.entity.ExpenseMapping;
 import ar.com.personalfinances.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface ExpenseMappingRepository extends JpaRepository<ExpenseMapping, Long> {
+public interface ExpenseMappingRepository extends JpaRepository<ExpenseMapping, Long>, JpaSpecificationExecutor<ExpenseMapping> {
 
     Optional<ExpenseMapping> findFirstByUserAndBankDescriptionIgnoreCase(User user, String bankDescription);
 

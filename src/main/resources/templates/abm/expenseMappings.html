@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Personal Finances App - Mapeo de gastos</title>
+</head>
+<body>
+<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+    <form action="#" th:action="@{/expenseMappings}" th:object="${expenseMappingSearch}" method="post">
+        <div class="row g-3">
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="mappingFilterBankDescription" name="bankDescription" th:value="*{bankDescription}" placeholder="Descripcion banco">
+                    <label for="mappingFilterBankDescription">Descripcion banco</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="mappingFilterRegexPattern" name="regexPattern" th:value="*{regexPattern}" placeholder="Regex">
+                    <label for="mappingFilterRegexPattern">Regex</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="mappingFilterNormalizedDescription" name="normalizedDescription" th:value="*{normalizedDescription}" placeholder="Descripcion normalizada">
+                    <label for="mappingFilterNormalizedDescription">Descripcion normalizada</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <select class="form-select" id="mappingFilterCategoryId" name="categoryId">
+                        <option th:selected="${expenseMappingSearch.categoryId == null}" th:value="${null}">Todas</option>
+                        <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.indentedName}" th:selected="${category.id == expenseMappingSearch.categoryId}"></option>
+                    </select>
+                    <label for="mappingFilterCategoryId">Categoria</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4 col-xxl-2">
+                <div class="form-floating">
+                    <select class="form-select" id="mappingFilterEnabled" name="enabled">
+                        <option th:selected="${expenseMappingSearch.enabled == null}" th:value="${null}">Todos</option>
+                        <option value="true" th:selected="${expenseMappingSearch.enabled == true}">Activos</option>
+                        <option value="false" th:selected="${expenseMappingSearch.enabled == false}">Inactivos</option>
+                    </select>
+                    <label for="mappingFilterEnabled">Estado</label>
+                </div>
+            </div>
+            <div class="col-12 col-lg text-end">
+                <button type="submit" class="btn btn-primary h-100"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+
+        <div class="row gy-0 gx-3 align-items-center my-2">
+            <div class="col-12 col-md me-auto"><h3>Mapeo de gastos</h3></div>
+            <div class="col-auto">
+                <div class="input-group input-group-sm">
+                    <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por pagina" th:value="${expenseMappingsPage.size}">
+                    <span class="input-group-text" th:text="${'/ ' + expenseMappingsPage.totalElements}"></span>
+                </div>
+            </div>
+            <div class="col-auto">
+                <button id="btnOpenMappingModal" type="button" data-bs-toggle="modal" data-bs-target="#createOrUpdateExpenseMappingModal" class="btn btn-sm btn-success text-nowrap">
+                    <i class="bi bi-plus me-2"></i>Nuevo registro
+                </button>
+            </div>
+        </div>
+
+        <table class="table table-sm table-bordered table-striped align-middle">
+            <thead class="text-center">
+            <tr>
+                <th>Descripcion banco</th>
+                <th>Regex</th>
+                <th>Descripcion normalizada</th>
+                <th>Detalle</th>
+                <th>Categoria</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th colspan="2">Acciones</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(expenseMappingsPage.content)}">
+                <td colspan="9">No se encontro ningun mapeo registrado!</td>
+            </tr>
+            <tr th:unless="${#lists.isEmpty(expenseMappingsPage.content)}" th:each="expenseMapping : ${expenseMappingsPage.content}">
+                <td class="text-start" th:text="${expenseMapping.bankDescription}"></td>
+                <td class="text-start font-monospace small" th:text="${expenseMapping.regexPattern}"></td>
+                <td class="text-start" th:text="${expenseMapping.normalizedDescription}"></td>
+                <td class="text-start" th:text="${expenseMapping.details}"></td>
+                <td class="text-start" th:text="${expenseMapping.category != null ? expenseMapping.category.name : ''}"></td>
+                <td class="text-center" style="width:95px">
+                    <span class="badge" th:classappend="${expenseMapping.enabled == true ? ' text-bg-success' : ' text-bg-secondary'}" th:text="${expenseMapping.enabled == true ? 'Activo' : 'Inactivo'}"></span>
+                </td>
+                <td class="text-center" style="width:120px" th:text="${#temporals.format(expenseMapping.creationDate, 'dd/MM/yyyy')}"></td>
+                <td class="text-center" style="width:35px">
+                    <button name="expenseMappingIdToEdit" th:value="${expenseMapping.id}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></button>
+                </td>
+                <td class="text-center" style="width:35px">
+                    <a th:href="@{/expenseMapping/delete/{id}(id=${expenseMapping.id})}" class="btn btn-link p-0" onclick="return confirm('Eliminar este mapeo?')"><i class="bi bi-trash text-danger"></i></a>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <nav th:if="${expenseMappingsPage.totalPages > 1}">
+            <ul class="pagination pagination-sm justify-content-center">
+                <th:block th:each="pageNumber : ${pageNumbers}">
+                    <li class="page-item" th:if="${pageNumber == 1}">
+                        <button name="page" class="page-link" th:classappend="${expenseMappingsPage.number == 0 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Primera"><i class="bi bi-chevron-double-left"></i></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == 1}">
+                        <button name="page" class="page-link" th:classappend="${expenseMappingsPage.number == 0 ? ' disabled' : ''}" th:value="${expenseMappingsPage.number}" aria-label="Anterior"><i class="bi bi-chevron-left"></i></button>
+                    </li>
+                    <li class="page-item" th:classappend="${pageNumber==expenseMappingsPage.number + 1 ? ' active' : ''}">
+                        <span th:if="${pageNumber == expenseMappingsPage.number - 10 or pageNumber == expenseMappingsPage.number + 12}" th:class="page-link" th:text="..."></span>
+                        <button name="page" th:if="${pageNumber > expenseMappingsPage.number - 10 and pageNumber < expenseMappingsPage.number + 12}" th:value="${pageNumber}" th:text="${pageNumber}" th:class="page-link"></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == expenseMappingsPage.totalPages}">
+                        <button name="page" class="page-link" th:classappend="${expenseMappingsPage.number == expenseMappingsPage.totalPages - 1 ? ' disabled' : ''}" th:value="${expenseMappingsPage.number + 2}" aria-label="Siguiente"><i class="bi bi-chevron-right"></i></button>
+                    </li>
+                    <li class="page-item" th:if="${pageNumber == expenseMappingsPage.totalPages}">
+                        <button name="page" class="page-link" th:classappend="${expenseMappingsPage.number == expenseMappingsPage.totalPages - 1 ? ' disabled' : ''}" th:value="${pageNumber}" aria-label="Ultima"><i class="bi bi-chevron-double-right"></i></button>
+                    </li>
+                </th:block>
+            </ul>
+        </nav>
+    </form>
+
+    <div class="modal fade" id="createOrUpdateExpenseMappingModal" tabindex="-1" aria-labelledby="createOrUpdateExpenseMappingModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form action="#" th:with="actionUrl=(${expenseMappingIdToEdit != null and expenseMappingIdToEdit.present} ? '/expenseMapping/update/' + ${expenseMappingIdToEdit.get()} : '/expenseMapping/add')" th:action="@{${actionUrl}}" th:object="${expenseMapping}" method="post">
+                    <input type="hidden" th:field="*{creationDate}">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-5" id="createOrUpdateExpenseMappingModalLabel" th:text="${expenseMappingIdToEdit != null ? 'Editando mapeo' : 'Nuevo mapeo'}"></h1>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label" for="bankDescription">Descripcion banco</label>
+                                <input class="form-control form-control-sm" type="text" th:field="*{bankDescription}" id="bankDescription">
+                                <div class="text-danger small" th:if="${#fields.hasErrors('bankDescription')}" th:errors="*{bankDescription}"></div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <label class="form-label" for="normalizedDescription">Descripcion normalizada</label>
+                                <input class="form-control form-control-sm" type="text" th:field="*{normalizedDescription}" id="normalizedDescription" required>
+                                <div class="text-danger small" th:if="${#fields.hasErrors('normalizedDescription')}" th:errors="*{normalizedDescription}"></div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="regexPattern">Regex</label>
+                                <input class="form-control form-control-sm font-monospace" type="text" th:field="*{regexPattern}" id="regexPattern">
+                                <div class="text-danger small" th:if="${#fields.hasErrors('regexPattern')}" th:errors="*{regexPattern}"></div>
+                            </div>
+                            <div class="col-12 col-lg-8">
+                                <label class="form-label" for="details">Detalle</label>
+                                <input class="form-control form-control-sm" type="text" th:field="*{details}" id="details">
+                                <div class="text-danger small" th:if="${#fields.hasErrors('details')}" th:errors="*{details}"></div>
+                            </div>
+                            <div class="col-12 col-lg-4">
+                                <label class="form-label" for="category">Categoria</label>
+                                <select class="form-select form-select-sm" name="category.id" id="category">
+                                    <option th:value="${null}">Sin categoria</option>
+                                    <option th:each="category : ${categories}"
+                                            th:value="${category.id}"
+                                            th:text="${category.indentedName}"
+                                            th:selected="${expenseMapping.category != null and expenseMapping.category.id == category.id}"></option>
+                                </select>
+                                <div class="text-danger small" th:if="${#fields.hasErrors('category')}" th:errors="*{category}"></div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" th:field="*{enabled}" id="enabled">
+                                    <label class="form-check-label" for="enabled">Activo</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button th:if="${expenseMappingIdToEdit == null}" type="button" class="btn btn-danger" data-bs-dismiss="modal"><i class="bi bi-x-lg me-2"></i>Cancelar</button>
+                        <a th:unless="${expenseMappingIdToEdit == null}" class="btn btn-danger" th:href="@{/expenseMappings}"><i class="bi bi-x-lg me-2"></i>Cancelar</a>
+                        <button type="submit" class="btn btn-success"><i class="bi bi-save me-2"></i>Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script th:if="${expenseMappingIdToEdit != null or openExpenseMappingModal == true}">$("#btnOpenMappingModal").click()</script>
+</div>
+</body>
+</html>

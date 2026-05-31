@@ -3,9 +3,11 @@ package ar.com.personalfinances.service;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.Expense;
+import ar.com.personalfinances.entity.ExpenseMapping;
 import ar.com.personalfinances.exception.InvalidSearchFilterException;
 import ar.com.personalfinances.util.AccountSearch;
 import ar.com.personalfinances.util.CategorySearch;
+import ar.com.personalfinances.util.ExpenseMappingSearch;
 import ar.com.personalfinances.util.ExpenseSearch;
 import ar.com.personalfinances.web.model.FilterOperator;
 import org.springframework.data.jpa.domain.Specification;
@@ -159,6 +161,42 @@ public class SpecificationsService {
 
             if (StringUtils.hasText(categorySearch.getName())) {
                 predicates.add(criteriaBuilder.like(root.get("name"), "%" + categorySearch.getName() + "%"));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    public Specification<ExpenseMapping> getExpenseMappings(ExpenseMappingSearch expenseMappingSearch) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (expenseMappingSearch.getUserId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), expenseMappingSearch.getUserId()));
+            }
+
+            if (StringUtils.hasText(expenseMappingSearch.getBankDescription())) {
+                predicates.add(criteriaBuilder.like(root.get("bankDescription"), "%" + expenseMappingSearch.getBankDescription() + "%"));
+            }
+
+            if (StringUtils.hasText(expenseMappingSearch.getRegexPattern())) {
+                predicates.add(criteriaBuilder.like(root.get("regexPattern"), "%" + expenseMappingSearch.getRegexPattern() + "%"));
+            }
+
+            if (StringUtils.hasText(expenseMappingSearch.getNormalizedDescription())) {
+                predicates.add(criteriaBuilder.like(root.get("normalizedDescription"), "%" + expenseMappingSearch.getNormalizedDescription() + "%"));
+            }
+
+            if (StringUtils.hasText(expenseMappingSearch.getDetails())) {
+                predicates.add(criteriaBuilder.like(root.get("details"), "%" + expenseMappingSearch.getDetails() + "%"));
+            }
+
+            if (expenseMappingSearch.getCategoryId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("category").get("id"), expenseMappingSearch.getCategoryId()));
+            }
+
+            if (expenseMappingSearch.getEnabled() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("enabled"), expenseMappingSearch.getEnabled()));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

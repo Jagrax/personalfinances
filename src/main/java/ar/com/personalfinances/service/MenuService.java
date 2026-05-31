@@ -73,6 +73,7 @@ public class MenuService {
             List<MenuItem> administracionSubMenu = new ArrayList<>();
             administracionSubMenu.add(new MenuItem(null, "bank2", "Mis cuentas", "/accounts", null));
             administracionSubMenu.add(new MenuItem(null, "tags", "Categorias", "/categories", null));
+            administracionSubMenu.add(new MenuItem(null, "signpost-split", "Mapeo de gastos", "/expenseMappings", null));
             if (applicationProperties.isLocalRuntime() && user.getAuthorities().stream().anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals(Role.ADMIN.name()))) {
                 administracionSubMenu.add(new MenuItem(null, "people", "Grupos", "/expensesGroups", null));
             }
