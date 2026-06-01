@@ -375,10 +375,11 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         expense.setDate(date);
         expense.setAccount(account);
         expense.setAmount(amount);
+        expense.setOriginalDescription(bankDescription);
         Optional<ExpenseMapping> matchOpt = expenseMappingService.matchExpenseMapping(user, bankDescription);
         if (matchOpt.isPresent()) {
             ExpenseMapping mapping = matchOpt.get();
-            expense.setDescription(mapping.getNormalizedDescription());
+            expense.setDescription(StringUtils.hasText(mapping.getNormalizedDescription()) ? mapping.getNormalizedDescription() : bankDescription);
             expense.setDetails(mapping.getDetails());
             expense.setCategory(mapping.getCategory() != null ? mapping.getCategory() : automaticCategory);
         } else {

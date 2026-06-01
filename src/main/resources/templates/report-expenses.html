@@ -35,6 +35,7 @@
                 <td class="text-start">
                     <span th:text="${expense.description}"></span>
                     <input type="hidden" th:field="*{expenses[__${iterStat.index}__].description}" />
+                    <input type="hidden" th:field="*{expenses[__${iterStat.index}__].originalDescription}" />
                 </td>
                 <td class="text-start">
                     <span th:text="${expense.details}"></span>

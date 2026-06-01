@@ -22,7 +22,9 @@ public class ExpenseMappingService {
         String desc = rawDescription.trim();
 
         // 1. Regex match
-        for (ExpenseMapping mapping : repository.findAllByUserAndRegexPatternIsNotNull(user)) {
+        for (ExpenseMapping mapping : repository.findAllByUserAndRegexPatternIsNotNullAndEnabledTrue(user)) {
+            if (!StringUtils.hasText(mapping.getRegexPattern())) continue;
+
             try {
                 Pattern pattern = Pattern.compile(mapping.getRegexPattern(), Pattern.CASE_INSENSITIVE);
                 if (pattern.matcher(desc).matches()) {
@@ -35,6 +37,6 @@ public class ExpenseMappingService {
         }
 
         // 2. Exact match
-        return repository.findFirstByUserAndBankDescriptionIgnoreCase(user, desc);
+        return repository.findFirstByUserAndBankDescriptionIgnoreCaseAndEnabledTrue(user, desc);
     }
 }

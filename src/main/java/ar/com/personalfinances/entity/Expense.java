@@ -27,6 +27,9 @@ public class Expense {
     @Column(name = "description", nullable = false)
     private String description;
 
+    @Column(name = "original_description")
+    private String originalDescription;
+
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
@@ -53,6 +56,7 @@ public class Expense {
                 ((id != null) ? "id=" + id + ", " : "") +
                 ((date != null) ? "date=" + DateUtils.format(date) + ", " : "") +
                 ((description != null) ? "description='" + description + "', " : "") +
+                ((originalDescription != null) ? "originalDescription='" + originalDescription + "', " : "") +
                 ((amount != null) ? "amount=" + amount : "") +
                 "]";
     }
@@ -63,6 +67,7 @@ public class Expense {
                 ((id != null) ? "id=" + id + ", " : "") +
                 ((date != null) ? "date=" + date + ", " : "") +
                 ((description != null) ? "description='" + description + "', " : "") +
+                ((originalDescription != null) ? "originalDescription='" + originalDescription + "', " : "") +
                 ((amount != null) ? "amount=" + amount + ", " : "") +
                 ((details != null) ? "details='" + details + "', " : "") +
                 ((comments != null) ? "comments='" + comments + "', " : "") +

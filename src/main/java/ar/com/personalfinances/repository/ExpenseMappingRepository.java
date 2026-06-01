@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface ExpenseMappingRepository extends JpaRepository<ExpenseMapping, Long>, JpaSpecificationExecutor<ExpenseMapping> {
 
-    Optional<ExpenseMapping> findFirstByUserAndBankDescriptionIgnoreCase(User user, String bankDescription);
+    Optional<ExpenseMapping> findFirstByUserAndBankDescriptionIgnoreCaseAndEnabledTrue(User user, String bankDescription);
 
-    List<ExpenseMapping> findAllByUserAndRegexPatternIsNotNull(User user);
+    List<ExpenseMapping> findAllByUserAndRegexPatternIsNotNullAndEnabledTrue(User user);
 }

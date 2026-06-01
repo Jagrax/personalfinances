@@ -54,6 +54,12 @@
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
                     <div class="form-floating">
+                        <input type="text" class="form-control" id="expenseFilterOriginalDescription" name="originalDescription" th:value="${expenseSearch.getOriginalDescription()}" placeholder="Origen">
+                        <label for="expenseFilterOriginalDescription">Origen</label>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 col-xxl-2">
+                    <div class="form-floating">
                         <input type="text" class="form-control" id="expenseFilterDetails" name="details" th:value="${expenseSearch.getDetails()}" placeholder="Detalle">
                         <label for="expenseFilterDetails">Detalle</label>
                     </div>

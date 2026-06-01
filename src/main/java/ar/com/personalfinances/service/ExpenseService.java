@@ -84,6 +84,7 @@ public class ExpenseService {
 
             if (request.getDate() != null) expense.setDate(request.getDate());
             if (request.getDescription() != null) expense.setDescription(request.getDescription());
+            if (request.getOriginalDescription() != null) expense.setOriginalDescription(request.getOriginalDescription());
             if (request.getDetails() != null) expense.setDetails(request.getDetails());
             if (request.getComments() != null) expense.setComments(request.getComments());
             if (category != null) expense.setCategory(category);

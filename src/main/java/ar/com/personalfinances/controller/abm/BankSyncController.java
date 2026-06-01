@@ -23,11 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -36,7 +32,6 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Slf4j
 @Controller
@@ -308,6 +303,7 @@ public class BankSyncController {
                     ExpenseImportItem item = new ExpenseImportItem();
                     item.setDate(e.getDate());
                     item.setDescription(e.getDescription());
+                    item.setOriginalDescription(e.getOriginalDescription());
                     item.setDetails(e.getDetails());
                     item.setAmount(e.getAmount());
                     return item;
@@ -411,6 +407,7 @@ public class BankSyncController {
                     Expense expenseFromPDF = new Expense();
                     expenseFromPDF.setDate(date);
                     expenseFromPDF.setDescription(description);
+                    expenseFromPDF.setOriginalDescription(description);
                     expenseFromPDF.setAmount(amount);
                     String quotaNum = matcher.group(3);
                     String quotaDen = matcher.group(4);
@@ -513,6 +510,7 @@ public class BankSyncController {
                         Expense expenseFromPDF = new Expense();
                         expenseFromPDF.setDate(date);
                         expenseFromPDF.setDescription(description);
+                        expenseFromPDF.setOriginalDescription(description);
                         expenseFromPDF.setAmount(new BigDecimal(amount));
                         String quotaNum = matcher.group(3);
                         String quotaDen = matcher.group(4);
@@ -537,6 +535,7 @@ public class BankSyncController {
                             Expense expenseFromPDF = new Expense();
                             if (cierreAnterior != null) expenseFromPDF.setDate(cierreAnterior);
                             expenseFromPDF.setDescription(description);
+                            expenseFromPDF.setOriginalDescription(description);
                             expenseFromPDF.setAmount(new BigDecimal(amount));
 
                             expensesFromPDF.add(expenseFromPDF);
@@ -667,6 +666,7 @@ public class BankSyncController {
                 Expense expense = new Expense();
                 expense.setDate(item.getDate());
                 expense.setDescription(item.getDescription());
+                expense.setOriginalDescription(item.getOriginalDescription());
                 expense.setDetails(item.getDetails());
                 expense.setAmount(item.getAmount());
                 expense.setAccount(account);

@@ -53,6 +53,8 @@ public class SpecificationsService {
 
             addStringFilter(predicates, criteriaBuilder, root.get("description"), "description", expenseSearch.getDescription(), expenseSearch.getDescriptionOperator());
 
+            addStringFilter(predicates, criteriaBuilder, root.get("originalDescription"), "originalDescription", expenseSearch.getOriginalDescription(), expenseSearch.getOriginalDescriptionOperator());
+
             addStringFilter(predicates, criteriaBuilder, root.get("details"), "details", expenseSearch.getDetails(), expenseSearch.getDetailsOperator());
 
             addStringFilter(predicates, criteriaBuilder, root.get("comments"), "comments", expenseSearch.getComments(), expenseSearch.getCommentsOperator());

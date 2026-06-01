@@ -110,6 +110,20 @@
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
+                    <label for="expenseFilterOriginalDescription" class="form-label mb-1">Origen</label>
+                    <div class="input-group">
+                        <select class="form-select" id="expenseFilterOriginalDescriptionOperator" name="originalDescriptionOperator" data-default-operator="CONTAINS" style="max-width:75px">
+                            <option th:each="operator : ${stringFilterOperators}"
+                                    th:value="${operator.name()}"
+                                    th:selected="${operator == expenseSearch.originalDescriptionOperator}"
+                                    th:text="${operator.symbol}">
+                            </option>
+                        </select>
+
+                        <input type="text" class="form-control" id="expenseFilterOriginalDescription" name="originalDescription" th:value="${expenseSearch.originalDescription}" placeholder="Origen">
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4 col-xxl-2">
                     <label for="expenseFilterDetails" class="form-label mb-1">Detalle</label>
                     <div class="input-group">
                         <select class="form-select" id="expenseFilterDetailsOperator" name="detailsOperator" data-default-operator="CONTAINS" style="max-width:75px">
@@ -161,6 +175,12 @@
                 </div>
             </div>
             <div class="col-auto">
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="showOriginalDescriptionSwitch">
+                    <label class="form-check-label small text-nowrap" for="showOriginalDescriptionSwitch">Origen</label>
+                </div>
+            </div>
+            <div class="col-auto">
                 <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" onclick="toggleBulkEditMode()">
                     <i class="bi bi-table me-2"></i>Edici&oacute;n m&uacute;ltiple
                 </button>
@@ -178,6 +198,7 @@
                 <th class="bulk-edit-column d-none" style="width:35px"><input type="checkbox" id="bulkSelectAll" checked></th>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
+                <th class="original-description-column d-none">Origen</th>
                 <th>Detalle</th>
                 <th>Categor&iacute;a</th>
                 <th>Importe</th>
@@ -195,6 +216,12 @@
                     <div class="d-flex align-items-center gap-1">
                         <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
                         <input type="text" class="form-control form-control-sm d-none bulk-input" placeholder="Descripcioacute;n">
+                    </div>
+                </td>
+                <td class="bulk-cell original-description-column d-none" data-field="originalDescription">
+                    <div class="d-flex align-items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
+                        <input type="text" class="form-control form-control-sm d-none bulk-input" placeholder="Origen">
                     </div>
                 </td>
                 <td class="bulk-cell d-none d-lg-table-cell" data-field="details">
@@ -221,7 +248,7 @@
             </tr>
             </thead>
             <tbody th:if="${#lists.isEmpty(expensesPage.content)}">
-                <tr><td colspan="9">No hay registros para mostrar!</td></tr>
+                <tr><td colspan="10">No hay registros para mostrar!</td></tr>
             </tbody>
             <tbody th:unless="${#lists.isEmpty(expensesPage.content)}" class="expense-group"
                    th:each="expense : ${expensesPage.content}"
@@ -229,6 +256,7 @@
                    data-expense-id=${expense.id},
                    data-date=${#temporals.format(expense.date,'yyyy-MM-dd')},
                    data-description=${expense.description},
+                   data-original-description=${expense.originalDescription},
                    data-details=${expense.details},
                    data-amount=${expense.amount},
                    data-category-id=${expense.category.id},
@@ -244,6 +272,10 @@
                     </td>
                     <td class="text-start filterable" data-field="description">
                         <span th:text="${expense.description}"></span>
+                        <i class="bi bi-funnel filter-icon"></i>
+                    </td>
+                    <td class="text-start filterable original-description-column d-none" data-field="originalDescription">
+                        <span th:text="${expense.originalDescription}"></span>
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
                     <td class="text-start filterable" data-field="details">
@@ -268,7 +300,7 @@
             </tbody>
             <tfoot>
             <tr th:each="onPageTotalAmountsAcumByCurrency : ${expensesPage.getOnPageTotalAmountsAcumByCurrency()}">
-                <td class="text-end" colspan="4">Total en pantalla</td>
+                <td id="onPageTotalLabel" class="text-end" colspan="4">Total en pantalla</td>
                 <td class="text-end">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(onPageTotalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
@@ -337,6 +369,7 @@
                 <tr>
                     <td><input type="date" class="form-control form-control-sm" name="date"></td>
                     <td><input class="form-control form-control-sm" name="description"></td>
+                    <td class="original-description-column d-none"><input class="form-control form-control-sm" name="originalDescription"></td>
                     <td><input class="form-control form-control-sm" name="details"></td>
                     <td>
                         <select class="form-select form-select-sm" name="category.id">
@@ -357,7 +390,7 @@
                 </tr>
                 <tr>
                     <td class="text-end">Comentario</td>
-                    <td colspan="2"><input class="form-control form-control-sm" name="comments"></td>
+                    <td colspan="3"><input class="form-control form-control-sm" name="comments"></td>
                     <td class="text-end">Cuenta</td>
                     <td>
                         <select class="form-select form-select-sm" name="account.id">
@@ -379,13 +412,21 @@
                 new bootstrap.Popover(this);
             });
 
-            ["expenseFilterDescription", "expenseFilterDetails", "expenseFilterComments"].forEach(function(field){
+            ["expenseFilterDescription", "expenseFilterOriginalDescription", "expenseFilterDetails", "expenseFilterComments"].forEach(function(field){
                 $("#" + field + "Operator").on("change", function(){
                     toggleStringFilterInput(field);
                 });
 
                 toggleStringFilterInput(field);
             });
+
+            $("#showOriginalDescriptionSwitch").on("change", function(){
+                setOriginalDescriptionColumnVisible(this.checked);
+            });
+
+            const hasOriginalDescriptionFilter = !!$("#expenseFilterOriginalDescription").val()
+                || ["EMPTY", "NOT_EMPTY"].includes($("#expenseFilterOriginalDescriptionOperator").val());
+            setOriginalDescriptionColumnVisible(hasOriginalDescriptionFilter || localStorage.getItem("expenses.showOriginalDescription") === "true");
         });
 
         function addExpenseRow() {
@@ -419,6 +460,7 @@
 
             group.find("[name=date]").val(sourceGroup.data("date"));
             group.find("[name=description]").val(sourceGroup.data("description"));
+            group.find("[name=originalDescription]").val(sourceGroup.data("original-description"));
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
@@ -446,6 +488,7 @@
 
             group.find("[name=date]").val(sourceGroup.data("date"));
             group.find("[name=description]").val(sourceGroup.data("description"));
+            group.find("[name=originalDescription]").val(sourceGroup.data("original-description"));
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
@@ -476,6 +519,7 @@
                 id: group.data("expense-id") || null,
                 date: group.find("[name='date']").val(),
                 description: group.find("[name='description']").val(),
+                originalDescription: group.find("[name='originalDescription']").val(),
                 details: group.find("[name='details']").val(),
                 amount: group.find("[name='amount']").val(),
                 comments: group.find("[name='comments']").val(),
@@ -640,6 +684,12 @@
 
         });
 
+        function setOriginalDescriptionColumnVisible(visible){
+            $(".original-description-column").toggleClass("d-none", !visible);
+            $("#showOriginalDescriptionSwitch").prop("checked", visible);
+            $("#onPageTotalLabel").attr("colspan", visible ? 5 : 4);
+            localStorage.setItem("expenses.showOriginalDescription", visible ? "true" : "false");
+        }
         function toggleStringFilterInput(field){
             const operator = $("#" + field + "Operator").val();
             $("#" + field).prop("disabled", operator === "EMPTY" || operator === "NOT_EMPTY");

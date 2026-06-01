@@ -12,6 +12,7 @@ public class ExpenseImportItem {
 
     private LocalDate date;
     private String description;
+    private String originalDescription;
     private String details;
     private BigDecimal amount;
     private boolean selected = true;

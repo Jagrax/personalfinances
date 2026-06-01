@@ -21,7 +21,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -62,11 +61,11 @@ public class ApplicationController {
         // Por defecto, quiero ver siempre mis gastos
         List<Expense> expenses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by("date", "description"));
         List<String[]> serviciosReport = new ArrayList<>(Collections.singleton(new String[]{
-                "Fecha", "Descripcion", "Importe", "Detalles", "Comentarios", "Categoria", "Cuenta"
+                "Fecha", "Descripcion", "Origen", "Importe", "Detalles", "Comentarios", "Categoria", "Cuenta"
         }));
         final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
         serviciosReport.addAll(expenses.stream().map(e -> new String[]{
-                e.getDate().format(dateTimeFormatter), e.getDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getCategory().getName(), e.getAccount().getName()
+                e.getDate().format(dateTimeFormatter), e.getDescription(), e.getOriginalDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getCategory().getName(), e.getAccount().getName()
         }).collect(Collectors.toList()));
         model.addAttribute("serviciosReport", serviciosReport);
 

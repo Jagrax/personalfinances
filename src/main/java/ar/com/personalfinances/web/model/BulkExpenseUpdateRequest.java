@@ -16,6 +16,8 @@ public class BulkExpenseUpdateRequest {
 
     private String description;
 
+    private String originalDescription;
+
     private String details;
 
     private String comments;
