@@ -2,8 +2,8 @@ package ar.com.personalfinances.util;
 
 import ar.com.personalfinances.service.CryptoService;
 
-import javax.persistence.AttributeConverter;
-import javax.persistence.Converter;
+import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
 
 @Converter
 public class CryptoConverter implements AttributeConverter<String, String> {

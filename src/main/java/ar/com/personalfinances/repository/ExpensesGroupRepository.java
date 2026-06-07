@@ -16,7 +16,7 @@ public interface ExpensesGroupRepository extends JpaRepository<ExpensesGroup, Lo
 
     List<ExpensesGroup> findByCreationUser(User user);
 
-    @Query("SELECT eg FROM ExpensesGroup eg WHERE eg.creationUser = :user OR :user IN (SELECT m.id FROM eg.members m)")
+    @Query("SELECT eg FROM ExpensesGroup eg WHERE eg.creationUser = :user OR :user MEMBER OF eg.members")
     List<ExpensesGroup> findAllByCreationUserOrMember(@Param("user") User user, Sort sort);
 
     boolean existsByNameAndCreationUser(String name, User creationUSer);

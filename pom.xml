@@ -5,17 +5,17 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.7.14</version>
+		<version>3.5.14</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>ar.com</groupId>
 	<artifactId>personalfinances</artifactId>
-	<version>1.4.0</version>
+	<version>2.0.0</version>
 	<packaging>war</packaging>
 	<name>personalfinances</name>
 	<description>Application to register income and expenses of money in different accounts</description>
 	<properties>
-		<java.version>11</java.version>
+		<java.version>21</java.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -63,24 +63,24 @@
 		<dependency>
 			<groupId>nz.net.ultraq.thymeleaf</groupId>
 			<artifactId>thymeleaf-layout-dialect</artifactId>
-			<version>3.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.thymeleaf.extras</groupId>
-			<artifactId>thymeleaf-extras-springsecurity5</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.thymeleaf</groupId>
-			<artifactId>thymeleaf-spring5</artifactId>
+			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>de.jollyday</groupId>
-			<artifactId>jollyday</artifactId>
-			<version>0.5.10</version>
+			<groupId>de.focus-shift</groupId>
+			<artifactId>jollyday-core</artifactId>
+			<version>2.7.0</version>
+		</dependency>
+		<dependency>
+			<groupId>de.focus-shift</groupId>
+			<artifactId>jollyday-jackson</artifactId>
+			<version>2.7.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.cronutils</groupId>

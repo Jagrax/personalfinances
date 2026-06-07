@@ -1,16 +1,16 @@
 package ar.com.personalfinances.webclient;
 
 import lombok.Getter;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 
 @Getter
 public class RestConnectorException extends Exception {
 
     private int status = -1;
-    private HttpStatus statusInfo;
+    private HttpStatusCode statusInfo;
     private Object entityError;
 
-    public RestConnectorException(String message, int status, HttpStatus statusInfo, Object entityError) {
+    public RestConnectorException(String message, int status, HttpStatusCode statusInfo, Object entityError) {
         super(message);
         this.status = status;
         this.statusInfo = statusInfo;

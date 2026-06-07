@@ -91,7 +91,7 @@ public class RestConnector {
         } catch (RestConnectorException e) {
             throw e;
         } catch (HttpStatusCodeException e) {
-            processErrorAndThrowRestConnectorException(e.getResponseBodyAsString(), errorType, e.getStatusCode());
+            processErrorAndThrowRestConnectorException(e.getResponseBodyAsString(), errorType, (HttpStatus) e.getStatusCode());
             return null;  // Este return nunca se ejecuta porque `convertErrorEntityAsStringToErrorTypeAndThrowRestConnectorException` siempre lanza una excepción.
         } catch (Exception e) {
             // Manejar posibles excepciones, como un error de red
@@ -100,13 +100,13 @@ public class RestConnector {
     }
 
     private <Err> void checkSuccessfulOrException(ResponseEntity<String> response, Class<Err> errorType) throws RestConnectorException {
-        final HttpStatus statusCode = response.getStatusCode();
+        final HttpStatusCode statusCode = response.getStatusCode();
         if (!(statusCode.is2xxSuccessful() || statusCode.is3xxRedirection())) {
-            processErrorAndThrowRestConnectorException(response.getBody(), errorType, response.getStatusCode());
+            processErrorAndThrowRestConnectorException(response.getBody(), errorType, (HttpStatus) statusCode);
         }
     }
 
-    private <Err> void processErrorAndThrowRestConnectorException(String errorEntityAsString, Class<Err> errorType, HttpStatus status) throws RestConnectorException {
+    private <Err> void processErrorAndThrowRestConnectorException(String errorEntityAsString, Class<Err> errorType, HttpStatusCode status) throws RestConnectorException {
         Object entityResponseError;
 
         if (errorType != null) {
@@ -124,7 +124,7 @@ public class RestConnector {
             entityResponseError = errorEntityAsString;
         }
 
-        throw new RestConnectorException("La consulta no devolvio OK. Status: [" + status.value() + "/" + status.getReasonPhrase() + "]", status.value(), status, entityResponseError);
+        throw new RestConnectorException("La consulta no devolvio OK. Status: [" + status.value() + "/" + ((HttpStatus) status).getReasonPhrase() + "]", status.value(), status, entityResponseError);
     }
 
     private <Res> Res processResponse(String responseBody, Class<Res> responseType)

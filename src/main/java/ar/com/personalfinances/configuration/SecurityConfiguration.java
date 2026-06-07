@@ -1,8 +1,7 @@
 package ar.com.personalfinances.configuration;
 
-import ar.com.personalfinances.repository.UserRepository;
-import ar.com.personalfinances.service.UserServiceImpl;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -11,25 +10,17 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
+@Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
 
     private final CustomLoginSuccessHandler successHandler;
     private final CustomLogoutHandler customLogoutHandler;
 
-    private final UserRepository userRepository;
-
-    public SecurityConfiguration(CustomLoginSuccessHandler successHandler, CustomLogoutHandler customLogoutHandler, UserRepository userRepository) {
+    public SecurityConfiguration(CustomLoginSuccessHandler successHandler, CustomLogoutHandler customLogoutHandler) {
         this.successHandler = successHandler;
         this.customLogoutHandler = customLogoutHandler;
-        this.userRepository = userRepository;
-    }
-
-    @Bean
-    public UserDetailsService userDetailsService() {
-        return new UserServiceImpl(passwordEncoder(), userRepository);
     }
 
     @Bean
@@ -38,20 +29,20 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
+    public DaoAuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
 
-        authProvider.setUserDetailsService(userDetailsService());
+        authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
 
         return authProvider;
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        return http.authorizeRequests(auth -> auth
-                        .requestMatchers(new AntPathRequestMatcher("/login"), new AntPathRequestMatcher("/register")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/css/**"), new AntPathRequestMatcher("/js/**"), new AntPathRequestMatcher("/images/**")).permitAll()
+    public SecurityFilterChain filterChain(HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
+        return http.authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/login", "/register").permitAll()
+                        .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .csrf(AbstractHttpConfigurer::disable)
@@ -63,11 +54,11 @@ public class SecurityConfiguration {
                         .passwordParameter("password")
                 )
                 .logout(logout -> logout
-                        .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                        .logoutUrl("/logout")
                         .addLogoutHandler(customLogoutHandler)
                         .logoutSuccessUrl("/")
                 )
-                .authenticationProvider(authenticationProvider())
+                .authenticationProvider(authenticationProvider(userDetailsService))
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
                 .build();
     }

@@ -1,7 +1,8 @@
 package ar.com.personalfinances.util;
 
-import de.jollyday.HolidayCalendar;
-import de.jollyday.HolidayManager;
+import de.focus_shift.jollyday.core.HolidayCalendar;
+import de.focus_shift.jollyday.core.HolidayManager;
+import de.focus_shift.jollyday.core.ManagerParameters;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -53,7 +54,7 @@ public class DateUtils {
         return localDateTime.format(TIMESTAMP_FORMATTER);
     }
 
-    private static final HolidayManager holidayManager = HolidayManager.getInstance(HolidayCalendar.ARGENTINA);
+    private static final HolidayManager holidayManager = HolidayManager.getInstance(ManagerParameters.create(HolidayCalendar.ARGENTINA));
 
     /**
      * Verifica si una fecha es feriado en Argentina.
