@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
@@ -35,7 +35,7 @@ public class ExpensesGroup {
     private User creationUser;
 
     @Column(name = "creation_date", nullable = false, updatable = false)
-    private LocalDateTime creationDate;
+    private LocalDate creationDate;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -47,7 +47,7 @@ public class ExpensesGroup {
 
     @PrePersist
     protected void onCreate() {
-        this.creationDate = LocalDateTime.now();
+        this.creationDate = LocalDate.now();
     }
 
     @Override
