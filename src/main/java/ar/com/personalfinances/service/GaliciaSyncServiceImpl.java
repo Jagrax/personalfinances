@@ -1,6 +1,5 @@
 package ar.com.personalfinances.service;
 
-import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountSubtype;
 import ar.com.personalfinances.entity.AccountType;
@@ -11,6 +10,10 @@ import ar.com.personalfinances.util.CommonResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -37,12 +40,49 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
     public CommonResult discoverAccounts(User user, String cookies) {
         try {
             CommonResult cardsResult = galiciaApiService.getCardsOverview(cookies);
-            CommonResult accountsResult = galiciaApiService.getSeccionMisCuentas(cookies);
+
+            // Try SSO first, then direct session, then original cookies as last resort
+            CommonResult cuentasSessionResult = galiciaApiService.establishCuentasSession(cookies);
+            String cuentasCookies;
+            if (cuentasSessionResult.isError()) {
+                log.warn("[discoverAccounts] establishCuentasSession (SSO) failed, trying direct: {}", cuentasSessionResult.getMessage());
+                cuentasSessionResult = galiciaApiService.establishCuentasSessionDirect(cookies);
+                if (cuentasSessionResult.isError()) {
+                    log.warn("[discoverAccounts] establishCuentasSessionDirect also failed, falling back to original cookies: {}", cuentasSessionResult.getMessage());
+                    cuentasCookies = cookies;
+                } else {
+                    cuentasCookies = (String) cuentasSessionResult.getPayload();
+                }
+            } else {
+                cuentasCookies = (String) cuentasSessionResult.getPayload();
+            }
+
+            CommonResult cuentasPageResult = galiciaApiService.getCuentasInicioPage(cuentasCookies);
+            List<Map<String, String>> bankAccounts = new ArrayList<>();
+            if (!cuentasPageResult.isError()) {
+                String html = (String) cuentasPageResult.getPayload();
+                Document doc = Jsoup.parse(html);
+                Elements boxes = doc.select(".box_ctas");
+                log.info("[discoverAccounts] Found {} .box_ctas elements in cuentas page, bodySnippet=[{}]", boxes.size(),
+                    html.substring(0, Math.min(500, html.length())));
+                for (Element box : boxes) {
+                    Map<String, String> account = new LinkedHashMap<>();
+                    account.put("id", box.attr("data-indice"));
+                    account.put("type", box.attr("data-tipo"));
+                    account.put("currencyLabel", box.select(".orangeSquare").text());
+                    account.put("name", box.select("p.clickeable.hidden-xs").text());
+                    account.put("balance", box.select("h4").text());
+                    account.put("accountNumber", box.select("h3 span").text());
+                    bankAccounts.add(account);
+                }
+            } else {
+                log.warn("[discoverAccounts] getCuentasInicioPage failed: {}", cuentasPageResult.getMessage());
+            }
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("onlinebankingCookies", cookies);
             result.put("cardsRawJson", cardsResult.isError() ? null : cardsResult.getPayload());
-            result.put("accountsRawJson", accountsResult.isError() ? null : accountsResult.getPayload());
+            result.put("bankAccounts", bankAccounts);
 
             if (user != null) {
                 List<Account> userAccounts = accountRepository.findByOwner(user);
@@ -70,7 +110,7 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
 
             return CommonResult.ok(result);
         } catch (Exception e) {
-            log.error("[discoverAccountsWithCookies] Error al descubrir cuentas con cookies", e);
+            log.error("[discoverAccounts] Error al descubrir cuentas con cookies", e);
             return CommonResult.error("Error al descubrir cuentas: " + e.getMessage());
         }
     }

@@ -52,7 +52,7 @@
                         </div>
                     </div>
 
-                    <div th:if="${discoveryResult.accountsRawJson != null}">
+                    <div th:if="${discoveryResult.bankAccounts != null and !discoveryResult.bankAccounts.isEmpty()}">
                         <h6>Cuentas bancarias descubiertas:</h6>
                         <div id="bankAccountsContainer" class="ms-3 mb-3">
                             <p class="text-body-secondary">Procesando datos de cuentas...</p>
@@ -79,7 +79,7 @@
 
         <script th:if="${discoveryResult != null}" th:inline="javascript">
             const cardsRaw = [[${discoveryResult.cardsRawJson}]];
-            const accountsRaw = [[${discoveryResult.accountsRawJson}]];
+            const bankAccounts = [[${discoveryResult.bankAccounts}]] || [];
             const galiciaCookies = [[${galiciaCookies}]];
             const existingAccounts = [[${discoveryResult.existingAccounts}]] || [];
             const importedCardIds = new Set([[${discoveryResult.importedCardIds}]] || []);
@@ -170,129 +170,52 @@
 
             function renderAccounts() {
                 const container = document.getElementById('bankAccountsContainer');
-                if (!accountsRaw) {
-                    container.innerHTML = '<p class="text-warning">No se pudieron obtener las cuentas bancarias.</p>';
+                if (!bankAccounts || bankAccounts.length === 0) {
+                    container.innerHTML = '<p class="text-body-secondary">No se encontraron cuentas bancarias.</p>';
                     return;
                 }
-                try {
-                    let data = typeof accountsRaw === 'string' ? JSON.parse(accountsRaw) : accountsRaw;
-                    if (data.IsError !== undefined && data.Model && data.Model.Html) {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(data.Model.Html, 'text/html');
-                        const boxes = doc.querySelectorAll('.sm-box');
-                        if (!boxes.length) {
-                            container.innerHTML = '<p class="text-body-secondary">No se encontraron cuentas bancarias.</p>';
-                            return;
-                        }
-                        let html = '';
-                        boxes.forEach((box, index) => {
-                            const onclick = box.getAttribute('onclick') || '';
-                            const match = onclick.match(/LinkToMovimientos\((\d+),\s*['"]([^'"]+)['"]\)/);
-                            const accountId = match ? match[1] : '';
-                            const currencyCode = match ? match[2] : 'ARS';
-                            const typeEl = box.querySelector('.box-type');
-                            const nameEl = box.querySelector('p');
-                            const name = nameEl ? nameEl.textContent.trim() : 'Cuenta ' + (index + 1);
-                            const balanceEl = box.querySelector('strong');
-                            const balance = balanceEl ? balanceEl.textContent.trim() : '';
-                            const alreadyImported = accountId && importedAccountIds.has(accountId);
+                let html = '';
+                bankAccounts.forEach((account, index) => {
+                    const accountId = account.id;
+                    const name = account.name || 'Cuenta ' + (index + 1);
+                    const currencyLabel = account.currencyLabel || '';
+                    const balance = account.balance || '';
+                    const alreadyImported = accountId && importedAccountIds.has(accountId);
 
-                            if (alreadyImported) {
-                                html += '<div class="d-flex align-items-center mb-2">';
-                                html += '<span class="badge bg-success me-2">Ya importada</span>';
-                                html += '<span>' + name + ' (' + currencyCode + ') - ' + balance + '</span>';
-                                html += '</div>';
-                            } else {
-                                const existingOptions = existingAccounts
-                                    .filter(a => a.type === 'BANK_ACCOUNT')
-                                    .map(a => '<option value="' + a.id + '">' + a.name + '</option>')
-                                    .join('');
-                                const escapedName = name.replace(/"/g, '&quot;');
-                                html += '<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">';
-                                html += '<input class="form-check-input account-checkbox" type="checkbox" value="" data-id="' + accountId + '" data-name="' + escapedName + '" data-currency="' + currencyCode + '" id="account-' + index + '" checked>';
-                                html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currencyCode + ') - ' + balance + '</label>';
-                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px" data-default-name="' + escapedName + '">';
-                                html += '<option value="">Crear nueva cuenta</option>';
-                                html += existingOptions;
-                                html += '</select>';
-                                html += '<input type="text" class="form-control form-control-sm account-name-input d-none" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
-                                html += '</div>';
-                                selectedAccounts.push({id: accountId, name, currency: currencyCode});
-                            }
-                        });
-                        container.innerHTML = html;
-                        container.querySelectorAll('.account-checkbox').forEach(cb => {
-                            cb.addEventListener('change', function() {
-                                const parent = this.closest('#bankAccountsContainer');
-                                if (!parent) return;
-                                const idx = Array.from(parent.querySelectorAll('.account-checkbox')).indexOf(this);
-                                if (idx >= 0 && selectedAccounts[idx]) {
-                                    selectedAccounts[idx].selected = this.checked;
-                                }
-                            });
-                        });
-                    } else if (Array.isArray(data)) {
-                        let html = '';
-                        data.forEach((account, index) => {
-                            const name = account.nombre || account.name || account.descripcion || 'Cuenta ' + (index + 1);
-                            const accountId = account.id || account.nroCuenta || account.numero || '';
-                            const currency = account.moneda || account.currency || 'ARS';
-                            const alreadyImported = accountId && importedAccountIds.has(accountId);
-                            if (alreadyImported) {
-                                html += '<div class="d-flex align-items-center mb-2"><span class="badge bg-success me-2">Ya importada</span><span>' + name + ' (' + currency + ')</span></div>';
-                            } else {
-                                const existingOptions = existingAccounts.filter(a => a.type === 'BANK_ACCOUNT').map(a => '<option value="' + a.id + '">' + a.name + '</option>').join('');
-                                const escapedName = name.replace(/"/g, '&quot;');
-                                html += '<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">';
-                                html += '<input class="form-check-input account-checkbox" type="checkbox" data-id="' + accountId + '" data-name="' + escapedName + '" data-currency="' + currency + '" id="account-' + index + '" checked>';
-                                html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currency + ')</label>';
-                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px" data-default-name="' + escapedName + '"><option value="">Crear nueva cuenta</option>' + existingOptions + '</select>';
-                                html += '<input type="text" class="form-control form-control-sm account-name-input d-none" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
-                                html += '</div>';
-                                selectedAccounts.push({id: accountId, name, currency});
-                            }
-                        });
-                        container.innerHTML = html;
-                    } else if (data.cuentas && Array.isArray(data.cuentas)) {
-                        let accounts = data.cuentas;
-                        let html = '';
-                        accounts.forEach((account, index) => {
-                            const name = account.nombre || account.name || account.descripcion || 'Cuenta ' + (index + 1);
-                            const accountId = account.id || account.nroCuenta || account.numero || '';
-                            const currency = account.moneda || account.currency || 'ARS';
-                            const alreadyImported = accountId && importedAccountIds.has(accountId);
-                            if (alreadyImported) {
-                                html += '<div class="d-flex align-items-center mb-2"><span class="badge bg-success me-2">Ya importada</span><span>' + name + ' (' + currency + ')</span></div>';
-                            } else {
-                                const existingOptions = existingAccounts.filter(a => a.type === 'BANK_ACCOUNT').map(a => '<option value="' + a.id + '">' + a.name + '</option>').join('');
-                                const escapedName = name.replace(/"/g, '&quot;');
-                                html += '<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">';
-                                html += '<input class="form-check-input account-checkbox" type="checkbox" data-id="' + accountId + '" data-name="' + escapedName + '" data-currency="' + currency + '" id="account-' + index + '" checked>';
-                                html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currency + ')</label>';
-                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px" data-default-name="' + escapedName + '"><option value="">Crear nueva cuenta</option>' + existingOptions + '</select>';
-                                html += '<input type="text" class="form-control form-control-sm account-name-input d-none" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
-                                html += '</div>';
-                                selectedAccounts.push({id: accountId, name, currency});
-                            }
-                        });
-                        container.innerHTML = html;
+                    if (alreadyImported) {
+                        html += '<div class="d-flex align-items-center mb-2">';
+                        html += '<span class="badge bg-success me-2">Ya importada</span>';
+                        html += '<span>' + name + ' (' + currencyLabel + ') - ' + balance + '</span>';
+                        html += '</div>';
                     } else {
-                        container.innerHTML = '<p class="text-warning">Formato de cuentas inesperado: ' + JSON.stringify(data).substring(0, 200) + '</p>';
-                        return;
+                        const existingOptions = existingAccounts
+                            .filter(a => a.type === 'BANK_ACCOUNT')
+                            .map(a => '<option value="' + a.id + '">' + a.name + '</option>')
+                            .join('');
+                        const escapedName = name.replace(/"/g, '&quot;');
+                        html += '<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">';
+                        html += '<input class="form-check-input account-checkbox" type="checkbox" value="" data-id="' + accountId + '" data-name="' + escapedName + '" data-currency="' + account.type + '" id="account-' + index + '" checked>';
+                        html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currencyLabel + ') - ' + balance + '</label>';
+                        html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px" data-default-name="' + escapedName + '">';
+                        html += '<option value="">Crear nueva cuenta</option>';
+                        html += existingOptions;
+                        html += '</select>';
+                        html += '<input type="text" class="form-control form-control-sm account-name-input d-none" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
+                        html += '</div>';
+                        selectedAccounts.push({id: accountId, name, currency: account.type});
                     }
-                    container.querySelectorAll('.account-checkbox').forEach(cb => {
-                        cb.addEventListener('change', function() {
-                            const parent = this.closest('#bankAccountsContainer');
-                            if (!parent) return;
-                            const idx = Array.from(parent.querySelectorAll('.account-checkbox')).indexOf(this);
-                            if (idx >= 0 && selectedAccounts[idx]) {
-                                selectedAccounts[idx].selected = this.checked;
-                            }
-                        });
+                });
+                container.innerHTML = html;
+                container.querySelectorAll('.account-checkbox').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        const parent = this.closest('#bankAccountsContainer');
+                        if (!parent) return;
+                        const idx = Array.from(parent.querySelectorAll('.account-checkbox')).indexOf(this);
+                        if (idx >= 0 && selectedAccounts[idx]) {
+                            selectedAccounts[idx].selected = this.checked;
+                        }
                     });
-                } catch (e) {
-                    container.innerHTML = '<p class="text-danger">Error al procesar cuentas: ' + e.message + '</p>';
-                }
+                });
             }
 
             function getExistingAccountId(container, index) {
