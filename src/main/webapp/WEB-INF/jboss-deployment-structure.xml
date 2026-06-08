@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jboss-deployment-structure xmlns="urn:jboss:deployment-structure:1.2">
+    <deployment>
+        <exclusions>
+            <module name="org.slf4j" />
+            <module name="org.slf4j.impl" />
+            <module name="org.jboss.logging.jboss-logging" />
+            <module name="org.hibernate" />
+            <module name="org.jboss.as.jpa" />
+            <module name="org.jboss.as.jpa.spi" />
+            <module name="org.jboss.as.ejb3" />
+            <module name="com.fasterxml.jackson.core.jackson-annotations" />
+            <module name="com.fasterxml.jackson.core.jackson-core" />
+            <module name="com.fasterxml.jackson.core.jackson-databind" />
+            <module name="com.fasterxml.jackson.datatype.jackson-datatype-jdk8" />
+            <module name="com.fasterxml.jackson.datatype.jackson-datatype-jsr310" />
+            <module name="com.fasterxml.jackson.dataformat.jackson-dataformat-yaml" />
+            <module name="com.fasterxml.jackson.jakarta.jackson-jakarta-json-provider" />
+            <module name="com.fasterxml.jackson.jaxrs.jackson-jaxrs-json-provider" />
+        </exclusions>
+    </deployment>
+</jboss-deployment-structure>

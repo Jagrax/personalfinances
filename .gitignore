@@ -32,3 +32,4 @@ build/
 
 ### VS Code ###
 .vscode/
+**/personalfinances-ds.xml
