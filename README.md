@@ -146,13 +146,7 @@ Este archivo está en `.gitignore` (no se versiona), por lo que solo existe en t
 Agregar al final de `WILDFLY_HOME/bin/standalone.conf.bat`:
 
 ```batch
-set "JAVA_OPTS=%JAVA_OPTS% -DAPP_CRYPTO_KEY=J4lZ8P2uZ0XzvGJ7v8gZ1m5xF0zZ3rQJmF7b2S1e8Yw= -Dspring.profiles.active=wildfly"
-```
-
-Para desarrollo local, agregar `-Dspring.jpa.hibernate.ddl-auto=update`:
-
-```batch
-set "JAVA_OPTS=%JAVA_OPTS% -DAPP_CRYPTO_KEY=J4lZ8P2uZ0XzvGJ7v8gZ1m5xF0zZ3rQJmF7b2S1e8Yw= -Dspring.profiles.active=wildfly -Dspring.jpa.hibernate.ddl-auto=update"
+set "JAVA_OPTS=%JAVA_OPTS% -Dspring.profiles.active=wildfly"
 ```
 
 ### 3.5 Maven: perfil `release`
