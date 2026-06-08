@@ -77,6 +77,6 @@ public class GaliciaAccountController {
             applicationMessageService.add(request, ApplicationMessage.success(result.getMessage()));
         }
 
-        return "redirect:/accounts";
+        return "redirect:/dashboard";
     }
 }
