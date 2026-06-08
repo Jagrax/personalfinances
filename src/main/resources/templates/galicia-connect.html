@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
+      lang="es"
+      layout:decorate="~{fragments/layout}">
+<head>
+    <title layout:fragment="page-title">Conectar con Galicia</title>
+</head>
+<body>
+    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+        <h2>Conectar con Banco Galicia</h2>
+        <p class="text-body-secondary">Ingresa el token Skywalker desde tu Home Banking de Galicia para descubrir tus cuentas y tarjetas.</p>
+
+        <div class="card mt-3" th:if="${discoveryResult == null}">
+            <div class="card-body">
+                <h5 class="card-title">Paso 1: Copiar las cookies del Home Banking</h5>
+                <ol>
+                    <li>Ingresá a <a href="https://onlinebanking.bancogalicia.com.ar" target="_blank">onlinebanking.bancogalicia.com.ar</a></li>
+                    <li>Abrí DevTools (F12) → Application → Cookies → <code>onlinebanking.bancogalicia.com.ar</code></li>
+                    <li>Copiá <strong>todas las cookies</strong> (usá tu extensión de Chrome o seleccioná todas y copialas)</li>
+                    <li>Pegalas abajo (o usá el botón "Pegar desde clipboard")</li>
+                </ol>
+
+                <form th:action="@{/galicia/discover}" method="post" class="mt-3" id="discoverForm">
+                    <div class="mb-2">
+                        <textarea class="form-control font-monospace" name="cookies" id="cookiesInput" rows="4" placeholder="Cookie string: ASP.NET_SessionId=...; Skywalker=...; TS010dd3b2=..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" id="pasteCookiesBtn"><i class="bi bi-clipboard me-1"></i>Pegar desde clipboard</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Descubrir cuentas</button>
+                    </div>
+                    <input type="hidden" name="token" id="tokenHidden">
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-3" th:if="${discoveryResult != null}">
+            <div class="card-body">
+                <h5 class="card-title">Paso 2: Seleccionar cuentas a importar</h5>
+                <p class="text-body-secondary">Seleccioná las cuentas y tarjetas que querés agregar a la aplicación.</p>
+
+                <form th:action="@{/galicia/import-accounts}" method="post">
+                    <input type="hidden" name="accountsJson" id="accountsJson">
+
+                    <div th:if="${discoveryResult.cardsRawJson != null}">
+                        <h6>Tarjetas descubiertas:</h6>
+                        <div id="creditCardsContainer" class="ms-3 mb-3">
+                            <p class="text-body-secondary">Procesando datos de tarjetas de crédito...</p>
+                        </div>
+                        <h6>Tarjetas de débito:</h6>
+                        <div id="debitCardsContainer" class="ms-3 mb-3">
+                            <p class="text-body-secondary">Procesando datos de tarjetas de débito...</p>
+                        </div>
+                    </div>
+
+                    <div th:if="${discoveryResult.accountsRawJson != null}">
+                        <h6>Cuentas bancarias descubiertas:</h6>
+                        <div id="bankAccountsContainer" class="ms-3 mb-3">
+                            <p class="text-body-secondary">Procesando datos de cuentas...</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Importar seleccionadas</button>
+                    <a th:href="@{/galicia-connect}" class="btn btn-outline-secondary">Volver</a>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById('pasteCookiesBtn')?.addEventListener('click', async function() {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    document.getElementById('cookiesInput').value = text;
+                } catch (e) {
+                    alert('No se pudo leer el clipboard. Pega las cookies manualmente.');
+                }
+            });
+
+            document.getElementById('discoverForm')?.addEventListener('submit', function() {
+                const cookies = document.getElementById('cookiesInput').value;
+                const match = cookies.match(/Skywalker\s*=\s*([^;]+)/);
+                if (match) {
+                    document.getElementById('tokenHidden').value = match[1].trim();
+                }
+            });
+        </script>
+
+        <script th:if="${discoveryResult != null}" th:inline="javascript">
+            const cardsRaw = [[${discoveryResult.cardsRawJson}]];
+            const accountsRaw = [[${discoveryResult.accountsRawJson}]];
+            const skywalkerToken = [[${skywalkerToken}]];
+            const galiciaCookies = [[${galiciaCookies}]];
+            const existingAccounts = [[${discoveryResult.existingAccounts}]] || [];
+            const importedCardIds = new Set([[${discoveryResult.importedCardIds}]] || []);
+            const importedAccountIds = new Set([[${discoveryResult.importedAccountIds}]] || []);
+
+            const selectedCards = [];
+            const selectedAccounts = [];
+
+            function renderCards() {
+                const ccContainer = document.getElementById('creditCardsContainer');
+                const dcContainer = document.getElementById('debitCardsContainer');
+                if (!cardsRaw) {
+                    ccContainer.innerHTML = '<p class="text-warning">No se pudieron obtener las tarjetas.</p>';
+                    return;
+                }
+                try {
+                    const data = typeof cardsRaw === 'string' ? JSON.parse(cardsRaw) : cardsRaw;
+                    const entry = data.data && Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : data;
+                    const creditCards = entry.credit_cards || [];
+                    const debitCards = entry.debit_cards || [];
+
+                    if (!Array.isArray(creditCards) || creditCards.length === 0) {
+                        ccContainer.innerHTML = '<p class="text-body-secondary">No se encontraron tarjetas de crédito.</p>';
+                    } else {
+                        let html = '';
+                        creditCards.forEach((card, index) => {
+                            const brand = card.brand || '';
+                            const lastFour = card.last_digits || '';
+                            const accountNumber = card.account_number || '';
+                            const displayName = brand + ' ' + (card.product || '') + (lastFour ? ' (' + lastFour + ')' : '');
+                            const alreadyImported = accountNumber && importedCardIds.has(accountNumber);
+
+                            if (alreadyImported) {
+                                html += '<div class="d-flex align-items-center mb-2">';
+                                html += '<span class="badge bg-success me-2">Ya importada</span>';
+                                html += '<span>' + displayName + '</span>';
+                                html += '</div>';
+                            } else {
+                                const existingOptions = existingAccounts
+                                    .filter(a => a.type === 'CREDIT_CARD')
+                                    .map(a => '<option value="' + a.id + '">' + a.name + '</option>')
+                                    .join('');
+                                html += '<div class="d-flex align-items-center gap-2 mb-2">';
+                                html += '<input class="form-check-input card-checkbox" type="checkbox" value="" data-brand="' + brand + '" data-account-number="' + accountNumber + '" data-last-four="' + lastFour + '" id="card-' + index + '" checked>';
+                                html += '<label class="form-check-label" for="card-' + index + '">' + displayName + '</label>';
+                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px">';
+                                html += '<option value="">Crear nueva cuenta</option>';
+                                html += existingOptions;
+                                html += '</select>';
+                                html += '</div>';
+                                selectedCards.push({brand, credit_account_number: accountNumber, card_number_last_four_digits: lastFour});
+                            }
+                        });
+                        ccContainer.innerHTML = html;
+                        ccContainer.querySelectorAll('.card-checkbox').forEach(cb => {
+                            cb.addEventListener('change', function() {
+                                const idx = Array.from(ccContainer.querySelectorAll('.card-checkbox')).indexOf(this);
+                                if (idx >= 0 && selectedCards[idx]) {
+                                    selectedCards[idx].selected = this.checked;
+                                }
+                            });
+                        });
+                    }
+
+                    if (!Array.isArray(debitCards) || debitCards.length === 0) {
+                        dcContainer.innerHTML = '<p class="text-body-secondary">No se encontraron tarjetas de débito.</p>';
+                    } else {
+                        let html = '';
+                        debitCards.forEach((card, index) => {
+                            const brand = card.brand || '';
+                            const lastFour = card.last_digits || '';
+                            const product = card.product || '';
+                            const linkedAccounts = (card.accounts || []).map(a => a.number).join(', ');
+                            const displayName = brand + ' ' + product + (lastFour ? ' (' + lastFour + ')' : '');
+                            html += '<div class="mb-1">';
+                            html += '<i class="bi bi-info-circle me-1 text-body-secondary"></i> ' + displayName;
+                            if (linkedAccounts) html += ' <small class="text-body-secondary">(' + linkedAccounts + ')</small>';
+                            html += '</div>';
+                        });
+                        dcContainer.innerHTML = html;
+                    }
+                } catch (e) {
+                    ccContainer.innerHTML = '<p class="text-danger">Error al procesar tarjetas: ' + e.message + '</p>';
+                }
+            }
+
+            function renderAccounts() {
+                const container = document.getElementById('bankAccountsContainer');
+                if (!accountsRaw) {
+                    container.innerHTML = '<p class="text-warning">No se pudieron obtener las cuentas bancarias.</p>';
+                    return;
+                }
+                try {
+                    let data = typeof accountsRaw === 'string' ? JSON.parse(accountsRaw) : accountsRaw;
+                    if (data.IsError !== undefined && data.Model && data.Model.Html) {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(data.Model.Html, 'text/html');
+                        const boxes = doc.querySelectorAll('.sm-box');
+                        if (!boxes.length) {
+                            container.innerHTML = '<p class="text-body-secondary">No se encontraron cuentas bancarias.</p>';
+                            return;
+                        }
+                        let html = '';
+                        boxes.forEach((box, index) => {
+                            const onclick = box.getAttribute('onclick') || '';
+                            const match = onclick.match(/LinkToMovimientos\((\d+),\s*['"]([^'"]+)['"]\)/);
+                            const accountId = match ? match[1] : '';
+                            const currencyCode = match ? match[2] : 'ARS';
+                            const typeEl = box.querySelector('.box-type');
+                            const nameEl = box.querySelector('p');
+                            const name = nameEl ? nameEl.textContent.trim() : 'Cuenta ' + (index + 1);
+                            const balanceEl = box.querySelector('strong');
+                            const balance = balanceEl ? balanceEl.textContent.trim() : '';
+                            const alreadyImported = accountId && importedAccountIds.has(accountId);
+
+                            if (alreadyImported) {
+                                html += '<div class="d-flex align-items-center mb-2">';
+                                html += '<span class="badge bg-success me-2">Ya importada</span>';
+                                html += '<span>' + name + ' (' + currencyCode + ') - ' + balance + '</span>';
+                                html += '</div>';
+                            } else {
+                                const existingOptions = existingAccounts
+                                    .filter(a => a.type === 'BANK_ACCOUNT')
+                                    .map(a => '<option value="' + a.id + '">' + a.name + '</option>')
+                                    .join('');
+                                html += '<div class="d-flex align-items-center gap-2 mb-2">';
+                                html += '<input class="form-check-input account-checkbox" type="checkbox" value="" data-id="' + accountId + '" data-name="' + name + '" data-currency="' + currencyCode + '" id="account-' + index + '" checked>';
+                                html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currencyCode + ') - ' + balance + '</label>';
+                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px">';
+                                html += '<option value="">Crear nueva cuenta</option>';
+                                html += existingOptions;
+                                html += '</select>';
+                                html += '</div>';
+                                selectedAccounts.push({id: accountId, name, currency: currencyCode});
+                            }
+                        });
+                        container.innerHTML = html;
+                        container.querySelectorAll('.account-checkbox').forEach(cb => {
+                            cb.addEventListener('change', function() {
+                                const parent = this.closest('#bankAccountsContainer');
+                                if (!parent) return;
+                                const idx = Array.from(parent.querySelectorAll('.account-checkbox')).indexOf(this);
+                                if (idx >= 0 && selectedAccounts[idx]) {
+                                    selectedAccounts[idx].selected = this.checked;
+                                }
+                            });
+                        });
+                    } else if (Array.isArray(data)) {
+                        let html = '';
+                        data.forEach((account, index) => {
+                            const name = account.nombre || account.name || account.descripcion || 'Cuenta ' + (index + 1);
+                            const accountId = account.id || account.nroCuenta || account.numero || '';
+                            const currency = account.moneda || account.currency || 'ARS';
+                            const alreadyImported = accountId && importedAccountIds.has(accountId);
+                            if (alreadyImported) {
+                                html += '<div class="d-flex align-items-center mb-2"><span class="badge bg-success me-2">Ya importada</span><span>' + name + ' (' + currency + ')</span></div>';
+                            } else {
+                                const existingOptions = existingAccounts.filter(a => a.type === 'BANK_ACCOUNT').map(a => '<option value="' + a.id + '">' + a.name + '</option>').join('');
+                                html += '<div class="d-flex align-items-center gap-2 mb-2">';
+                                html += '<input class="form-check-input account-checkbox" type="checkbox" data-id="' + accountId + '" data-name="' + name + '" data-currency="' + currency + '" id="account-' + index + '" checked>';
+                                html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currency + ')</label>';
+                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px"><option value="">Crear nueva cuenta</option>' + existingOptions + '</select>';
+                                html += '</div>';
+                                selectedAccounts.push({id: accountId, name, currency});
+                            }
+                        });
+                        container.innerHTML = html;
+                    } else if (data.cuentas && Array.isArray(data.cuentas)) {
+                        let accounts = data.cuentas;
+                        let html = '';
+                        accounts.forEach((account, index) => {
+                            const name = account.nombre || account.name || account.descripcion || 'Cuenta ' + (index + 1);
+                            const accountId = account.id || account.nroCuenta || account.numero || '';
+                            const currency = account.moneda || account.currency || 'ARS';
+                            const alreadyImported = accountId && importedAccountIds.has(accountId);
+                            if (alreadyImported) {
+                                html += '<div class="d-flex align-items-center mb-2"><span class="badge bg-success me-2">Ya importada</span><span>' + name + ' (' + currency + ')</span></div>';
+                            } else {
+                                const existingOptions = existingAccounts.filter(a => a.type === 'BANK_ACCOUNT').map(a => '<option value="' + a.id + '">' + a.name + '</option>').join('');
+                                html += '<div class="d-flex align-items-center gap-2 mb-2">';
+                                html += '<input class="form-check-input account-checkbox" type="checkbox" data-id="' + accountId + '" data-name="' + name + '" data-currency="' + currency + '" id="account-' + index + '" checked>';
+                                html += '<label class="form-check-label" for="account-' + index + '">' + name + ' (' + currency + ')</label>';
+                                html += '<select class="form-select form-select-sm existing-account-select" style="max-width:250px"><option value="">Crear nueva cuenta</option>' + existingOptions + '</select>';
+                                html += '</div>';
+                                selectedAccounts.push({id: accountId, name, currency});
+                            }
+                        });
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = '<p class="text-warning">Formato de cuentas inesperado: ' + JSON.stringify(data).substring(0, 200) + '</p>';
+                        return;
+                    }
+                    container.querySelectorAll('.account-checkbox').forEach(cb => {
+                        cb.addEventListener('change', function() {
+                            const parent = this.closest('#bankAccountsContainer');
+                            if (!parent) return;
+                            const idx = Array.from(parent.querySelectorAll('.account-checkbox')).indexOf(this);
+                            if (idx >= 0 && selectedAccounts[idx]) {
+                                selectedAccounts[idx].selected = this.checked;
+                            }
+                        });
+                    });
+                } catch (e) {
+                    container.innerHTML = '<p class="text-danger">Error al procesar cuentas: ' + e.message + '</p>';
+                }
+            }
+
+            function getExistingAccountId(container, index) {
+                const selects = container.querySelectorAll('.existing-account-select');
+                if (index < selects.length) {
+                    const val = selects[index].value;
+                    return val ? parseInt(val) : null;
+                }
+                return null;
+            }
+
+            document.querySelector('form[action$="/import-accounts"]')?.addEventListener('submit', function(e) {
+                const ccContainer = document.getElementById('creditCardsContainer');
+                const baContainer = document.getElementById('bankAccountsContainer');
+                const selectedCardsData = [];
+                ccContainer.querySelectorAll('.card-checkbox').forEach((cb, idx) => {
+                    if (cb.checked && idx < selectedCards.length) {
+                        const c = selectedCards[idx];
+                        const existingId = getExistingAccountId(ccContainer, idx);
+                        selectedCardsData.push({
+                            brand: c.brand,
+                            credit_account_number: c.credit_account_number,
+                            card_number_last_four_digits: c.card_number_last_four_digits,
+                            existingAccountId: existingId
+                        });
+                    }
+                });
+                const selectedAccountsData = [];
+                baContainer.querySelectorAll('.account-checkbox').forEach((cb, idx) => {
+                    if (cb.checked && idx < selectedAccounts.length) {
+                        const a = selectedAccounts[idx];
+                        const existingId = getExistingAccountId(baContainer, idx);
+                        selectedAccountsData.push({
+                            id: a.id,
+                            name: a.name,
+                            currency: a.currency,
+                            existingAccountId: existingId
+                        });
+                    }
+                });
+                document.getElementById('accountsJson').value = JSON.stringify({
+                    creditCards: selectedCardsData,
+                    bankAccounts: selectedAccountsData
+                });
+            });
+
+            renderCards();
+            renderAccounts();
+        </script>
+    </div>
+</body>
+</html>
