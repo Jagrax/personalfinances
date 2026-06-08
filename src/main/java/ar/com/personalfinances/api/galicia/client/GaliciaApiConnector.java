@@ -2,64 +2,43 @@ package ar.com.personalfinances.api.galicia.client;
 
 import ar.com.personalfinances.api.galicia.io.*;
 import ar.com.personalfinances.api.galicia.model.Error;
-import ar.com.personalfinances.api.galicia.util.Credentials;
 import ar.com.personalfinances.service.GaliciaApiService;
-import ar.com.personalfinances.util.CmdEncrypt;
 import ar.com.personalfinances.util.DateUtils;
-import ar.com.personalfinances.util.SimpleCache;
 import ar.com.personalfinances.webclient.RestConnector;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import ar.com.personalfinances.webclient.RestSecurityManager;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.springframework.data.util.Pair;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class GaliciaApiConnector implements RestSecurityManager {
+public class GaliciaApiConnector {
 
-    private final SimpleCache galiciaApiConnectorCache = new SimpleCache();
-    final String CACHE_KEY_ACCESS_TOKEN = "accessToken";
-
-    private final String documentNumber;
-    private final String username;
-    private final String password;
-
-    private String cookie;
-
-    public GaliciaApiConnector() {
-        this.documentNumber = null;
-        this.username = null;
-        this.password = null;
-    }
-
-    public GaliciaApiConnector(Credentials credentials) {
-        this.documentNumber = credentials.getDocumentNumber();
-        this.username = credentials.getUsername();
-        this.password = credentials.getPassword();
-    }
-
-    public GetMovimientosCuentaResponse getMovimientosCuenta(String aspNetSessionId, LocalDate fechaDesde, LocalDate fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
+    public GetMovimientosCuentaResponse getMovimientosCuenta(String cuentasCookies, LocalDate fechaDesde, LocalDate fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
         final RestConnector connector = new RestConnector("https://cuentas.bancogalicia.com.ar", new RestSecurityManager() {
             @Override
             public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
                 httpHeaders.add(HttpHeaders.HOST, "cuentas.bancogalicia.com.ar");
                 httpHeaders.add(HttpHeaders.ORIGIN, "https://cuentas.bancogalicia.com.ar");
                 httpHeaders.add(HttpHeaders.REFERER, "https://cuentas.bancogalicia.com.ar/cuentas/mis-cuentas");
-                httpHeaders.add(HttpHeaders.COOKIE, "ASP.NET_SessionId=" + aspNetSessionId);
+                httpHeaders.add(HttpHeaders.COOKIE, cuentasCookies);
                 return httpHeaders;
             }
 
@@ -88,32 +67,27 @@ public class GaliciaApiConnector implements RestSecurityManager {
         return connector.genericPost(path, formData, GetMovimientosCuentaResponse.class, MediaType.APPLICATION_FORM_URLENCODED_VALUE).getFirst();
     }
 
-    public GetMovimientosTarjetaResponse getMovimientosTarjeta(String cookie) throws RestConnectorException {
-        this.cookie = cookie;
-        final RestConnector connector = new RestConnector("https://tarjetas.bancogalicia.com.ar", this);
-        final String path = "/api/consumos/movements";
-        log.debug("[getMovimientosTarjeta] Request GET por obtener movimientos de la tarjeta");
-        return connector.genericGet(path, GetMovimientosTarjetaResponse.class, ErrorResponse.class).getFirst();
-    }
-
-    public PostCardsMovementsResponse postCardsMovements(PostCardsMovementsRequest postCardsMovementsRequest) throws RestConnectorException {
+    public PostCardsMovementsResponse postCardsMovements(PostCardsMovementsRequest postCardsMovementsRequest, String cookies) throws RestConnectorException {
+        String skywalker = extractSkywalkerFromCookies(cookies);
+        if (!StringUtils.hasText(skywalker)) {
+            throw new RestConnectorException("Skywalker token not found in cookies");
+        }
+        final String token = skywalker;
         final RestConnector connector = new RestConnector("https://bff-cards-movements-tc-pota-cards.bff.bancogalicia.com.ar", new RestSecurityManager() {
             @Override
             public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
-                httpHeaders.add(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken(false));
+                httpHeaders.add(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 httpHeaders.add(HttpHeaders.HOST, "bff-cards-movements-tc-pota-cards.bff.bancogalicia.com.ar");
+                httpHeaders.add(HttpHeaders.ACCEPT, "application/json, text/plain, */*");
+                httpHeaders.add(HttpHeaders.ORIGIN, "https://tarjetas.bancogalicia.com.ar");
+                httpHeaders.add(HttpHeaders.REFERER, "https://tarjetas.bancogalicia.com.ar/");
                 httpHeaders.add("id_channel", "onlinebanking");
                 return httpHeaders;
             }
 
             @Override
             public boolean retryOnUnauthorized() {
-                try {
-                    getAccessToken(true);
-                } catch (RestConnectorException e) {
-                    throw new RuntimeException(e);
-                }
-                return true;
+                return false;
             }
 
             @Override
@@ -133,200 +107,146 @@ public class GaliciaApiConnector implements RestSecurityManager {
         return connector.genericPost(path, postCardsMovementsRequest, PostCardsMovementsResponse.class, PostCardsMovementsResponse.class, MediaType.APPLICATION_JSON_VALUE).getFirst();
     }
 
-    public Pair<String, HttpHeaders> getLoginPage() throws RestConnectorException {
-        final RestConnector connector = new RestConnector("https://onlinebanking.bancogalicia.com.ar", new RestSecurityManager() {
-            @Override
-            public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
-                httpHeaders.add(HttpHeaders.HOST, "onlinebanking.bancogalicia.com.ar");
-                httpHeaders.add(HttpHeaders.ORIGIN, "https://onlinebanking.bancogalicia.com.ar");
-                httpHeaders.add(HttpHeaders.REFERER, "https://onlinebanking.bancogalicia.com.ar/login");
-                return httpHeaders;
-            }
+    public String establishCuentasSession(String onlinebankingCookies) throws RestConnectorException {
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
+            HttpURLConnection.setFollowRedirects(false);
+        }});
 
-            @Override
-            public boolean retryOnUnauthorized() {
-                return false;
-            }
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, onlinebankingCookies);
+        headers.add(HttpHeaders.HOST, "onlinebanking.bancogalicia.com.ar");
 
-            @Override
-            public boolean detectUnauthorized(RestConnectorException e) {
-                return false;
-            }
-        });
-        final String path = "/login";
-        log.trace("[getLoginPage] Request GET por obtener pagina de login");
-        return connector.genericGet(path, String.class, null, null, MediaType.TEXT_HTML);
-    }
-
-    public Pair<String, HttpHeaders> postLogIn(String loginHeaderCookies, String requestVerificationToken, String encriptedPassword) throws RestConnectorException {
-        final RestConnector connector = new RestConnector("https://onlinebanking.bancogalicia.com.ar", new RestSecurityManager() {
-            @Override
-            public HttpHeaders addHeaders(HttpHeaders httpHeaders) throws RestConnectorException {
-                httpHeaders.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-                httpHeaders.add(HttpHeaders.HOST, "onlinebanking.bancogalicia.com.ar");
-                httpHeaders.add(HttpHeaders.ORIGIN, "https://onlinebanking.bancogalicia.com.ar");
-                httpHeaders.add(HttpHeaders.REFERER, "https://onlinebanking.bancogalicia.com.ar/login");
-                httpHeaders.add(HttpHeaders.COOKIE, loginHeaderCookies);
-                return httpHeaders;
-            }
-
-            @Override
-            public boolean retryOnUnauthorized() {
-                return false;
-            }
-
-            @Override
-            public boolean detectUnauthorized(RestConnectorException e) {
-                return false;
-            }
-        });
-
-        final MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        formData.add("__RequestVerificationToken", requestVerificationToken);
-        formData.add("EncriptedPassword", encriptedPassword);
-        formData.add("DocumentNumber", documentNumber);
-        formData.add("UserName", "0".repeat(username.length()));
-        formData.add("Password", "0".repeat(password.length()));
-        formData.add("RememberMe", "false");
-        formData.add("DevicePrintAdaptive", "version=3.7.1_1&pm_fpua=mozilla/5.0 (windows nt 10.0; win64; x64) applewebkit/537.36 (khtml, like gecko) chrome/143.0.0.0 safari/537.36|5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36|Win32&pm_fpsc=24|1920|1080|1032&pm_fpsw=pdf|pdf|pdf|pdf|pdf&pm_fptz=-3&pm_fpln=lang=en-US|syslang=|userlang=&pm_fpjv=0&pm_fpco=1&pm_fpasw=internal-pdf-viewer|internal-pdf-viewer|internal-pdf-viewer|internal-pdf-viewer|internal-pdf-viewer&pm_fpan=Netscape&pm_fpacn=Mozilla&pm_fpol=true&pm_fposp=&pm_fpup=&pm_fpsaw=1920&pm_fpspd=24&pm_fpsbd=&pm_fpsdx=&pm_fpsdy=&pm_fpslx=&pm_fpsly=&pm_fpsfse=&pm_fpsui=&pm_os=Windows&pm_brmjv=143&pm_br=Chrome&pm_inpt=&pm_expt="/*devicePrintAdaptive*/);
-        formData.add("isDebugEnabled", "false");
-        formData.add("CodigoProducto", "");
-
-        final String path = "/Users/LogIn";
-        log.debug("[postLogIn] Request POST por hacer login con request {}", formData);
-        return connector.genericPost(path, formData, String.class, MediaType.APPLICATION_FORM_URLENCODED_VALUE);
-    }
-
-    private String getAccessToken(boolean force) throws RestConnectorException {
-        if (force) galiciaApiConnectorCache.invalidate(CACHE_KEY_ACCESS_TOKEN);
-        return (String) galiciaApiConnectorCache.getOrCompute(CACHE_KEY_ACCESS_TOKEN, this::loginAndGetAccessToken);
-    }
-
-    private String loginAndGetAccessToken() throws RuntimeException {
+        ResponseEntity<String> ssoResponse;
         try {
-            Pair<String, HttpHeaders> getLoginPageResponseWithHeaders = getLoginPage();
-            if (getLoginPageResponseWithHeaders == null) {
-                log.error("El request GET de la pagina de login devolvio null");
-                throw new RestConnectorException("getLoginPageResponse returns null");
-            }
+            ssoResponse = restTemplate.exchange(
+                "https://onlinebanking.bancogalicia.com.ar/Navigation/SSOEntryPoint?ReturnUrl=https://cuentas.bancogalicia.com.ar/&appName=Cuentas",
+                org.springframework.http.HttpMethod.GET,
+                new org.springframework.http.HttpEntity<>(headers),
+                String.class
+            );
+            log.info("[establishCuentasSession] SSO response status={}, Location={}", ssoResponse.getStatusCode(), ssoResponse.getHeaders().getFirst(HttpHeaders.LOCATION));
+        } catch (HttpStatusCodeException e) {
+            throw new RestConnectorException("establishCuentasSession SSO failed: " + e.getResponseBodyAsString(), e.getStatusCode().value(), e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            throw new RestConnectorException("establishCuentasSession SSO error: " + e.getMessage(), e);
+        }
+        if (ssoResponse.getStatusCode() != HttpStatus.FOUND && ssoResponse.getStatusCode() != HttpStatus.MOVED_PERMANENTLY) {
+            log.warn("[establishCuentasSession] SSO entry point returned {} (not a redirect). Body: {}", ssoResponse.getStatusCode(), ssoResponse.getBody());
+            throw new RestConnectorException("SSO entry point did not return a redirect. Status: " + ssoResponse.getStatusCode());
+        }
 
-            final String loginPageHtml = getLoginPageResponseWithHeaders.getFirst();
-            if (!StringUtils.hasText(loginPageHtml)) {
-                log.error("El request GET de la pagina de login devolvio el body/html null o vacio");
-                throw new RestConnectorException("getLoginPageResponse returns null or empty body/html");
-            }
+        String location = ssoResponse.getHeaders().getFirst(HttpHeaders.LOCATION);
+        if (!StringUtils.hasText(location)) {
+            throw new RestConnectorException("SSO entry point response missing Location header");
+        }
 
-            Document doc = Jsoup.parse(loginPageHtml);
-            Element tokenInput = doc.selectFirst("input[name=__RequestVerificationToken]");
-            String csrfToken = tokenInput != null ? tokenInput.attr("value") : null;
-            if (!StringUtils.hasText(csrfToken)) {
-                log.error("El html de la pagina de login no vino con el input hidden [__RequestVerificationToken]");
-                throw new RestConnectorException("__RequestVerificationToken no encontrado");
+        URI ssoLocation;
+        try {
+            ssoLocation = URI.create(location);
+            if (!ssoLocation.isAbsolute()) {
+                ssoLocation = new URI("https://cuentas.bancogalicia.com.ar" + (location.startsWith("/") ? location : "/" + location));
             }
+        } catch (URISyntaxException e) {
+            throw new RestConnectorException("Invalid Location URI from SSO: " + location, e);
+        }
+        log.info("[establishCuentasSession] Following SSO redirect to: {}", ssoLocation);
 
-            // Obtengo los Set-Cookie del response header y los concateno para el siguiente request
-            final HttpHeaders responseHeaders = getLoginPageResponseWithHeaders.getSecond();
-            String cookies = responseHeaders.getOrEmpty(HttpHeaders.SET_COOKIE).stream().map(setCookie -> {
-                String pair = setCookie.split(";", 2)[0]; // name=value
+        try {
+            RestTemplate cuentasRestTemplate = new RestTemplate();
+            HttpHeaders cuentasHeaders = new HttpHeaders();
+            cuentasHeaders.set(HttpHeaders.HOST, "cuentas.bancogalicia.com.ar");
+            cuentasHeaders.set(HttpHeaders.ORIGIN, "https://cuentas.bancogalicia.com.ar");
+            cuentasHeaders.set(HttpHeaders.REFERER, "https://onlinebanking.bancogalicia.com.ar/inicio");
+            cuentasHeaders.set(HttpHeaders.COOKIE, onlinebankingCookies);
+
+            ResponseEntity<String> cuentasResponse = cuentasRestTemplate.exchange(
+                ssoLocation, org.springframework.http.HttpMethod.GET,
+                new org.springframework.http.HttpEntity<>(cuentasHeaders),
+                String.class
+            );
+            log.info("[establishCuentasSession] Cuentas response status={}", cuentasResponse.getStatusCode());
+
+            String cuentasCookies = cuentasResponse.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream().map(setCookie -> {
+                String pair = setCookie.split(";", 2)[0];
                 String[] nv = pair.split("=", 2);
                 return nv[0] + "=" + nv[1];
             }).collect(Collectors.joining("; "));
+            log.info("[establishCuentasSession] Cuentas cookies=[{}]", cuentasCookies);
 
-
-            final Pattern p = Pattern.compile("encryptedString\\(key,\\s*\"([^\"]+)\"\\s*\\+");
-
-            String encryptionSeed = null;
-
-            for (Element script : doc.select("script")) {
-                Matcher m = p.matcher(script.html());
-                if (m.find()) {
-                    encryptionSeed = m.group(1);
-                    break;
-                }
+            if (!StringUtils.hasText(cuentasCookies)) {
+                log.info("[establishCuentasSession] No cuentas cookies set; falling back to onlinebanking cookies");
+                return onlinebankingCookies;
             }
-
-            if (!StringUtils.hasText(encryptionSeed)) {
-                log.error("El html de la pagina de login no vino con el script [encryptedString]");
-                throw new RestConnectorException("encryptedString no encontrado");
-            }
-
-            final String encryptedPassword = CmdEncrypt.cmdEncrypt(encryptionSeed, username, password);
-            if (!StringUtils.hasText(encryptedPassword)) {
-                throw new RestConnectorException("La encryptedPassword generada vacia");
-            }
-
-            Pair<String, HttpHeaders> postLogInResponse = postLogIn(cookies, csrfToken, encryptedPassword);
-            if (postLogInResponse == null) {
-                log.error("El request POST de la pagina de login devolvio null");
-                throw new RestConnectorException("postLogIn returns null");
-            }
-
-            String bearerToken = null;
-
-            HttpHeaders headers = postLogInResponse.getSecond();
-            List<String> skywalkerHeader = headers.getOrEmpty("Skywalker");
-            if (skywalkerHeader.isEmpty()) {
-                for (String setCookie : headers.getOrEmpty(HttpHeaders.SET_COOKIE)) {
-                    String pair = setCookie.split(";", 2)[0]; // name=value
-                    String[] nv = pair.split("=", 2);
-                    if (nv[0].equals("Skywalker")) {
-                        bearerToken = nv[1];
-                        break;
-                    }
-                }
-
-                if (!StringUtils.hasText(bearerToken)) {
-                    log.info("+--------------------------------------------------------------------------------------------------+");
-                    log.info("| Headers");
-                    log.info("+--------------------------------------------------------------------------------------------------+");
-                    for (String headerKey : headers.keySet()) {
-                        log.info("{}: {}", headerKey, headers.get(headerKey));
-                    }
-                    Document loginFailPage = Jsoup.parse(postLogInResponse.getFirst());
-                    log.info("+--------------------------------------------------------------------------------------------------+");
-                    log.info("| HTML");
-                    log.info("+--------------------------------------------------------------------------------------------------+");
-                    log.info(loginFailPage.body().text());
-
-                    log.error("El request POST de la pagina de login devolvio null");
-                    throw new RestConnectorException("No se pudo recuperar el bearerToken del response header del login");
-                }
-            } else {
-                bearerToken = skywalkerHeader.get(0);
-            }
-
-            log.debug("AccessToken recuperado [{}]", bearerToken);
-            return bearerToken;
-        } catch (RestConnectorException e) {
-            throw new RuntimeException(e);
+            return cuentasCookies;
+        } catch (HttpStatusCodeException e) {
+            throw new RestConnectorException("establishCuentasSession redirect failed: " + e.getResponseBodyAsString(), e.getStatusCode().value(), e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            throw new RestConnectorException("establishCuentasSession redirect error: " + e.getMessage(), e);
         }
     }
 
-    @Override
-    public HttpHeaders addHeaders(HttpHeaders httpHeaders) {
-        httpHeaders.set(HttpHeaders.COOKIE, cookie);
-        return httpHeaders;
-    }
-
-    @Override
-    public boolean retryOnUnauthorized() {
+    public String getCardsOverview(String cookies) throws RestConnectorException {
+        String skywalker = extractSkywalkerFromCookies(cookies);
+        if (!StringUtils.hasText(skywalker)) {
+            throw new RestConnectorException("Skywalker token not found in cookies");
+        }
         try {
-            getAccessToken(true);
-        } catch (RestConnectorException e) {
-            throw new RuntimeException(e);
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(skywalker);
+            headers.set(HttpHeaders.ACCEPT, "application/vnd.iman.v1+json, application/json, text/plain, */*");
+            headers.set("id_channel", "onlinebanking");
+            headers.set(HttpHeaders.ORIGIN, "https://tarjetas.bancogalicia.com.ar");
+            headers.set(HttpHeaders.REFERER, "https://tarjetas.bancogalicia.com.ar/");
+            headers.set(HttpHeaders.HOST, "bff-cards-overview-pota-cards.bff.bancogalicia.com.ar");
+            ResponseEntity<String> response = restTemplate.exchange(
+                "https://bff-cards-overview-pota-cards.bff.bancogalicia.com.ar/bff/overview/cards",
+                org.springframework.http.HttpMethod.GET,
+                new org.springframework.http.HttpEntity<>(headers),
+                String.class
+            );
+            return response.getBody();
+        } catch (HttpStatusCodeException e) {
+            throw new RestConnectorException("getCardsOverview failed: " + e.getResponseBodyAsString(), e.getStatusCode().value(), e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            throw new RestConnectorException("getCardsOverview error: " + e.getMessage(), e);
         }
-        return true;
     }
 
-    @Override
-    public boolean detectUnauthorized(RestConnectorException e) {
-        if (e.getEntityError() instanceof PostCardsMovementsResponse) {
-            PostCardsMovementsResponse response = (PostCardsMovementsResponse) e.getEntityError();
-            if (!response.getErrors().isEmpty()) {
-                Error error = response.getErrors().get(0);
-                return "Token expirado".equals(error.getReason());
-            }
+    public String getSeccionMisCuentas(String onlinebankingCookies) throws RestConnectorException {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
+                HttpURLConnection.setFollowRedirects(false);
+            }});
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.ACCEPT, "application/json, text/javascript, */*; q=0.01");
+            headers.set("X-Requested-With", "XMLHttpRequest");
+            headers.set(HttpHeaders.HOST, "onlinebanking.bancogalicia.com.ar");
+            headers.set(HttpHeaders.ORIGIN, "https://onlinebanking.bancogalicia.com.ar");
+            headers.set(HttpHeaders.REFERER, "https://onlinebanking.bancogalicia.com.ar/inicio");
+            headers.set(HttpHeaders.COOKIE, onlinebankingCookies);
+            ResponseEntity<String> response = restTemplate.exchange(
+                "https://onlinebanking.bancogalicia.com.ar/Dashboard/GetSeccionMisCuentas",
+                org.springframework.http.HttpMethod.POST,
+                new org.springframework.http.HttpEntity<>(headers),
+                String.class
+            );
+            log.info("[getSeccionMisCuentas] status={}, bodyFirst200=[{}]", response.getStatusCode(),
+                response.getBody() != null ? response.getBody().substring(0, Math.min(200, response.getBody().length())) : "null");
+            return response.getBody();
+        } catch (HttpStatusCodeException e) {
+            throw new RestConnectorException("getSeccionMisCuentas failed: " + e.getResponseBodyAsString(), e.getStatusCode().value(), e.getStatusCode(), e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            throw new RestConnectorException("getSeccionMisCuentas error: " + e.getMessage(), e);
         }
-        return false;
+    }
+
+    public static String extractSkywalkerFromCookies(String cookies) {
+        if (!StringUtils.hasText(cookies)) return null;
+        Pattern p = Pattern.compile("Skywalker\\s*=\\s*([^;]+)");
+        Matcher m = p.matcher(cookies);
+        return m.find() ? m.group(1).trim() : null;
     }
 }

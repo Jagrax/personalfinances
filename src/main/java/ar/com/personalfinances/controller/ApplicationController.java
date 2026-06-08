@@ -170,6 +170,11 @@ public class ApplicationController {
         return new PageImpl<>(list, PageRequest.of(currentPage, pageSize), itemsToPaginate.size());
     }
 
+    @GetMapping("/galicia-connect")
+    public String getGaliciaConnectPage() {
+        return "galicia-connect";
+    }
+
     @GetMapping({"/dashboard", "/"})
     public String getDashboardPage(Model model) {
         model.addAttribute("bankSyncModelAttribute", new BankSyncModelAttribute());

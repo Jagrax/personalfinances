@@ -54,6 +54,9 @@ public class Account {
     @Column(name = "last_sync_at")
     private LocalDateTime lastSyncAt;
 
+    @Column(name = "external_account_id")
+    private String externalAccountId;
+
     @Override
     public String toString() {
         return "Account [" +

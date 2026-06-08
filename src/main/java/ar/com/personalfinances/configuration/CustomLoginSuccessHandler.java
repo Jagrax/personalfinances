@@ -1,14 +1,8 @@
 package ar.com.personalfinances.configuration;
 
-import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.EntityEvent;
 import ar.com.personalfinances.entity.User;
-import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.service.AccountManagementService;
 import ar.com.personalfinances.service.AlertEventService;
-import ar.com.personalfinances.service.ApplicationMessageService;
-import ar.com.personalfinances.util.ApplicationMessage;
-import ar.com.personalfinances.util.CommonResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
@@ -24,29 +18,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Configuration
 public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final AlertEventService alertEventService;
-    private final AccountRepository accountRepository;
-    private final AccountManagementService accountManagementService;
-    private final ApplicationMessageService applicationMessageService;
 
     @Autowired
-    public CustomLoginSuccessHandler(AlertEventService alertEventService, AccountRepository accountRepository, AccountManagementService accountManagementService, ApplicationMessageService applicationMessageService) {
+    public CustomLoginSuccessHandler(AlertEventService alertEventService) {
         this.alertEventService = alertEventService;
-        this.accountRepository = accountRepository;
-        this.accountManagementService = accountManagementService;
-        this.applicationMessageService = applicationMessageService;
     }
 
     @Override
     protected void handle(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         if (response.isCommitted()) return;
-        syncUserAccounts((User) authentication.getPrincipal(), request);
         String targetUrl = determineTargetUrl(authentication, request.getRemoteAddr());
         RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
         redirectStrategy.sendRedirect(request, response, targetUrl);
@@ -71,31 +57,5 @@ public class CustomLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         // Si no tiene ningun rol valido, vuelve al log con mensaje de error
         return "/login?error=true&errorType=1";
-    }
-
-    private void syncUserAccounts(User user, HttpServletRequest request) {
-        CommonResult syncUserAccountsResult = accountManagementService.syncUserAccounts(user);
-        if (syncUserAccountsResult.isError()) {
-            applicationMessageService.add(request, ApplicationMessage.error(syncUserAccountsResult.getMessage()));
-        } else if (syncUserAccountsResult.isWarning()) {
-            applicationMessageService.add(request, ApplicationMessage.error(syncUserAccountsResult.getMessage()));
-        } else {
-            List<Account> syncedAccounts = (List<Account>) syncUserAccountsResult.getPayload();
-            if (!syncedAccounts.isEmpty()) {
-                String names = syncedAccounts.stream()
-                        .map(Account::getName)
-                        .collect(Collectors.joining(", "));
-
-                // reemplaza la última coma por " y "
-                int lastComma = names.lastIndexOf(", ");
-                if (lastComma != -1) {
-                    names = names.substring(0, lastComma)
-                            + " y "
-                            + names.substring(lastComma + 2);
-                }
-
-                applicationMessageService.add(request, ApplicationMessage.info("Cuentas " + names + " sincronizadas"));
-            }
-        }
     }
 }

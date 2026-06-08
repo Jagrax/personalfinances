@@ -1,7 +1,5 @@
 package ar.com.personalfinances.util;
 
-import ar.com.personalfinances.api.galicia.util.Credentials;
-import ar.com.personalfinances.entity.AccountApiCredentials;
 import ar.com.personalfinances.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Hibernate;
@@ -144,16 +142,4 @@ public class ApplicationUtils {
         return path;
     }
 
-    public static Credentials getGaliciaCredentials() {
-        return null;
-    }
-
-    public static Credentials getGaliciaCredentials(AccountApiCredentials accountApiCredentials) {
-        String usernameEncrypted = accountApiCredentials.getUsernameEncrypted();
-        if (!StringUtils.hasText(usernameEncrypted)) {
-            throw new IllegalArgumentException("Las credenciales en la DB no tienen definidos el username");
-        }
-        String[] dniAndUsername = usernameEncrypted.split("\\|");
-        return new Credentials(dniAndUsername[0], dniAndUsername[1], accountApiCredentials.getPasswordEncrypted());
-    }
 }

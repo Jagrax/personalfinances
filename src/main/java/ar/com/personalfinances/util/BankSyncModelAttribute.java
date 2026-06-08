@@ -7,7 +7,7 @@ import lombok.Setter;
 @Setter
 public class BankSyncModelAttribute {
 
-    private String aspNetSessionId;
+    private String galiciaCookies;
     private Long accountId;
     private String accountName;
 }

@@ -9,6 +9,8 @@ import ar.com.personalfinances.service.*;
 import ar.com.personalfinances.util.*;
 import ar.com.personalfinances.web.form.ExpenseImportForm;
 import ar.com.personalfinances.web.form.ExpenseImportItem;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.propertyeditors.CustomDateEditor;
 import org.springframework.data.domain.Sort;
@@ -21,8 +23,6 @@ import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -102,12 +102,7 @@ public class BankSyncController {
                 return "redirect:" + backUrl;
             }
 
-            if (!StringUtils.hasText(bankSyncModelAttribute.getAspNetSessionId())) {
-                applicationMessageService.add(request, ApplicationMessage.error("ASP.NET_SessionId is null"));
-                return "redirect:" + backUrl;
-            }
-
-            CommonResult learnFromBankMovementsResult = accountManagementService.learnFromBankMovements(account, bankSyncModelAttribute.getAspNetSessionId());
+            CommonResult learnFromBankMovementsResult = accountManagementService.learnFromBankMovements(account, bankSyncModelAttribute.getGaliciaCookies());
             if (learnFromBankMovementsResult.isError() || learnFromBankMovementsResult.isWarning()) {
                 applicationMessageService.add(request, ApplicationMessage.error(learnFromBankMovementsResult.getMessage()));
                 return "redirect:" + backUrl;
@@ -163,14 +158,9 @@ public class BankSyncController {
 
             final Account account = optionalAccount.get();
 
-            if (!StringUtils.hasText(bankSyncModelAttribute.getAspNetSessionId()) && account.getType().equals(AccountType.BANK_ACCOUNT)) {
-                applicationMessageService.add(request, ApplicationMessage.error("Cookie null"));
-                return "redirect:" + backUrl;
-            }
-
             switch (account.getType()) {
                 case CREDIT_CARD: {
-                    CommonResult syncResult = accountManagementService.syncCreditCardAccountMovements(account);
+                    CommonResult syncResult = accountManagementService.syncCreditCardAccountMovements(account, bankSyncModelAttribute.getGaliciaCookies());
                     if (syncResult.isError() || syncResult.isWarning()) {
                         applicationMessageService.add(request, ApplicationMessage.error(syncResult.getMessage()));
                         return "redirect:" + backUrl;
@@ -180,7 +170,7 @@ public class BankSyncController {
                     break;
                 }
                 case BANK_ACCOUNT: {
-                    CommonResult syncAccountMovementsResult = accountManagementService.syncAccountMovements(account, bankSyncModelAttribute.getAspNetSessionId());
+                    CommonResult syncAccountMovementsResult = accountManagementService.syncAccountMovements(account, bankSyncModelAttribute.getGaliciaCookies());
                     if (syncAccountMovementsResult.isError() || syncAccountMovementsResult.isWarning()) {
                         applicationMessageService.add(request, ApplicationMessage.error(syncAccountMovementsResult.getMessage()));
                         return "redirect:" + backUrl;

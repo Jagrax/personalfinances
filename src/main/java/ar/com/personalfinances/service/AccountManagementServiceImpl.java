@@ -4,19 +4,18 @@ import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
 import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
-import ar.com.personalfinances.repository.AccountApiCredentialsRepository;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.util.DateUtils;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,7 +26,6 @@ import java.util.stream.Collectors;
 @Service
 public class AccountManagementServiceImpl implements AccountManagementService {
 
-    private final AccountApiCredentialsRepository accountApiCredentialsRepository;
     private final GaliciaApiService galiciaApiService;
     private final ExpenseRepository expenseRepository;
     private final AccountRepository accountRepository;
@@ -36,8 +34,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final Category automaticCategory;
     private final ChartJsServiceImpl chartJsServiceImpl;
 
-    public AccountManagementServiceImpl(AccountApiCredentialsRepository accountApiCredentialsRepository, GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository, ChartJsServiceImpl chartJsServiceImpl) {
-        this.accountApiCredentialsRepository = accountApiCredentialsRepository;
+    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository, ChartJsServiceImpl chartJsServiceImpl) {
         this.galiciaApiService = galiciaApiService;
         this.expenseRepository = expenseRepository;
         this.accountRepository = accountRepository;
@@ -48,7 +45,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     @Override
-    public CommonResult syncAccountMovements(Account account, String aspNetSessionId) {
+    public CommonResult syncAccountMovements(Account account, String cookies) {
         if (!AccountType.BANK_ACCOUNT.equals(account.getType())) {
             return CommonResult.warn("The requested account to sync is not a bank account: " + account);
         }
@@ -57,13 +54,22 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             return CommonResult.warn("The requested account to sync is not allowed for sync: " + account);
         }
 
+        if (!StringUtils.hasText(cookies)) {
+            return CommonResult.warn("Galicia cookies are required for bank account sync");
+        }
+        CommonResult cuentasSessionResult = galiciaApiService.establishCuentasSession(cookies);
+        if (cuentasSessionResult.isError()) {
+            return cuentasSessionResult;
+        }
+        String cuentasCookies = (String) cuentasSessionResult.getPayload();
+
         final LocalDate to = LocalDate.now();
         final LocalDate from = to.minusDays(30);
 
         final String strFrom = DateUtils.format(from);
         final String strTo = DateUtils.format(to);
         log.info("[syncBankAccount] Por sincronizar movimientos de la cuenta {} entre las fechas {} y {}", account.getName(), strFrom, strTo);
-        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(aspNetSessionId, from, to);
+        CommonResult getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(cuentasCookies, from, to);
         if (getMovimientosCuentaResult.isError()) {
             return getMovimientosCuentaResult;
         }
@@ -154,7 +160,16 @@ public class AccountManagementServiceImpl implements AccountManagementService {
      * Metodo para recorrer los movimientos desde hoy hacia atras con un delta de 3 meses hasta que no haya mas movimientos y luego te da un reporte de los que se repitieron mas de una vez
      */
     @Override
-    public CommonResult learnFromBankMovements(Account account, String appNetSessionId) {
+    public CommonResult learnFromBankMovements(Account account, String cookies) {
+        if (!StringUtils.hasText(cookies)) {
+            return CommonResult.warn("Galicia cookies are required for bank account learn");
+        }
+        CommonResult cuentasSessionResult = galiciaApiService.establishCuentasSession(cookies);
+        if (cuentasSessionResult.isError()) {
+            return cuentasSessionResult;
+        }
+        String cuentasCookies = (String) cuentasSessionResult.getPayload();
+
         final int monthsGap = 3;
         LocalDate to = LocalDate.now();
         LocalDate from = to.minusMonths(monthsGap);
@@ -168,14 +183,14 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             final String strFrom = DateUtils.format(from);
             final String strTo = DateUtils.format(to);
             log.info("[learnFromMovements] Por buscar movimientos entre las fechas {} y {}", strFrom, strTo);
-            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(appNetSessionId, from, to);
+            getMovimientosCuentaResult = galiciaApiService.getMovimientosCuenta(cuentasCookies, from, to);
 
             if (!getMovimientosCuentaResult.isError()) {
                 List<BankAccountMovement> movements = (List<BankAccountMovement>) getMovimientosCuentaResult.getPayload();
                 if (CollectionUtils.isEmpty(movements)) {
                     hasMovements = false;
                 } else {
-                    log.info("[syncBankAccount] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}.", movements.size(), strFrom, strTo);
+                    log.info("[learnFromBankMovements] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}.", movements.size(), strFrom, strTo);
                     for (BankAccountMovement movement : movements) {
                         descriptionCount.merge(getDescription(movement).toUpperCase(), 1, Integer::sum);
                     }
@@ -199,7 +214,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     @Override
-    public CommonResult syncCreditCardAccountMovements(Account creditCardAccount) {
+    public CommonResult syncCreditCardAccountMovements(Account creditCardAccount, String cookies) {
         if (!AccountType.CREDIT_CARD.equals(creditCardAccount.getType())) {
             return CommonResult.warn("The requested account to sync is not a credit card: " + creditCardAccount);
         }
@@ -208,33 +223,29 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             return CommonResult.warn("The requested account to sync is not allowed for sync: " + creditCardAccount);
         }
 
-        final Optional<AccountApiCredentials> optAccountApiCredentials = accountApiCredentialsRepository.findByAccount(creditCardAccount);
-        if (optAccountApiCredentials.isEmpty()) {
-            return CommonResult.warn("The requested account to sync does not have API credentials: " + creditCardAccount);
+        if (!StringUtils.hasText(creditCardAccount.getExternalAccountId())) {
+            return CommonResult.warn("The requested account to sync does not have an external account ID: " + creditCardAccount);
         }
 
-        final AccountApiCredentials accountApiCredentials = optAccountApiCredentials.get();
-        if (SyncProvider.GALICIA.equals(accountApiCredentials.getProvider())) {
-            final String extraDataEncrypted = accountApiCredentials.getExtraDataEncrypted();
-            if (!StringUtils.hasText(extraDataEncrypted)) {
-                return CommonResult.warn("The requested account to sync does not have API credentials: " + creditCardAccount);
+        if (!StringUtils.hasText(cookies)) {
+            return CommonResult.warn("Galicia cookies are required for credit card sync");
+        }
+
+
+        if (SyncProvider.GALICIA.equals(creditCardAccount.getSyncProvider())) {
+
+            final GaliciaApiService.CreditCardBrand creditCardBrand;
+            if ("VISA".equals(creditCardAccount.getName()) || "Visa".equalsIgnoreCase(creditCardAccount.getName())) {
+                creditCardBrand = GaliciaApiService.CreditCardBrand.VISA;
+            } else if ("Master Card".equals(creditCardAccount.getName()) || "MASTER".equalsIgnoreCase(creditCardAccount.getName())) {
+                creditCardBrand = GaliciaApiService.CreditCardBrand.MASTER;
+            } else {
+                return CommonResult.warn("Unknown credit card brand for account: " + creditCardAccount);
             }
 
-            String usernameEncrypted = accountApiCredentials.getUsernameEncrypted();
-            if (!StringUtils.hasText(usernameEncrypted)) {
-                throw new IllegalArgumentException("The API credentials has not username: " + accountApiCredentials);
-            }
-            final String[] dniAndUsername = usernameEncrypted.split("\\|", 2);
-            final String galiciaUserDNI = dniAndUsername[0];
-            final String galiciaUserName = dniAndUsername[1];
-            final String galiciaUserPassword = accountApiCredentials.getPasswordEncrypted();
-
-            final String[] accountBrandAndNumber = extraDataEncrypted.split("\\|", 2);
-            final GaliciaApiService.CreditCardBrand creditCardBrand = GaliciaApiService.CreditCardBrand.valueOf(accountBrandAndNumber[0]);
-            final String galiciaAccountNumber = accountBrandAndNumber[1];
-
-            log.info("[syncCreditCardAccountMovements] Por sincronizar movimientos de la tarjeta de credito {}", creditCardAccount.getName());
-            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(galiciaUserDNI, galiciaUserName, galiciaUserPassword, creditCardBrand, galiciaAccountNumber);
+            final String galiciaAccountNumber = creditCardAccount.getExternalAccountId();
+            log.info("[syncCreditCardAccountMovements] Por sincronizar movimientos de la tarjeta de credito {} con externalAccountId {}", creditCardAccount.getName(), galiciaAccountNumber);
+            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(cookies, creditCardBrand, galiciaAccountNumber);
             if (getCardMovementsResult.isError()) {
                 return getCardMovementsResult;
             }
@@ -349,7 +360,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             markAccountAsSynced(creditCardAccount);
             return CommonResult.ok(expensesCreated, resultMessage);
         } else {
-            throw new IllegalArgumentException("AccountAPICredentials.provider invalid [" + accountApiCredentials.getProvider() + "]");
+            throw new IllegalArgumentException("AccountAPICredentials.provider invalid [" + /*accountApiCredentials.getProvider() + */"]");
         }
     }
 
@@ -396,14 +407,14 @@ public class AccountManagementServiceImpl implements AccountManagementService {
 
     @Override
     @Transactional
-    public CommonResult syncUserAccounts(User user) {
+    public CommonResult syncUserAccounts(User user, String cookies) {
         final List<Account> syncedAccounts = new ArrayList<>();
         final List<Account> userAccounts = accountRepository.findByOwner(user);
         for (Account userAccount : userAccounts) {
             if (userAccount.isSyncEnabled() && userAccount.getType() == AccountType.CREDIT_CARD
                     && (userAccount.getLastSyncAt() == null || userAccount.getLastSyncAt().isBefore(LocalDateTime.now().minusMinutes(30)))) {
 
-                CommonResult syncResult = syncCreditCardAccountMovements(userAccount);
+                CommonResult syncResult = syncCreditCardAccountMovements(userAccount, cookies);
                 if (syncResult.isError()) {
                     return CommonResult.error("Error del Galicia al sincronizar la cuenta [" + userAccount.getId() + "|" + userAccount.getName() + "]: " + syncResult.getMessage());
                 } else if (syncResult.isWarning()) {

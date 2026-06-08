@@ -1,5 +1,6 @@
 package ar.com.personalfinances.service;
 
+import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountSubtype;
 import ar.com.personalfinances.entity.AccountType;
@@ -14,8 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,42 +34,9 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
     }
 
     @Override
-    public CommonResult discoverAccounts(String skywalkerToken) {
+    public CommonResult discoverAccounts(User user, String cookies) {
         try {
-            String onlinebankingCookies = (String) galiciaApiService.establishSession(skywalkerToken).getPayload();
-            if (!StringUtils.hasText(onlinebankingCookies)) {
-                return CommonResult.error("No se pudo establecer sesion en onlinebanking con el token provisto");
-            }
-
-            CommonResult cardsResult = galiciaApiService.getCardsOverview(skywalkerToken);
-            CommonResult accountsResult = galiciaApiService.getSeccionMisCuentas(onlinebankingCookies);
-
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("onlinebankingCookies", onlinebankingCookies);
-            result.put("cardsRawJson", cardsResult.isError() ? null : cardsResult.getPayload());
-            result.put("accountsRawJson", accountsResult.isError() ? null : accountsResult.getPayload());
-
-            return CommonResult.ok(result);
-        } catch (Exception e) {
-            log.error("[discoverAccounts] Error al descubrir cuentas", e);
-            return CommonResult.error("Error al descubrir cuentas: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public CommonResult discoverAccountsWithCookies(String cookies) {
-        return discoverAccountsWithCookies(null, cookies);
-    }
-
-    @Override
-    public CommonResult discoverAccountsWithCookies(User user, String cookies) {
-        try {
-            String skywalkerToken = extractSkywalkerFromCookies(cookies);
-            if (!StringUtils.hasText(skywalkerToken)) {
-                return CommonResult.error("No se encontro el token Skywalker en las cookies provistas");
-            }
-
-            CommonResult cardsResult = galiciaApiService.getCardsOverview(skywalkerToken);
+            CommonResult cardsResult = galiciaApiService.getCardsOverview(cookies);
             CommonResult accountsResult = galiciaApiService.getSeccionMisCuentas(cookies);
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -109,6 +75,33 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
         }
     }
 
+    private Account findOrCreateAccount(User user, String name, AccountType type, String currency, String externalAccountId) {
+        List<Account> existing = accountRepository.findByOwnerAndType(user, type);
+        for (Account a : existing) {
+            if (name.equals(a.getName())) {
+                a.setExternalAccountId(externalAccountId);
+                a.setSyncProvider(SyncProvider.GALICIA);
+                a.setSyncEnabled(true);
+                if (currency != null && AccountType.BANK_ACCOUNT.equals(type)) {
+                    a.setCurrency(currency);
+                }
+                return accountRepository.save(a);
+            }
+        }
+        Account account = new Account();
+        account.setOwner(user);
+        account.setName(name);
+        account.setType(type);
+        account.setSubtype(AccountSubtype.BANCO_GALICIA.name());
+        account.setSyncProvider(SyncProvider.GALICIA);
+        account.setExternalAccountId(externalAccountId);
+        account.setSyncEnabled(true);
+        if (currency != null && AccountType.BANK_ACCOUNT.equals(type)) {
+            account.setCurrency(currency);
+        }
+        return accountRepository.save(account);
+    }
+
     @Override
     public CommonResult importSelectedAccounts(User user, String accountsJson) {
         try {
@@ -137,25 +130,20 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                     }
 
                     String lastFour = card.has("card_number_last_four_digits") ? card.get("card_number_last_four_digits").asText() : null;
-                    String accountName;
-                    if ("VISA".equalsIgnoreCase(brand)) {
-                        accountName = "VISA";
-                    } else if ("MASTERCARD".equalsIgnoreCase(brand) || "MASTER".equalsIgnoreCase(brand)) {
-                        accountName = "Master Card";
-                    } else {
-                        accountName = brand + (lastFour != null ? " (" + lastFour + ")" : "");
+                    String accountName = card.has("name") && !card.get("name").isNull() ? card.get("name").asText() : null;
+                    if (!StringUtils.hasText(accountName)) {
+                        if ("VISA".equalsIgnoreCase(brand)) {
+                            accountName = "VISA";
+                        } else if ("MASTERCARD".equalsIgnoreCase(brand) || "MASTER".equalsIgnoreCase(brand)) {
+                            accountName = "Master Card";
+                        } else {
+                            accountName = brand + (lastFour != null ? " (" + lastFour + ")" : "");
+                        }
                     }
 
-                    Account account = new Account();
-                    account.setOwner(user);
-                    account.setName(accountName);
-                    account.setType(AccountType.CREDIT_CARD);
-                    account.setSubtype(AccountSubtype.BANCO_GALICIA.name());
-                    account.setSyncProvider(SyncProvider.GALICIA);
-                    account.setExternalAccountId(accountNumber);
-                    account.setSyncEnabled(true);
-                    processedAccounts.add(accountRepository.save(account));
-                    log.info("[importSelectedAccounts] Tarjeta de credito creada: {} con externalAccountId {}", accountName, accountNumber);
+                    Account account = findOrCreateAccount(user, accountName, AccountType.CREDIT_CARD, null, accountNumber);
+                    processedAccounts.add(account);
+                    log.info("[importSelectedAccounts] Tarjeta de credito procesada: {} con externalAccountId {} (id={})", accountName, accountNumber, account.getId());
                 }
             }
 
@@ -178,20 +166,15 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                         continue;
                     }
 
-                    String accountName = bankAccount.has("name") ? bankAccount.get("name").asText() : "Galicia Bank Account";
+                    String accountName = bankAccount.has("customName") && !bankAccount.get("customName").isNull() ? bankAccount.get("customName").asText() : null;
+                    if (!StringUtils.hasText(accountName)) {
+                        accountName = bankAccount.has("name") ? bankAccount.get("name").asText() : "Galicia Bank Account";
+                    }
                     String currency = bankAccount.has("currency") ? bankAccount.get("currency").asText() : "ARS";
 
-                    Account account = new Account();
-                    account.setOwner(user);
-                    account.setName(accountName);
-                    account.setType(AccountType.BANK_ACCOUNT);
-                    account.setSubtype(AccountSubtype.BANCO_GALICIA.name());
-                    account.setCurrency(currency);
-                    account.setSyncProvider(SyncProvider.GALICIA);
-                    account.setExternalAccountId(accountId);
-                    account.setSyncEnabled(true);
-                    processedAccounts.add(accountRepository.save(account));
-                    log.info("[importSelectedAccounts] Cuenta bancaria creada: {} con externalAccountId {}", accountName, accountId);
+                    Account account = findOrCreateAccount(user, accountName, AccountType.BANK_ACCOUNT, currency, accountId);
+                    processedAccounts.add(account);
+                    log.info("[importSelectedAccounts] Cuenta bancaria procesada: {} con externalAccountId {} (id={})", accountName, accountId, account.getId());
                 }
             }
 
@@ -203,15 +186,8 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
     }
 
     @Override
-    public CommonResult syncAllAccounts(User user, String skywalkerToken) {
+    public CommonResult syncAllAccounts(User user, String cookies) {
         try {
-            String onlinebankingCookies = (String) galiciaApiService.establishSession(skywalkerToken).getPayload();
-            if (!StringUtils.hasText(onlinebankingCookies)) {
-                return CommonResult.error("No se pudo establecer sesion en onlinebanking con el token provisto");
-            }
-
-            String cuentasCookies = (String) galiciaApiService.establishCuentasSession(onlinebankingCookies).getPayload();
-
             List<Account> userAccounts = accountRepository.findByOwner(user);
             List<String> syncedAccounts = new ArrayList<>();
 
@@ -222,53 +198,9 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
 
                 CommonResult syncResult;
                 if (AccountType.BANK_ACCOUNT.equals(account.getType())) {
-                    syncResult = accountManagementService.syncAccountMovements(account, cuentasCookies, true);
+                    syncResult = accountManagementService.syncAccountMovements(account, cookies);
                 } else if (AccountType.CREDIT_CARD.equals(account.getType())) {
-                    syncResult = accountManagementService.syncCreditCardAccountMovements(account, skywalkerToken);
-                } else {
-                    continue;
-                }
-
-                if (syncResult.isError()) {
-                    log.warn("[syncAllAccounts] Error al sincronizar cuenta {}: {}", account.getName(), syncResult.getMessage());
-                } else {
-                    syncedAccounts.add(account.getName());
-                }
-            }
-
-            return CommonResult.ok(syncedAccounts, "Sincronizacion completada. Se sincronizaron " + syncedAccounts.size() + " cuentas");
-        } catch (Exception e) {
-            log.error("[syncAllAccounts] Error al sincronizar todas las cuentas", e);
-            return CommonResult.error("Error al sincronizar: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public CommonResult syncAllAccountsWithCookies(User user, String cookies) {
-        try {
-            String skywalkerToken = extractSkywalkerFromCookies(cookies);
-            if (!StringUtils.hasText(skywalkerToken)) {
-                return CommonResult.error("No se encontro el token Skywalker en las cookies provistas");
-            }
-
-            String cuentasCookies = (String) galiciaApiService.establishCuentasSession(cookies).getPayload();
-            if (!StringUtils.hasText(cuentasCookies)) {
-                return CommonResult.error("No se pudo establecer sesion en cuentas con las cookies provistas");
-            }
-
-            List<Account> userAccounts = accountRepository.findByOwner(user);
-            List<String> syncedAccounts = new ArrayList<>();
-
-            for (Account account : userAccounts) {
-                if (!account.isSyncEnabled() || !SyncProvider.GALICIA.equals(account.getSyncProvider())) {
-                    continue;
-                }
-
-                CommonResult syncResult;
-                if (AccountType.BANK_ACCOUNT.equals(account.getType())) {
-                    syncResult = accountManagementService.syncAccountMovements(account, cuentasCookies, true);
-                } else if (AccountType.CREDIT_CARD.equals(account.getType())) {
-                    syncResult = accountManagementService.syncCreditCardAccountMovements(account, skywalkerToken);
+                    syncResult = accountManagementService.syncCreditCardAccountMovements(account, cookies);
                 } else {
                     continue;
                 }
@@ -285,12 +217,5 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
             log.error("[syncAllAccountsWithCookies] Error al sincronizar todas las cuentas con cookies", e);
             return CommonResult.error("Error al sincronizar: " + e.getMessage());
         }
-    }
-
-    private String extractSkywalkerFromCookies(String cookies) {
-        if (!StringUtils.hasText(cookies)) return null;
-        Pattern p = Pattern.compile("Skywalker\\s*=\\s*([^;]+)");
-        Matcher m = p.matcher(cookies);
-        return m.find() ? m.group(1).trim() : null;
     }
 }

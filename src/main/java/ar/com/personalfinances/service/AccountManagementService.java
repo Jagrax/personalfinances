@@ -8,11 +8,11 @@ public interface AccountManagementService {
 
     long GALICIA_CURRENCY_ARS_ID = 1;
 
-    CommonResult syncCreditCardAccountMovements(Account creditCardAccount);
+    CommonResult syncCreditCardAccountMovements(Account creditCardAccount, String cookies);
 
-    CommonResult learnFromBankMovements(Account account, String appNetSessionId);
+    CommonResult learnFromBankMovements(Account account, String cookies);
 
-    CommonResult syncAccountMovements(Account account, String aspNetSessionId);
+    CommonResult syncAccountMovements(Account account, String cookies);
 
-    CommonResult syncUserAccounts(User user);
+    CommonResult syncUserAccounts(User user, String cookies);
 }
