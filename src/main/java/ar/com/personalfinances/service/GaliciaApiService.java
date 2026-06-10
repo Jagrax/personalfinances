@@ -25,7 +25,7 @@ public interface GaliciaApiService {
         MASTER,
     }
 
-    CommonResult getMovimientosCuenta(String cookies, LocalDate from, LocalDate to);
+    CommonResult getMovimientosCuenta(String cuentasCookies, LocalDate from, LocalDate to);
 
     CommonResult getCardMovements(String cookies, CreditCardBrand creditCardBrand, String creditAccountNumber);
 
@@ -33,5 +33,9 @@ public interface GaliciaApiService {
 
     CommonResult establishCuentasSession(String onlinebankingCookies);
 
-    CommonResult getSeccionMisCuentas(String onlinebankingCookies);
+    CommonResult establishCuentasSessionDirect(String onlinebankingCookies);
+
+    CommonResult getCuentasInicioPage(String cuentasCookies);
+
+    CommonResult selectAccount(String cuentasCookies, String accountTipo, String accountIndex);
 }

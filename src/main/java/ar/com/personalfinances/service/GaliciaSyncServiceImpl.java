@@ -189,14 +189,16 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
 
             if (root.has("bankAccounts") && root.get("bankAccounts").isArray()) {
                 for (JsonNode bankAccount : root.get("bankAccounts")) {
-                    String accountId = bankAccount.has("id") ? bankAccount.get("id").asText() : null;
+                    String accountIndex = bankAccount.has("id") ? bankAccount.get("id").asText() : null;
+                    String accountTipo = bankAccount.has("type") ? bankAccount.get("type").asText() : null;
+                    String externalAccountId = (accountIndex != null && accountTipo != null) ? accountIndex + "|" + accountTipo : accountIndex;
 
                     if (bankAccount.has("existingAccountId") && !bankAccount.get("existingAccountId").isNull()) {
                         Long existingId = bankAccount.get("existingAccountId").asLong();
                         Optional<Account> opt = accountRepository.findById(existingId);
                         if (opt.isPresent()) {
                             Account existing = opt.get();
-                            existing.setExternalAccountId(accountId);
+                            existing.setExternalAccountId(externalAccountId);
                             existing.setSyncProvider(SyncProvider.GALICIA);
                             existing.setSyncEnabled(true);
                             accountRepository.save(existing);
@@ -212,9 +214,9 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                     }
                     String currency = bankAccount.has("currency") ? bankAccount.get("currency").asText() : "ARS";
 
-                    Account account = findOrCreateAccount(user, accountName, AccountType.BANK_ACCOUNT, currency, accountId);
+                    Account account = findOrCreateAccount(user, accountName, AccountType.BANK_ACCOUNT, currency, externalAccountId);
                     processedAccounts.add(account);
-                    log.info("[importSelectedAccounts] Cuenta bancaria procesada: {} con externalAccountId {} (id={})", accountName, accountId, account.getId());
+                    log.info("[importSelectedAccounts] Cuenta bancaria procesada: {} con externalAccountId {} (id={})", accountName, externalAccountId, account.getId());
                 }
             }
 

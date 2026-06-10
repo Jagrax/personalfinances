@@ -44,8 +44,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         this.chartJsServiceImpl = chartJsServiceImpl;
     }
 
-    @Override
-    public CommonResult syncAccountMovements(Account account, String cookies) {
+    private CommonResult validateBankAccountToSync(Account account) {
         if (!AccountType.BANK_ACCOUNT.equals(account.getType())) {
             return CommonResult.warn("The requested account to sync is not a bank account: " + account);
         }
@@ -54,14 +53,44 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             return CommonResult.warn("The requested account to sync is not allowed for sync: " + account);
         }
 
+        if (!StringUtils.hasText(account.getExternalAccountId())) {
+            return CommonResult.warn("Account externalAccountId is required but is null or empty: " + account);
+        } else if (!account.getExternalAccountId().contains("|")) {
+            return CommonResult.warn("Invalid externalAccountId format (expected 'tipo|index'): " + account.getExternalAccountId());
+        }
+
+        return CommonResult.ok();
+    }
+
+    @Override
+    public CommonResult syncAccountMovements(Account account, String cookies) {
+        CommonResult validationResult = validateBankAccountToSync(account);
+        if (validationResult.isError() || validationResult.isWarning()) {
+            return validationResult;
+        }
+
         if (!StringUtils.hasText(cookies)) {
             return CommonResult.warn("Galicia cookies are required for bank account sync");
         }
+
+        final String[] parts = account.getExternalAccountId().split("\\|", 2);
+        final String accountTipo = parts[0];
+        final String accountIndex = parts[1];
+
         CommonResult cuentasSessionResult = galiciaApiService.establishCuentasSession(cookies);
         if (cuentasSessionResult.isError()) {
             return cuentasSessionResult;
         }
         String cuentasCookies = (String) cuentasSessionResult.getPayload();
+
+        log.trace("[syncBankAccount] Selecting account tipo={}, index={}", accountTipo, accountIndex);
+        CommonResult selectResult = galiciaApiService.selectAccount(cuentasCookies, accountTipo, accountIndex);
+        if (selectResult.isError()) {
+            log.warn("[syncBankAccount] selectAccount failed: {}", selectResult.getMessage());
+            return CommonResult.warn("No se pudo seleccionar la cuenta en Galicia Cuentas: " + selectResult.getMessage());
+        }
+        // Use updated cookies from selectAccount (may include new cookies from redirect)
+        cuentasCookies = (String) selectResult.getPayload();
 
         final LocalDate to = LocalDate.now();
         final LocalDate from = to.minusDays(30);
@@ -161,14 +190,33 @@ public class AccountManagementServiceImpl implements AccountManagementService {
      */
     @Override
     public CommonResult learnFromBankMovements(Account account, String cookies) {
-        if (!StringUtils.hasText(cookies)) {
-            return CommonResult.warn("Galicia cookies are required for bank account learn");
+        CommonResult validationResult = validateBankAccountToSync(account);
+        if (validationResult.isError() || validationResult.isWarning()) {
+            return validationResult;
         }
+
+        if (!StringUtils.hasText(cookies)) {
+            return CommonResult.warn("Galicia cookies are required for bank account learning");
+        }
+
+        final String[] parts = account.getExternalAccountId().split("\\|", 2);
+        final String accountTipo = parts[0];
+        final String accountIndex = parts[1];
+
         CommonResult cuentasSessionResult = galiciaApiService.establishCuentasSession(cookies);
         if (cuentasSessionResult.isError()) {
             return cuentasSessionResult;
         }
         String cuentasCookies = (String) cuentasSessionResult.getPayload();
+
+        log.trace("[learnFromMovements] Selecting account tipo={}, index={}", accountTipo, accountIndex);
+        CommonResult selectResult = galiciaApiService.selectAccount(cuentasCookies, accountTipo, accountIndex);
+        if (selectResult.isError()) {
+            log.warn("[learnFromMovements] selectAccount failed: {}", selectResult.getMessage());
+            return CommonResult.warn("No se pudo seleccionar la cuenta en Galicia Cuentas: " + selectResult.getMessage());
+        }
+        // Use updated cookies from selectAccount (may include new cookies from redirect)
+        cuentasCookies = (String) selectResult.getPayload();
 
         final int monthsGap = 3;
         LocalDate to = LocalDate.now();
@@ -346,7 +394,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesByDates.stream()
                     // Filtro a los no encontrados y además, los que sean pagos de tarjetas (no vienen en la API)
                     .filter(expense -> !expensesIdFounded.contains(expense.getId()) && !"Pago de tarjeta".equals(expense.getCategory().getName()))
-                    .collect(Collectors.toList());
+                    .toList();
             if (!expensesNotFoundInConsuptions.isEmpty()) {
                 BigDecimal amount = BigDecimal.ZERO;
                 log.info("Los siguientes gastos no fueron encontrados al sincronizar con el banco:");

@@ -1,7 +1,10 @@
 package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
-import ar.com.personalfinances.api.galicia.io.*;
+import ar.com.personalfinances.api.galicia.io.ErrorResponse;
+import ar.com.personalfinances.api.galicia.io.GetMovimientosCuentaResponse;
+import ar.com.personalfinances.api.galicia.io.PostCardsMovementsRequest;
+import ar.com.personalfinances.api.galicia.io.PostCardsMovementsResponse;
 import ar.com.personalfinances.api.galicia.model.*;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.webclient.RestConnectorException;
@@ -18,7 +21,7 @@ import java.util.List;
 public class GaliciaApiServiceImpl implements GaliciaApiService {
 
     @Override
-    public CommonResult getMovimientosCuenta(String cookies, LocalDate from, LocalDate to) {
+    public CommonResult getMovimientosCuenta(String cuentasCookies, LocalDate from, LocalDate to) {
         final List<BankAccountMovement> movimientos = new ArrayList<>();
         long actualPage = 0;
         Long totalPaginas = null;
@@ -27,7 +30,7 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
         while (totalPaginas == null || actualPage < totalPaginas) {
             try {
                 log.info("[getMovimientosCuenta] Por consultar los movimientos de la cuenta para las fechas [{} | {}]. Pagina actual: {}", from, to, actualPage);
-                getMovimientosCuentaResponse = new GaliciaApiConnector().getMovimientosCuenta(cookies, from, to, TipoMovimiento.TODOS, actualPage);
+                getMovimientosCuentaResponse = new GaliciaApiConnector().getMovimientosCuenta(cuentasCookies, from, to, TipoMovimiento.TODOS, actualPage);
             } catch (RestConnectorException e) {
                 return logAndReturnError("getMovimientosCuenta", e);
             }
@@ -105,6 +108,16 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
     }
 
     @Override
+    public CommonResult establishCuentasSessionDirect(String onlinebankingCookies) {
+        try {
+            String cookies = new GaliciaApiConnector().establishCuentasSessionDirect(onlinebankingCookies);
+            return CommonResult.ok(cookies);
+        } catch (RestConnectorException e) {
+            return logAndReturnError("establishCuentasSessionDirect", e);
+        }
+    }
+
+    @Override
     public CommonResult getCardsOverview(String cookies) {
         try {
             String json = new GaliciaApiConnector().getCardsOverview(cookies);
@@ -115,12 +128,22 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
     }
 
     @Override
-    public CommonResult getSeccionMisCuentas(String onlinebankingCookies) {
+    public CommonResult getCuentasInicioPage(String cuentasCookies) {
         try {
-            String json = new GaliciaApiConnector().getSeccionMisCuentas(onlinebankingCookies);
-            return CommonResult.ok(json);
+            String html = new GaliciaApiConnector().getCuentasInicioPage(cuentasCookies);
+            return CommonResult.ok(html);
         } catch (RestConnectorException e) {
-            return logAndReturnError("getSeccionMisCuentas", e);
+            return logAndReturnError("getCuentasInicioPage", e);
+        }
+    }
+
+    @Override
+    public CommonResult selectAccount(String cuentasCookies, String accountTipo, String accountIndex) {
+        try {
+            String updatedCookies = new GaliciaApiConnector().selectAccount(cuentasCookies, accountTipo, accountIndex);
+            return CommonResult.ok(updatedCookies);
+        } catch (RestConnectorException e) {
+            return logAndReturnError("selectAccount", e);
         }
     }
 
