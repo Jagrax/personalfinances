@@ -36,7 +36,7 @@
                         <input type="number" style="max-width:50px" min="1" max="999" class="form-control px-1 text-end" id="size" name="size" aria-label="Registros por p&aacute;gina" th:value="${accountsPage.size}">
                         <span class="input-group-text" th:text="${'/ ' + accountsPage.totalElements}"></span>
                     </div>
-                    <button id="btnOpenModal" type="button" data-bs-toggle="modal" data-bs-target="#createOrUpdateAccountModal" class="btn btn-sm btn-success text-nowrap"><i class="bi bi-plus me-2"></i>Nuevo registro</button>
+                    <button id="btnOpenModal" type="button" data-bs-toggle="modal" data-bs-target="#createOrUpdateAccountModal" class="btn btn-sm btn-success text-nowrap"><i class="bi bi-plus me-2"></i>Nueva cuenta</button>
                 </div>
             </div>
             <table class="table table-sm table-bordered table-striped">
@@ -90,7 +90,7 @@
                     <form action="#" th:with="actionUrl=(${accountIdToEdit != null and accountIdToEdit.present} ? '/account/update/' + ${accountIdToEdit.get()} : '/account/add')" th:action="@{${actionUrl}}" th:object="${account}" method="post">
                         <input type="hidden" th:field="*{owner}"/>
                         <div class="modal-header">
-                            <h1 class="modal-title fs-5" id="createOrUpdateAccountModalLabel" th:text="${expenseIdToEdit != null ? 'Editando categor&iacute;a' : 'Nueva categor&iacute;a'}"></h1>
+                            <h1 class="modal-title fs-5" id="createOrUpdateAccountModalLabel" th:text="${accountIdToEdit != null ? 'Editando cuenta' : 'Nueva cuenta'}"></h1>
                         </div>
                         <div class="modal-body">
                             <div class="row g-3">
