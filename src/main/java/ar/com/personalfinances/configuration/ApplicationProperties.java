@@ -13,4 +13,7 @@ public class ApplicationProperties {
      */
     @Value("${app.local:false}")
     private boolean localRuntime;
+
+    @Value("${app.version:unknown}")
+    private String version;
 }
