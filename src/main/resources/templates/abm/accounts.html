@@ -107,6 +107,11 @@
                                     <span th:if="${#fields.hasErrors('type')}" th:errors="*{type}"></span>
                                 </div>
                             </div>
+                            <hr class="my-3">
+                            <a th:href="@{/galicia-connect}" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2">
+                                <img class="me-2" th:src="@{/images/galicia.svg}" alt="Banco Galicia" height="24">
+                                <span>Descubrir cuentas del Banco Galicia</span>
+                            </a>
                         </div>
                         <div class="modal-footer justify-content-between">
                             <button th:if="${accountIdToEdit == null}" type="button" class="btn btn-danger" data-bs-dismiss="modal"><i class="bi bi-x-lg me-2"></i>Cancelar</button>

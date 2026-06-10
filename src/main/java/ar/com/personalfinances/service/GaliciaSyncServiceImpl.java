@@ -191,7 +191,7 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                 for (JsonNode bankAccount : root.get("bankAccounts")) {
                     String accountIndex = bankAccount.has("id") ? bankAccount.get("id").asText() : null;
                     String accountTipo = bankAccount.has("type") ? bankAccount.get("type").asText() : null;
-                    String externalAccountId = (accountIndex != null && accountTipo != null) ? accountIndex + "|" + accountTipo : accountIndex;
+                    String externalAccountId = (accountIndex != null && accountTipo != null) ? accountTipo + "|" + accountIndex : accountIndex;
 
                     if (bankAccount.has("existingAccountId") && !bankAccount.get("existingAccountId").isNull()) {
                         Long existingId = bankAccount.get("existingAccountId").asLong();

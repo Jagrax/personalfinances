@@ -130,7 +130,7 @@
                                 html += '<option value="">Crear nueva cuenta</option>';
                                 html += existingOptions;
                                 html += '</select>';
-                                html += '<input type="text" class="form-control form-control-sm account-name-input d-none" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
+                                html += '<input type="text" class="form-control form-control-sm account-name-input" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
                                 html += '</div>';
                                 selectedCards.push({brand, credit_account_number: accountNumber, card_number_last_four_digits: lastFour});
                             }
@@ -180,7 +180,7 @@
                     const name = account.name || 'Cuenta ' + (index + 1);
                     const currencyLabel = account.currencyLabel || '';
                     const balance = account.balance || '';
-                    const alreadyImported = accountId && importedAccountIds.has(accountId);
+                    const alreadyImported = accountId && importedAccountIds.has(account.type + '|' + accountId);
 
                     if (alreadyImported) {
                         html += '<div class="d-flex align-items-center mb-2">';
@@ -200,9 +200,9 @@
                         html += '<option value="">Crear nueva cuenta</option>';
                         html += existingOptions;
                         html += '</select>';
-                        html += '<input type="text" class="form-control form-control-sm account-name-input d-none" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
+                        html += '<input type="text" class="form-control form-control-sm account-name-input" style="max-width:220px" placeholder="Nombre de la cuenta" value="' + escapedName + '">';
                         html += '</div>';
-                        selectedAccounts.push({id: accountId, name, currency: account.type});
+                        selectedAccounts.push({id: accountId, name, type: account.type});
                     }
                 });
                 container.innerHTML = html;
@@ -275,7 +275,7 @@
                     const item = {
                         id: a.id,
                         name: a.name,
-                        currency: a.currency,
+                        type: a.type,
                         existingAccountId: existingId
                     };
                     if (existingId === null) {
