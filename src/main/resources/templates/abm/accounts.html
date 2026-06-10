@@ -55,7 +55,7 @@
                     <td class="text-start" th:text="${account.name}"></td>
                     <td class="text-start" th:text="${account.type.value}"></td>
                     <td class="text-center" style="width:35px"><button name="accountIdToEdit" th:value="${account.id}" class="btn btn-link p-0"><i class="bi bi-pencil-square"></i></button></td>
-                    <td class="text-center" style="width:35px"><a th:href="@{/account/delete/{id}(id=${account.id})}" class="btn btn-link p-0"><i class="bi bi-trash text-danger"></i></a></td>
+                    <td class="text-center" style="width:35px"><button type="button" class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#deleteAccountModal" th:attr="data-delete-url=@{/account/delete/{id}(id=${account.id})},data-account-name=${account.name}"><i class="bi bi-trash text-danger"></i></button></td>
                 </tr>
                 </tbody>
             </table>
@@ -117,6 +117,55 @@
                 </div>
             </div>
         </div>
+
+        <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form action="#" method="get" id="deleteAccountForm">
+                        <div class="modal-header">
+                            <h1 class="modal-title fs-5 text-danger">Eliminar cuenta</h1>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-1">¿Estás seguro de que querés eliminar la cuenta <strong id="deleteAccountName"></strong>?</p>
+                            <p class="text-danger fw-bold">Se eliminarán todos sus gastos asociados.</p>
+                            <div class="mb-3">
+                                <label class="form-label" for="confirmDeleteInput">Escribí <strong>Eliminar</strong> para confirmar:</label>
+                                <input type="text" class="form-control" id="confirmDeleteInput" placeholder="Eliminar" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" disabled>Eliminar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let deleteUrl = null;
+
+            document.getElementById('deleteAccountModal').addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                deleteUrl = button.getAttribute('data-delete-url');
+                const accountName = button.getAttribute('data-account-name');
+                document.getElementById('deleteAccountName').textContent = accountName;
+                document.getElementById('confirmDeleteInput').value = '';
+                document.getElementById('confirmDeleteBtn').disabled = true;
+            });
+
+            document.getElementById('confirmDeleteInput').addEventListener('input', function () {
+                document.getElementById('confirmDeleteBtn').disabled = this.value.trim() !== 'Eliminar';
+            });
+
+            document.getElementById('deleteAccountForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (deleteUrl) {
+                    window.location.href = deleteUrl;
+                }
+            });
+        </script>
 
         <script th:if="${accountIdToEdit != null}">$("#btnOpenModal").click()</script>
     </div>

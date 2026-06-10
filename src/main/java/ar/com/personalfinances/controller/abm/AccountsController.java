@@ -3,8 +3,10 @@ package ar.com.personalfinances.controller.abm;
 import ar.com.personalfinances.controller.ApplicationController;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountType;
+import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
+import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.AccountSearch;
 import ar.com.personalfinances.util.ApplicationUtils;
@@ -28,10 +30,12 @@ import java.util.stream.IntStream;
 public class AccountsController {
 
     private final AccountRepository accountRepository;
+    private final ExpenseRepository expenseRepository;
     private final SpecificationsService specificationsService;
 
-    public AccountsController(AccountRepository accountRepository, SpecificationsService specificationsService) {
+    public AccountsController(AccountRepository accountRepository, ExpenseRepository expenseRepository, SpecificationsService specificationsService) {
         this.accountRepository = accountRepository;
+        this.expenseRepository = expenseRepository;
         this.specificationsService = specificationsService;
     }
 
@@ -104,8 +108,12 @@ public class AccountsController {
 
     @GetMapping("/account/delete/{id}")
     public String deleteAccount(@PathVariable("id") long id) {
-        Account user = accountRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Account", "id", id));
-        accountRepository.delete(user);
+        Account account = accountRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Account", "id", id));
+        List<Expense> expenses = expenseRepository.findByAccount(account);
+        log.debug("[deleteAccount] Por eleminar {} gastos de la {}", expenses.size(), account);
+        expenseRepository.deleteAll(expenses);
+        log.debug("[deleteAccount] Por eleminar {}", account);
+        accountRepository.delete(account);
 
         return "redirect:/accounts";
     }

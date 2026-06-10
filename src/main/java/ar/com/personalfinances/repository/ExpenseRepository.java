@@ -43,4 +43,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     @Query(value = "SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.account = :account")
     BigDecimal sumByAccount(Account account);
+
+    List<Expense> findByAccount(Account account);
 }
