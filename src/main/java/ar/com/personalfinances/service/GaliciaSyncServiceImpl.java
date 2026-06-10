@@ -63,7 +63,7 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                 String html = (String) cuentasPageResult.getPayload();
                 Document doc = Jsoup.parse(html);
                 Elements boxes = doc.select(".box_ctas");
-                log.info("[discoverAccounts] Found {} .box_ctas elements in cuentas page, bodySnippet=[{}]", boxes.size(),
+                log.trace("[discoverAccounts] Found {} .box_ctas elements in cuentas page, bodySnippet=[{}]", boxes.size(),
                     html.substring(0, Math.min(500, html.length())));
                 for (Element box : boxes) {
                     Map<String, String> account = new LinkedHashMap<>();

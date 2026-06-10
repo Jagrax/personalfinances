@@ -146,7 +146,7 @@ public class GaliciaApiConnector {
             throw new RestConnectorException("establishCuentasSession showexternal error: " + e.getMessage(), e);
         }
         String showExternalHtml = showExternalResponse.getBody();
-        log.info("[establishCuentasSession] showexternal status={}, bodyLength={}", showExternalResponse.getStatusCode(),
+        log.trace("[establishCuentasSession] showexternal status={}, bodyLength={}", showExternalResponse.getStatusCode(),
             showExternalHtml != null ? showExternalHtml.length() : 0);
 
         if (showExternalHtml == null || showExternalHtml.isEmpty()) {
@@ -173,7 +173,7 @@ public class GaliciaApiConnector {
                 showExternalHtml.substring(0, Math.min(1000, showExternalHtml.length())));
             throw new RestConnectorException("establishCuentasSession: tokenML not found in showexternal response");
         }
-        log.info("[establishCuentasSession] Found tokenML (first 100 chars)=[{}]", tokenML.substring(0, Math.min(100, tokenML.length())));
+        log.trace("[establishCuentasSession] Found tokenML (first 100 chars)=[{}]", tokenML.substring(0, Math.min(100, tokenML.length())));
 
         // Step 3: POST tokenML to cuentas SSO entry point
         HttpHeaders ssoHeaders = new HttpHeaders();
@@ -195,7 +195,7 @@ public class GaliciaApiConnector {
                 new org.springframework.http.HttpEntity<>(ssoBody, ssoHeaders),
                 String.class
             );
-            log.info("[establishCuentasSession] SSO POST response status={}, Location={}, bodyLength={}",
+            log.trace("[establishCuentasSession] SSO POST response status={}, Location={}, bodyLength={}",
                 ssoResponse.getStatusCode(), ssoResponse.getHeaders().getFirst(HttpHeaders.LOCATION),
                 ssoResponse.getBody() != null ? ssoResponse.getBody().length() : 0);
         } catch (HttpStatusCodeException e) {
@@ -218,7 +218,7 @@ public class GaliciaApiConnector {
             try { menuLinkUri = new URI("https://cuentas.bancogalicia.com.ar" + (menuLinkLocation.startsWith("/") ? menuLinkLocation : "/" + menuLinkLocation)); }
             catch (URISyntaxException e) { throw new RestConnectorException("Invalid MenuLink URI: " + menuLinkLocation, e); }
         }
-        log.info("[establishCuentasSession] Following SSO redirect to MenuLink: {}", menuLinkUri);
+        log.trace("[establishCuentasSession] Following SSO redirect to MenuLink: {}", menuLinkUri);
 
         // Extract ALL cuentas-domain cookies from SSO POST Set-Cookie.
         // MenuLink only needs ASP.NET_SessionId, but subsequent API calls (getMovimientosCuenta)
@@ -230,7 +230,7 @@ public class GaliciaApiConnector {
         if (!StringUtils.hasText(ssoCookies) || !ssoCookies.contains("ASP.NET_SessionId=")) {
             throw new RestConnectorException("establishCuentasSession: SSO POST did not set ASP.NET_SessionId in cookies");
         }
-        log.info("[establishCuentasSession] ssoCookies=[{}]", ssoCookies);
+        log.trace("[establishCuentasSession] ssoCookies=[{}]", ssoCookies);
 
         // Browser sends only basic headers (NO Origin, NO onlinebanking cookies) for navigation redirects
         HttpHeaders cuentasHeaders = new HttpHeaders();
@@ -248,7 +248,7 @@ public class GaliciaApiConnector {
         } catch (RestClientException e) {
             throw new RestConnectorException("establishCuentasSession MenuLink error: " + e.getMessage(), e);
         }
-        log.info("[establishCuentasSession] MenuLink response status={}, Location={}", menuLinkResponse.getStatusCode(),
+        log.trace("[establishCuentasSession] MenuLink response status={}, Location={}", menuLinkResponse.getStatusCode(),
             menuLinkResponse.getHeaders().getFirst(HttpHeaders.LOCATION));
 
         if (menuLinkResponse.getStatusCode() != HttpStatus.FOUND && menuLinkResponse.getStatusCode() != HttpStatus.MOVED_PERMANENTLY) {
@@ -265,7 +265,7 @@ public class GaliciaApiConnector {
             try { cuentasInicioUri = new URI("https://cuentas.bancogalicia.com.ar" + (cuentasInicioLocation.startsWith("/") ? cuentasInicioLocation : "/" + cuentasInicioLocation)); }
             catch (URISyntaxException e) { throw new RestConnectorException("Invalid cuentas/inicio URI: " + cuentasInicioLocation, e); }
         }
-        log.info("[establishCuentasSession] Following MenuLink redirect to cuentas/inicio: {}", cuentasInicioUri);
+        log.trace("[establishCuentasSession] Following MenuLink redirect to cuentas/inicio: {}", cuentasInicioUri);
 
         ResponseEntity<String> cuentasInicioResponse;
         try {
@@ -276,7 +276,7 @@ public class GaliciaApiConnector {
             throw new RestConnectorException("establishCuentasSession cuentas/inicio error: " + e.getMessage(), e);
         }
         String cuentasHtml = cuentasInicioResponse.getBody();
-        log.info("[establishCuentasSession] cuentas/inicio status={}, bodyLength={}, bodyStartsWith=[{}]",
+        log.trace("[establishCuentasSession] cuentas/inicio status={}, bodyLength={}, bodyStartsWith=[{}]",
             cuentasInicioResponse.getStatusCode(),
             cuentasHtml != null ? cuentasHtml.length() : 0,
             cuentasHtml != null ? cuentasHtml.substring(0, Math.min(500, cuentasHtml.length())) : "null");
@@ -288,7 +288,7 @@ public class GaliciaApiConnector {
             .map(pair -> pair.split("=", 2))
             .map(nv -> nv[0] + "=" + nv[1])
             .collect(Collectors.joining("; "));
-        log.info("[establishCuentasSession] cuentas/inicio Set-Cookie headers=[{}]", cuentasSetCookies);
+        log.trace("[establishCuentasSession] cuentas/inicio Set-Cookie headers=[{}]", cuentasSetCookies);
 
         // Return all cuentas cookies (SSO cookies + any new ones from cuentas/inicio)
         if (StringUtils.hasText(cuentasSetCookies)) {
@@ -385,7 +385,7 @@ public class GaliciaApiConnector {
                 String.class
             );
             String body = response.getBody();
-            log.info("[getCuentasInicioPage] status={}, bodyLength={}, bodyStartsWith=[{}]", response.getStatusCode(),
+            log.trace("[getCuentasInicioPage] status={}, bodyLength={}, bodyStartsWith=[{}]", response.getStatusCode(),
                 body != null ? body.length() : 0,
                 body != null ? body.substring(0, Math.min(2000, body.length())) : "null");
             return body;
