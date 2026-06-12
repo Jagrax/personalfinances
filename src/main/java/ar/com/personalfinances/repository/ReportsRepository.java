@@ -12,12 +12,12 @@ import java.util.List;
 public interface ReportsRepository extends JpaRepository<User, Long> {
 
     @Query(value = "SELECT a.id, a.name, a.currency, COALESCE(SUM(e.amount), 0), " +
-            "COALESCE(a.icon, b.logo) AS icon, a.sync_enabled, a.type " +
+            "COALESCE(a.icon, b.logo) AS icon, a.sync_enabled, a.type, a.sync_provider " +
             "FROM accounts a " +
             "LEFT JOIN banks b ON b.id = a.bank_id " +
             "LEFT JOIN expenses e ON e.account_id = a.id " +
             "WHERE a.owner_id = :userId " +
-            "GROUP BY a.id, a.name, a.currency, a.type, a.sync_enabled, a.icon, b.logo " +
+            "GROUP BY a.id, a.name, a.currency, a.type, a.sync_enabled, a.sync_provider, a.icon, b.logo " +
             "ORDER BY a.type, a.name", nativeQuery = true)
     List<Object[]> getSumAmountsByAccount(@Param("userId") Long userId);
 

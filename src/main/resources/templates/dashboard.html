@@ -16,12 +16,10 @@
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-4 d-flex">
-                                <i th:if="${#strings.isEmpty(account[4])}" th:classappend="${account[6] == 'BANK_ACCOUNT' ? 'bi bi-bank' : 'bi bi-credit-card'}" class="fs-1"></i>
+                                <i th:if="${#strings.isEmpty(account[4])}" th:class="${account[6] == 'BANK_ACCOUNT' ? 'bi bi-bank fs-1' : 'bi bi-credit-card fs-1'}"></i>
 
-                                <i th:if="${!#strings.isEmpty(account[4]) and !(account[4].endsWith('.svg') or account[4].endsWith('.png'))}"
-                                   class="bi me-2"
-                                   th:with="icon=${account[4]}"
-                                   th:classappend="${'bi-' + icon}"></i>
+                                <i th:if="${!#strings.isEmpty(account[4]) and !account[4].endsWith('.svg') and !account[4].endsWith('.png')}"
+                                   th:class="${account[4] + ' fs-1'}"></i>
 
                                 <img th:if="${!#strings.isEmpty(account[4]) and (account[4].endsWith('.svg') or account[4].endsWith('.png'))}"
                                      class="img-fluid align-self-center" style="max-height: 60px"
@@ -29,26 +27,27 @@
                             </div>
 
                             <div class="col text-end">
-                                <small class="d-block text-body-secondary" th:text="${'Galicia ARS' == account[1] ? 'Saldo actual' : 'Total consumido del período'}"/>
+                                <small class="d-block text-body-secondary" th:text="${account[6] == 'BANK_ACCOUNT' ? 'Saldo actual' : 'Total consumido del período'}"/>
                                 <h3 th:text="'$ ' + ${#numbers.formatDecimal(account[3], 1, 'POINT', 2, 'COMMA')}"/>
                             </div>
                         </div>
 
                         <canvas th:attr="id='chart-' + ${account[0]}" height="200"></canvas>
                     </div>
-                    <div class="card-footer text-body-secondary d-flex justify-content-around gap-3" th:unless="${'SDD' == account[1]}">
-                        <form th:action="@{/bank-sync}" th:object="${bankSyncModelAttribute}" method="post" class="d-flex justify-content-around gap-3" onclick="event.stopPropagation();">
+                    <div class="card-footer text-body-secondary d-flex justify-content-around gap-3" th:if="${account[5] or account[6] == 'CREDIT_CARD'}">
+                        <form th:action="@{/bank-sync}" method="post" class="d-flex justify-content-around gap-3" onclick="event.stopPropagation();">
+                            <input type="hidden" name="accountId" th:value="${account[0]}">
                             <input type="hidden" name="accountName" th:value="${account[1]}">
+                            <input type="hidden" name="galiciaCookies">
 
-                            <div class="input-group" th:if="${'Galicia ARS' == account[1] && account[5]}">
-                                <input type="text" class="form-control" placeholder="ASP.NET_SessionId" aria-label="ASP.NET_SessionId" th:field="*{aspNetSessionId}" required>
-                                <button type="submit" class="btn btn-success" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                            <div th:if="${account[7] == 'GALICIA' && account[5]}" class="d-flex gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-success" title="Pegar cookies del portapapeles y sincronizar" onclick="galiciaSync(this, 'sync')"><i class="bi bi-arrow-repeat"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" title="Pegar cookies del portapapeles y analizar" onclick="galiciaSync(this, 'learn')"><i class="bi bi-eyeglasses"></i></button>
                             </div>
-                            <button th:if="${'Galicia ARS' == account[1] && account[5]}" type="button" class="btn btn-primary" title="Analizar movimientos del banco" onclick="submitAsLearn(this)"><i class="bi bi-eyeglasses"></i></button>
-                            <button th:unless="${'Galicia ARS' == account[1]}" type="submit" class="btn btn-success" th:if="${account[5]}" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                            <button th:if="${account[7] != 'GALICIA' && account[5]}" type="submit" class="btn btn-success btn-sm" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
                         </form>
 
-                        <button th:if="${'Master Card' == account[1] or 'VISA' == account[1]}"
+                        <button th:if="${account[6] == 'CREDIT_CARD'}"
                                 type="button"
                                 class="btn btn-outline-danger"
                                 th:attr="data-account-name=${account[1]}"
@@ -82,15 +81,24 @@
                 };
             }
 
-            function submitAsLearn(button) {
+            async function galiciaSync(button, mode) {
                 const form = button.closest('form');
-                if (!form) return;
+                const cookiesInput = form.querySelector('[name="galiciaCookies"]');
 
-                // Cambiamos la action
-                form.action = form.action.replace('sync', 'learn');
-
-                // Submit normal
-                form.submit();
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (!text || (!text.includes('ASP.NET_SessionId') && !text.includes('Skywalker') && !text.includes('TS'))) {
+                        alert('No se detectaron cookies válidas en el portapapeles.\nCopiá las cookies del Home Banking de Galicia primero.');
+                        return;
+                    }
+                    cookiesInput.value = text;
+                    if (mode === 'learn') {
+                        form.action = form.action.replace('/bank-sync', '/bank-learn');
+                    }
+                    form.submit();
+                } catch (e) {
+                    alert('No se pudo leer el portapapeles.\nCopiá las cookies manualmente y pegá el texto en el campo de cookies.');
+                }
             }
 
             document.querySelectorAll('.account-card').forEach(card => {
