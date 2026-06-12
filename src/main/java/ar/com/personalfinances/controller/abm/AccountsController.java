@@ -20,8 +20,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import java.util.List;
-import java.util.Optional;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.ResourcePatternResolver;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -32,11 +33,13 @@ public class AccountsController {
     private final AccountRepository accountRepository;
     private final ExpenseRepository expenseRepository;
     private final SpecificationsService specificationsService;
+    private final ResourcePatternResolver resourceResolver;
 
-    public AccountsController(AccountRepository accountRepository, ExpenseRepository expenseRepository, SpecificationsService specificationsService) {
+    public AccountsController(AccountRepository accountRepository, ExpenseRepository expenseRepository, SpecificationsService specificationsService, ResourcePatternResolver resourceResolver) {
         this.accountRepository = accountRepository;
         this.expenseRepository = expenseRepository;
         this.specificationsService = specificationsService;
+        this.resourceResolver = resourceResolver;
     }
 
     // TODO: Falta migrarla y que use mas un modal de Bootstrap
@@ -73,7 +76,29 @@ public class AccountsController {
         model.addAttribute("accountSearch", accountSearch);
         model.addAttribute("module", "accounts");
         model.addAttribute("accountTypes", AccountType.values());
+        model.addAttribute("fileIcons", getFileIcons());
+        model.addAttribute("bootstrapIcons", getBootstrapIcons());
         return "abm/accounts";
+    }
+
+    private List<String> getFileIcons() {
+        try {
+            Resource[] resources = resourceResolver.getResources("classpath:static/images/*.{svg,png}");
+            List<String> icons = new ArrayList<>();
+            for (Resource r : resources) {
+                icons.add(r.getFilename());
+            }
+            Collections.sort(icons);
+            return icons;
+        } catch (Exception e) {
+            log.warn("Could not load file icons", e);
+            return List.of();
+        }
+    }
+
+    private List<String> getBootstrapIcons() {
+        return List.of("bi-bank", "bi-credit-card", "bi-wallet", "bi-wallet2", "bi-cash-coin", "bi-currency-dollar",
+                "bi-building", "bi-piggy-bank", "bi-safe", "bi-box", "bi-calculator", "bi-graph-up");
     }
 
     @PostMapping("/account/add")

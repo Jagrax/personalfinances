@@ -106,6 +106,46 @@
                                     </select>
                                     <span th:if="${#fields.hasErrors('type')}" th:errors="*{type}"></span>
                                 </div>
+                                <div class="col-12">
+                                    <label class="form-label">Ícono</label>
+                                    <input type="hidden" th:field="*{icon}" id="iconValue"/>
+                                    <div id="iconPreview" class="d-flex align-items-center gap-2 p-2 border rounded mb-2 bg-light" style="min-height:48px">
+                                        <span class="text-muted" id="iconPreviewText">Ninguno</span>
+                                    </div>
+                                    <ul class="nav nav-tabs nav-fill small" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="fileIconsTab" data-bs-toggle="tab" data-bs-target="#fileIconsPanel" type="button" role="tab">Imágenes</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="biIconsTab" data-bs-toggle="tab" data-bs-target="#biIconsPanel" type="button" role="tab">Bootstrap Icons</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content border border-top-0 rounded-bottom p-2" style="max-height:200px;overflow-y:auto">
+                                        <div class="tab-pane fade show active" id="fileIconsPanel" role="tabpanel">
+                                            <div class="d-flex flex-wrap gap-1" th:if="${#lists.isEmpty(fileIcons)}">
+                                                <span class="text-muted small">No hay imágenes disponibles</span>
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-1" th:unless="${#lists.isEmpty(fileIcons)}">
+                                                <button type="button" class="icon-option btn btn-outline-secondary p-1" data-icon="" title="Sin ícono" style="width:44px;height:44px">
+                                                    <span class="text-muted small" style="font-size:10px">∅</span>
+                                                </button>
+                                                <button type="button" class="icon-option btn btn-outline-secondary p-1" th:each="icon : ${fileIcons}" th:attr="data-icon=${icon},title=${icon}" style="width:44px;height:44px">
+                                                    <img th:src="@{/images/{icon}(icon=${icon})}" th:alt="${icon}" style="max-width:28px;max-height:28px">
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="tab-pane fade" id="biIconsPanel" role="tabpanel">
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <button type="button" class="icon-option btn btn-outline-secondary p-1" data-icon="" title="Sin ícono" style="width:44px;height:44px">
+                                                    <span class="text-muted small" style="font-size:10px">∅</span>
+                                                </button>
+                                                <button type="button" class="icon-option btn btn-outline-secondary p-1" th:each="icon : ${bootstrapIcons}" th:attr="data-icon=${icon},title=${icon}" style="width:44px;height:44px">
+                                                    <i th:class="${icon}" style="font-size:20px"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <hr class="my-3">
                             <a th:href="@{/galicia-connect}" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2">
@@ -149,6 +189,34 @@
         </div>
 
         <script>
+            document.querySelectorAll('.icon-option').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.icon-option').forEach(function(b) { b.classList.remove('active', 'border-primary'); });
+                    this.classList.add('active', 'border-primary');
+                    var icon = this.getAttribute('data-icon');
+                    document.getElementById('iconValue').value = icon;
+                    var preview = document.getElementById('iconPreview');
+                    preview.innerHTML = '';
+                    if (!icon) {
+                        preview.innerHTML = '<span class="text-muted" id="iconPreviewText">Ninguno</span>';
+                    } else if (icon.endsWith('.svg') || icon.endsWith('.png')) {
+                        preview.innerHTML = '<img src="' + this.querySelector('img').src + '" style="max-height:28px"> <span class="small" id="iconPreviewText">' + icon + '</span>';
+                    } else {
+                        preview.innerHTML = '<i class="' + icon + '" style="font-size:20px"></i> <span class="small" id="iconPreviewText">' + icon + '</span>';
+                    }
+                });
+            });
+
+            var currentIcon = document.getElementById('iconValue').value;
+            if (currentIcon) {
+                document.querySelectorAll('.icon-option').forEach(function(btn) {
+                    if (btn.getAttribute('data-icon') === currentIcon) {
+                        btn.classList.add('active', 'border-primary');
+                        btn.click();
+                    }
+                });
+            }
+
             let deleteUrl = null;
 
             document.getElementById('deleteAccountModal').addEventListener('show.bs.modal', function (event) {

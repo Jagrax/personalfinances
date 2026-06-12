@@ -11,7 +11,14 @@ import java.util.List;
 @Repository
 public interface ReportsRepository extends JpaRepository<User, Long> {
 
-    @Query("SELECT a.id, a.name, a.currency, sum(e.amount), CASE WHEN a.type = 'BANK_ACCOUNT' THEN b.logo ELSE CASE WHEN LOWER(REPLACE(a.name, ' ', '')) = 'visa' THEN 'visa.svg' WHEN LOWER(REPLACE(a.name, ' ', '')) = 'mastercard' THEN 'mastercard.svg' WHEN LOWER(REPLACE(a.name, ' ', '')) = 'mercadopago' THEN 'mercadopago.svg' WHEN LOWER(REPLACE(a.name, ' ', '')) = 'sdd' THEN 'sdd.png' ELSE '' END END, a.syncEnabled FROM Expense e, Account a, User u LEFT JOIN a.bank b, a.type WHERE u.id = :userId AND a.owner = u AND e.account = a GROUP BY a.id, a.currency, a.syncEnabled")
+    @Query(value = "SELECT a.id, a.name, a.currency, COALESCE(SUM(e.amount), 0), " +
+            "COALESCE(a.icon, b.logo) AS icon, a.sync_enabled, a.type " +
+            "FROM accounts a " +
+            "LEFT JOIN banks b ON b.id = a.bank_id " +
+            "LEFT JOIN expenses e ON e.account_id = a.id " +
+            "WHERE a.owner_id = :userId " +
+            "GROUP BY a.id, a.name, a.currency, a.type, a.sync_enabled, a.icon, b.logo " +
+            "ORDER BY a.type, a.name", nativeQuery = true)
     List<Object[]> getSumAmountsByAccount(@Param("userId") Long userId);
 
     @Query(value = "SELECT date_format(e.date, '%m/%Y'), e.description, abs(e.amount) FROM expenses e, categories c WHERE e.category_id = c.id AND c.id = 8 AND e.date < '2020-08-01' ORDER BY e.date, e.description", nativeQuery = true)
