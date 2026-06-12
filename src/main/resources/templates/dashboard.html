@@ -35,7 +35,7 @@
                     </div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-lg-4 col-xl-3 col-xxl" th:each="account : ${bankEntry.value}">
+                            <div class="col-lg-4 col-xl-3" th:each="account : ${bankEntry.value}">
                                 <div class="border rounded p-3 mb-3 h-100 account-card cursor-pointer" th:data-href="@{/expenses(accountName=${account.name})}">
                                     <div class="row align-items-center">
                                         <div class="col-4 d-flex">
@@ -93,7 +93,7 @@
             </div>
 
             <!-- No-bank accounts -->
-            <div class="col-lg-4 col-xl-3 col-xxl" th:each="account : ${noBankAccounts}">
+            <div class="col-3" th:each="account : ${noBankAccounts}">
                 <div class="card mt-3 account-card cursor-pointer" th:data-href="@{/expenses(accountName=${account.name})}">
                     <div class="card-body">
                         <div class="row align-items-center">
