@@ -16,7 +16,7 @@
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-4 d-flex">
-                                <i th:if="${#strings.isEmpty(account[4])}" class="bi bi-credit-card fs-1"></i>
+                                <i th:if="${#strings.isEmpty(account[4])}" th:classappend="${account[6] == 'BANK_ACCOUNT' ? 'bi bi-bank' : 'bi bi-credit-card'}" class="fs-1"></i>
 
                                 <i th:if="${!#strings.isEmpty(account[4]) and !(account[4].endsWith('.svg') or account[4].endsWith('.png'))}"
                                    class="bi me-2"

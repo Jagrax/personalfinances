@@ -313,21 +313,12 @@ public class ExpensesController {
     }
 
     private String resolveAccountIcon(Account account) {
-        if (AccountType.BANK_ACCOUNT.equals(account.getType()) && account.getBank() != null) {
+        if (account.getIcon() != null) {
+            return account.getIcon();
+        }
+        if (account.getBank() != null) {
             return account.getBank().getLogo();
         }
-
-        String accountName = account.getName().replaceAll(" ", "");
-        if (accountName.equalsIgnoreCase("visa")) {
-            return "visa.svg";
-        } else if (accountName.equalsIgnoreCase("mastercard")) {
-            return "mastercard.svg";
-        } else if (accountName.equalsIgnoreCase("mercadopago")) {
-            return "mercadopago.svg";
-        } else if (accountName.equalsIgnoreCase("sdd")) {
-            return "sdd.png";
-        }
-
         return null;
     }
 

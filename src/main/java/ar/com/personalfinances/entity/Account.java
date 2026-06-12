@@ -57,6 +57,9 @@ public class Account {
     @Column(name = "external_account_id")
     private String externalAccountId;
 
+    @Column(name = "icon")
+    private String icon;
+
     @Override
     public String toString() {
         return "Account [" +
