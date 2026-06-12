@@ -11,69 +11,153 @@
     <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
         <h2>Dashboard</h2>
         <div class="row">
-            <div class="col-lg-4 col-xl-3 col-xxl" th:each="account : ${accountsBalances}">
-                <div class="card mt-3 account-card cursor-pointer" th:attr="data-href=@{/expenses(accountName=${account[1]})}">
+
+            <!-- Bank groups -->
+            <div th:each="bankEntry : ${accountsByBank}" class="col-12">
+                <div class="card mt-3 border-primary">
+                    <div class="card-header d-flex align-items-center justify-content-between py-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <img th:if="${bankEntry.value[0].icon != null and (bankEntry.value[0].icon.endsWith('.svg') or bankEntry.value[0].icon.endsWith('.png'))}"
+                                 th:src="@{/images/{icon}(icon=${bankEntry.value[0].icon})}" height="24">
+                            <i th:if="${bankEntry.value[0].icon == null or (!bankEntry.value[0].icon.endsWith('.svg') and !bankEntry.value[0].icon.endsWith('.png'))}"
+                               class="bi bi-bank fs-4"></i>
+                            <strong th:text="${bankEntry.value[0].bankName}"></strong>
+                        </div>
+                        <div class="d-flex gap-1">
+                             <button type="button" class="btn btn-sm btn-outline-success"
+                                     th:data-bank-id="${bankEntry.key}"
+                                     th:data-bank-sync-url="@{'/bank-sync/bank/' + ${bankEntry.key}}"
+                                     title="Pegar cookies del portapapeles y sincronizar todas las cuentas"
+                                     onclick="galiciaSyncBank(this)">
+                                 <i class="bi bi-arrow-repeat"></i>
+                             </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-4 col-xl-3 col-xxl" th:each="account : ${bankEntry.value}">
+                                <div class="border rounded p-3 mb-3 h-100 account-card cursor-pointer" th:data-href="@{/expenses(accountName=${account.name})}">
+                                    <div class="row align-items-center">
+                                        <div class="col-4 d-flex">
+                                            <i th:if="${#strings.isEmpty(account.icon)}"
+                                               th:class="${account.type == 'BANK_ACCOUNT' ? 'bi bi-bank fs-1' : 'bi bi-credit-card fs-1'}"></i>
+                                            <i th:if="${!#strings.isEmpty(account.icon) and !account.icon.endsWith('.svg') and !account.icon.endsWith('.png')}"
+                                               th:class="${account.icon + ' fs-1'}"></i>
+                                            <img th:if="${!#strings.isEmpty(account.icon) and (account.icon.endsWith('.svg') or account.icon.endsWith('.png'))}"
+                                                 class="img-fluid align-self-center" style="max-height: 60px"
+                                                 th:src="@{/images/{icon}(icon=${account.icon})}">
+                                        </div>
+                                        <div class="col text-end">
+                                            <small class="d-block text-body-secondary"
+                                                   th:text="${account.type == 'BANK_ACCOUNT' ? 'Saldo actual' : 'Total consumido del período'}"/>
+                                            <h3 th:text="'$ ' + ${#numbers.formatDecimal(account.balance, 1, 'POINT', 2, 'COMMA')}"/>
+                                        </div>
+                                    </div>
+
+                                    <div class="chart-container position-relative">
+                                        <canvas th:attr="id='chart-' + ${account.id}" height="200"></canvas>
+                                        <div th:attr="id='no-chart-' + ${account.id}" class="text-center text-muted d-none py-4">
+                                            <i class="bi bi-inbox fs-3 d-block mb-1"></i>
+                                            <small>Sin gastos registrados</small>
+                                        </div>
+                                    </div>
+
+                                    <form th:action="@{/bank-sync}" method="post" class="d-flex justify-content-end gap-1 mt-2" onclick="event.stopPropagation();">
+                                        <input type="hidden" name="accountId" th:value="${account.id}">
+                                        <input type="hidden" name="accountName" th:value="${account.name}">
+                                        <input type="hidden" name="galiciaCookies">
+                                        <button th:if="${account.type == 'BANK_ACCOUNT'}"
+                                                type="button" class="btn btn-sm btn-outline-success"
+                                                title="Sincronizar"
+                                                onclick="galiciaSync(this, 'sync')">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                        </button>
+                                        <button th:if="${account.type == 'BANK_ACCOUNT'}"
+                                                type="button" class="btn btn-sm btn-outline-primary"
+                                                title="Analizar movimientos"
+                                                onclick="galiciaSync(this, 'learn')">
+                                            <i class="bi bi-eyeglasses"></i>
+                                        </button>
+                                        <button th:if="${account.type == 'CREDIT_CARD' and (account.name == 'Master Card' or account.name == 'VISA')}"
+                                                type="button" class="btn btn-sm btn-outline-danger"
+                                                th:data-account-name="${account.name}"
+                                                onclick="event.stopPropagation(); tiggerPdfUpload(this.dataset.accountName)">
+                                            <i class="bi bi-file-earmark-pdf"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No-bank accounts -->
+            <div class="col-lg-4 col-xl-3 col-xxl" th:each="account : ${noBankAccounts}">
+                <div class="card mt-3 account-card cursor-pointer" th:data-href="@{/expenses(accountName=${account.name})}">
                     <div class="card-body">
                         <div class="row align-items-center">
                             <div class="col-4 d-flex">
-                                <i th:if="${#strings.isEmpty(account[4])}" th:class="${account[6] == 'BANK_ACCOUNT' ? 'bi bi-bank fs-1' : 'bi bi-credit-card fs-1'}"></i>
-
-                                <i th:if="${!#strings.isEmpty(account[4]) and !account[4].endsWith('.svg') and !account[4].endsWith('.png')}"
-                                   th:class="${account[4] + ' fs-1'}"></i>
-
-                                <img th:if="${!#strings.isEmpty(account[4]) and (account[4].endsWith('.svg') or account[4].endsWith('.png'))}"
+                                <i th:if="${#strings.isEmpty(account.icon)}"
+                                   th:class="${account.type == 'BANK_ACCOUNT' ? 'bi bi-bank fs-1' : 'bi bi-credit-card fs-1'}"></i>
+                                <i th:if="${!#strings.isEmpty(account.icon) and !account.icon.endsWith('.svg') and !account.icon.endsWith('.png')}"
+                                   th:class="${account.icon + ' fs-1'}"></i>
+                                <img th:if="${!#strings.isEmpty(account.icon) and (account.icon.endsWith('.svg') or account.icon.endsWith('.png'))}"
                                      class="img-fluid align-self-center" style="max-height: 60px"
-                                     th:src="@{/images/{icon}(icon=${account[4]})}">
+                                     th:src="@{/images/{icon}(icon=${account.icon})}">
                             </div>
-
                             <div class="col text-end">
-                                <small class="d-block text-body-secondary" th:text="${account[6] == 'BANK_ACCOUNT' ? 'Saldo actual' : 'Total consumido del período'}"/>
-                                <h3 th:text="'$ ' + ${#numbers.formatDecimal(account[3], 1, 'POINT', 2, 'COMMA')}"/>
+                                <small class="d-block text-body-secondary"
+                                       th:text="${account.type == 'BANK_ACCOUNT' ? 'Saldo actual' : 'Total consumido del período'}"/>
+                                <h3 th:text="'$ ' + ${#numbers.formatDecimal(account.balance, 1, 'POINT', 2, 'COMMA')}"/>
                             </div>
                         </div>
 
-                        <canvas th:attr="id='chart-' + ${account[0]}" height="200"></canvas>
+                        <div class="chart-container position-relative">
+                            <canvas th:attr="id='chart-' + ${account.id}" height="200"></canvas>
+                            <div th:attr="id='no-chart-' + ${account.id}" class="text-center text-muted d-none py-4">
+                                <i class="bi bi-inbox fs-3 d-block mb-1"></i>
+                                <small>Sin gastos registrados</small>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-footer text-body-secondary d-flex justify-content-around gap-3" th:if="${account[5] or account[6] == 'CREDIT_CARD'}">
+                    <div class="card-footer text-body-secondary d-flex justify-content-around gap-3" th:if="${account.type == 'BANK_ACCOUNT' or account.syncEnabled or account.type == 'CREDIT_CARD'}">
                         <form th:action="@{/bank-sync}" method="post" class="d-flex justify-content-around gap-3" onclick="event.stopPropagation();">
-                            <input type="hidden" name="accountId" th:value="${account[0]}">
-                            <input type="hidden" name="accountName" th:value="${account[1]}">
+                            <input type="hidden" name="accountId" th:value="${account.id}">
+                            <input type="hidden" name="accountName" th:value="${account.name}">
                             <input type="hidden" name="galiciaCookies">
 
-                            <div th:if="${account[7] == 'GALICIA' && account[5]}" class="d-flex gap-1">
+                            <div th:if="${account.type == 'BANK_ACCOUNT'}" class="d-flex gap-1">
                                 <button type="button" class="btn btn-sm btn-outline-success" title="Pegar cookies del portapapeles y sincronizar" onclick="galiciaSync(this, 'sync')"><i class="bi bi-arrow-repeat"></i></button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" title="Pegar cookies del portapapeles y analizar" onclick="galiciaSync(this, 'learn')"><i class="bi bi-eyeglasses"></i></button>
                             </div>
-                            <button th:if="${account[7] != 'GALICIA' && account[5]}" type="submit" class="btn btn-success btn-sm" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
+                            <button th:if="${account.syncProvider != 'GALICIA' and account.syncEnabled}" type="submit" class="btn btn-success btn-sm" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
                         </form>
 
-                        <button th:if="${account[6] == 'CREDIT_CARD'}"
-                                type="button"
-                                class="btn btn-outline-danger"
-                                th:attr="data-account-name=${account[1]}"
+                        <button th:if="${account.type == 'CREDIT_CARD' and (account.name == 'Master Card' or account.name == 'VISA')}"
+                                type="button" class="btn btn-outline-danger"
+                                th:data-account-name="${account.name}"
                                 onclick="event.stopPropagation(); tiggerPdfUpload(this.dataset.accountName)">
                             <i class="bi bi-file-earmark-pdf"></i>
                         </button>
                     </div>
                 </div>
             </div>
+
         </div>
+
         <form id="pdfUploadForm" method="post" enctype="multipart/form-data" th:action="@{/bank-pdf}" class="d-none">
-            <input  type="file" id="pdfFileInput" name="file" accept="application/pdf" />
+            <input type="file" id="pdfFileInput" name="file" accept="application/pdf" />
             <input type="hidden" id="pdfAccountName" name="accountName">
         </form>
+
         <script>
             function tiggerPdfUpload(accountName) {
                 const fileInput = document.getElementById('pdfFileInput');
                 const accountInput = document.getElementById('pdfAccountName');
                 const form = document.getElementById('pdfUploadForm');
-
-                // seteamos el hidden
                 accountInput.value = accountName;
-
-                // abrimos el selector de archivo
                 fileInput.click();
-
                 fileInput.onchange = function () {
                     if (fileInput.files.length > 0) {
                         form.submit();
@@ -84,7 +168,6 @@
             async function galiciaSync(button, mode) {
                 const form = button.closest('form');
                 const cookiesInput = form.querySelector('[name="galiciaCookies"]');
-
                 try {
                     const text = await navigator.clipboard.readText();
                     if (!text || (!text.includes('ASP.NET_SessionId') && !text.includes('Skywalker') && !text.includes('TS'))) {
@@ -95,6 +178,29 @@
                     if (mode === 'learn') {
                         form.action = form.action.replace('/bank-sync', '/bank-learn');
                     }
+                    form.submit();
+                } catch (e) {
+                    alert('No se pudo leer el portapapeles.\nCopiá las cookies manualmente y pegá el texto en el campo de cookies.');
+                }
+            }
+
+            async function galiciaSyncBank(button) {
+                const syncUrl = button.getAttribute('data-bank-sync-url');
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (!text || (!text.includes('ASP.NET_SessionId') && !text.includes('Skywalker') && !text.includes('TS'))) {
+                        alert('No se detectaron cookies válidas en el portapapeles.\nCopiá las cookies del Home Banking de Galicia primero.');
+                        return;
+                    }
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = syncUrl;
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'galiciaCookies';
+                    input.value = text;
+                    form.appendChild(input);
+                    document.body.appendChild(form);
                     form.submit();
                 } catch (e) {
                     alert('No se pudo leer el portapapeles.\nCopiá las cookies manualmente y pegá el texto en el campo de cookies.');
@@ -115,12 +221,14 @@
             const chartsByAccount = /*[[${chartsByAccount}]]*/ {};
 
             Object.entries(chartsByAccount).forEach(([accountId, chart]) => {
-
                 const canvas = document.getElementById('chart-' + accountId);
-
-                if (!canvas) return;
-                if (!chart || !chart.labels || chart.labels.length === 0) return;
-
+                const noDataPlaceholder = document.getElementById('no-chart-' + accountId);
+                if (!canvas || !noDataPlaceholder) return;
+                if (!chart || !chart.labels || chart.labels.length === 0) {
+                    canvas.classList.add('d-none');
+                    noDataPlaceholder.classList.remove('d-none');
+                    return;
+                }
                 new Chart(canvas, {
                     type: 'doughnut',
                     data: {
@@ -129,14 +237,10 @@
                     },
                     options: {
                         onClick: function(evt, elements, chart) {
-
                             if (!elements.length) return;
-
                             const index = elements[0].index;
                             const label = chart.data.labels[index];
-                            const accountId = canvas.id.replace('chart-', '');
                             const baseExpensesUrl = /*[[@{/expenses}]]*/ '';
-
                             window.location.href = baseExpensesUrl + `?accountId=${accountId}&categoryName=${encodeURIComponent(label)}`;
                         },
                         plugins: {
@@ -144,26 +248,17 @@
                                 display: !!chart.subtitle,
                                 text: chart.subtitle,
                                 color: '#6c757d',
-                                font: {
-                                    size: 12
-                                },
-                                padding: {
-                                    bottom: 8
-                                }
+                                font: { size: 12 },
+                                padding: { bottom: 8 }
                             },
-                            legend: {
-                                position: 'bottom'
-                            },
+                            legend: { position: 'bottom' },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
                                         let value = context.raw;
                                         let total = context.dataset.data.reduce((a, b) => a + b, 0);
                                         let percentage = ((value / total) * 100).toFixed(1);
-
-                                        return '$ ' + value.toLocaleString('es-AR', {
-                                            minimumFractionDigits: 2
-                                        }) + ' (' + percentage + '%)';
+                                        return '$ ' + value.toLocaleString('es-AR', { minimumFractionDigits: 2 }) + ' (' + percentage + '%)';
                                     }
                                 }
                             }

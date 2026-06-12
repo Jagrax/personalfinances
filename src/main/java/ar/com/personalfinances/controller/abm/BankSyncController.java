@@ -189,6 +189,26 @@ public class BankSyncController {
         }
     }
 
+    @RequestMapping(value = "/bank-sync/bank/{bankId}", method = RequestMethod.POST)
+    public String postBankSyncByBank(@PathVariable("bankId") Long bankId,
+                                      @RequestParam("galiciaCookies") String galiciaCookies,
+                                      HttpServletRequest request) {
+        List<Account> accounts = accountRepository.findByBank_Id(bankId);
+        for (Account account : accounts) {
+            if (!account.syncEnabled) continue;
+            try {
+                if (account.getType().equals(AccountType.CREDIT_CARD)) {
+                    accountManagementService.syncCreditCardAccountMovements(account, galiciaCookies);
+                } else if (account.getType().equals(AccountType.BANK_ACCOUNT)) {
+                    accountManagementService.syncAccountMovements(account, galiciaCookies);
+                }
+            } catch (Exception e) {
+                log.warn("Error syncing account {}: {}", account.getName(), e.getMessage());
+            }
+        }
+        return "redirect:/dashboard";
+    }
+
     @RequestMapping(value = "/bank-pdf", method = RequestMethod.POST)
     public String postAnalizePdf(Model model,
                                  @RequestParam("accountName") Optional<String> accountName,

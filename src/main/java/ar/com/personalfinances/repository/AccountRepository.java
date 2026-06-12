@@ -15,4 +15,6 @@ public interface AccountRepository extends JpaRepository<Account, Long>, JpaSpec
     List<Account> findByOwner(User owner);
 
     List<Account> findByOwnerAndType(User owner, AccountType accountType);
+
+    List<Account> findByBank_Id(Long bankId);
 }

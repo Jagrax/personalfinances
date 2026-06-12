@@ -11,6 +11,7 @@ import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.ReportsRepository;
 import ar.com.personalfinances.service.ChartJsService;
 import ar.com.personalfinances.service.SpecificationsService;
+import ar.com.personalfinances.dto.AccountBalanceDTO;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -177,8 +179,21 @@ public class ApplicationController {
 
     @GetMapping({"/dashboard", "/"})
     public String getDashboardPage(Model model) {
-        model.addAttribute("bankSyncModelAttribute", new BankSyncModelAttribute());
-        model.addAttribute("accountsBalances", reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId()));
+        List<Object[]> raw = reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId());
+        List<AccountBalanceDTO> allAccounts = raw.stream().map(this::toAccountBalanceDTO).toList();
+
+        Map<Long, List<AccountBalanceDTO>> accountsByBank = new LinkedHashMap<>();
+        List<AccountBalanceDTO> noBankAccounts = new ArrayList<>();
+
+        for (AccountBalanceDTO dto : allAccounts) {
+            if (dto.getBankId() != null)
+                accountsByBank.computeIfAbsent(dto.getBankId(), k -> new ArrayList<>()).add(dto);
+            else
+                noBankAccounts.add(dto);
+        }
+
+        model.addAttribute("accountsByBank", accountsByBank);
+        model.addAttribute("noBankAccounts", noBankAccounts);
 
         final List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         final Map<Long, ChartDataDTO> chartsByAccount = userAccounts.stream()
@@ -189,6 +204,31 @@ public class ApplicationController {
         model.addAttribute("chartsByAccount", chartsByAccount);
 
         return "dashboard";
+    }
+
+    private AccountBalanceDTO toAccountBalanceDTO(Object[] row) {
+        boolean syncEnabled;
+        Object se = row[5];
+        if (se instanceof Boolean) {
+            syncEnabled = (Boolean) se;
+        } else if (se instanceof Number) {
+            syncEnabled = ((Number) se).intValue() != 0;
+        } else {
+            syncEnabled = false;
+        }
+
+        return new AccountBalanceDTO(
+                (Long) row[0],
+                (String) row[1],
+                (String) row[2],
+                (BigDecimal) row[3],
+                (String) row[4],
+                syncEnabled,
+                (String) row[6],
+                (String) row[7],
+                (Long) row[8],
+                (String) row[9]
+        );
     }
 
     private List<Account> getUserAccounts(AccountSearch accountSearch, Sort sort) {
