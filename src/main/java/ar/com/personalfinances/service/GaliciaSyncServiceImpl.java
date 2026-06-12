@@ -3,9 +3,11 @@ package ar.com.personalfinances.service;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountSubtype;
 import ar.com.personalfinances.entity.AccountType;
+import ar.com.personalfinances.entity.Bank;
 import ar.com.personalfinances.entity.SyncProvider;
 import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.repository.AccountRepository;
+import ar.com.personalfinances.repository.BankRepository;
 import ar.com.personalfinances.util.CommonResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,12 +29,14 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
     private final GaliciaApiService galiciaApiService;
     private final AccountManagementService accountManagementService;
     private final AccountRepository accountRepository;
+    private final BankRepository bankRepository;
     private final ObjectMapper objectMapper;
 
-    public GaliciaSyncServiceImpl(GaliciaApiService galiciaApiService, AccountManagementService accountManagementService, AccountRepository accountRepository) {
+    public GaliciaSyncServiceImpl(GaliciaApiService galiciaApiService, AccountManagementService accountManagementService, AccountRepository accountRepository, BankRepository bankRepository) {
         this.galiciaApiService = galiciaApiService;
         this.accountManagementService = accountManagementService;
         this.accountRepository = accountRepository;
+        this.bankRepository = bankRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -115,13 +119,19 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
         }
     }
 
+    private Bank getGaliciaBank() {
+        return bankRepository.findByName("Galicia").orElse(null);
+    }
+
     private Account findOrCreateAccount(User user, String name, AccountType type, String currency, String externalAccountId) {
+        Bank galicia = getGaliciaBank();
         List<Account> existing = accountRepository.findByOwnerAndType(user, type);
         for (Account a : existing) {
             if (name.equals(a.getName())) {
                 a.setExternalAccountId(externalAccountId);
                 a.setSyncProvider(SyncProvider.GALICIA);
                 a.setSyncEnabled(true);
+                a.setBank(galicia);
                 if (currency != null && AccountType.BANK_ACCOUNT.equals(type)) {
                     a.setCurrency(currency);
                 }
@@ -136,6 +146,7 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
         account.setSyncProvider(SyncProvider.GALICIA);
         account.setExternalAccountId(externalAccountId);
         account.setSyncEnabled(true);
+        account.setBank(galicia);
         if (currency != null && AccountType.BANK_ACCOUNT.equals(type)) {
             account.setCurrency(currency);
         }
@@ -162,6 +173,9 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                             existing.setExternalAccountId(accountNumber);
                             existing.setSyncProvider(SyncProvider.GALICIA);
                             existing.setSyncEnabled(true);
+                            if (existing.getBank() == null) {
+                                existing.setBank(getGaliciaBank());
+                            }
                             accountRepository.save(existing);
                             processedAccounts.add(existing);
                             log.info("[importSelectedAccounts] Tarjeta de credito asociada a cuenta existente {} (id={})", existing.getName(), existingId);
@@ -201,6 +215,9 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
                             existing.setExternalAccountId(externalAccountId);
                             existing.setSyncProvider(SyncProvider.GALICIA);
                             existing.setSyncEnabled(true);
+                            if (existing.getBank() == null) {
+                                existing.setBank(getGaliciaBank());
+                            }
                             accountRepository.save(existing);
                             processedAccounts.add(existing);
                             log.info("[importSelectedAccounts] Cuenta bancaria asociada a cuenta existente {} (id={})", existing.getName(), existingId);
