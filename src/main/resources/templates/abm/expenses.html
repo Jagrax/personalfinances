@@ -331,7 +331,7 @@
                     </button>
                 </li>
 
-                <!-- páginas -->
+                <!-- pï¿½ginas -->
                 <li class="page-item"
                     th:each="pageNumber : ${pageNumbers}"
                     th:classappend="${pageNumber == currentPage ? 'active' : ''}">
@@ -353,7 +353,7 @@
                     </button>
                 </li>
 
-                <!-- última -->
+                <!-- ï¿½ltima -->
                 <li class="page-item" th:classappend="${!hasNext ? 'disabled' : ''}">
                     <button class="page-link"
                             type="button"
@@ -443,7 +443,12 @@
 
             group.find("[name=date]").val(today);
 
-            $(".expense-group").first().before(group);
+            const firstGroup = $(".expense-group").first();
+            if (firstGroup.length) {
+                firstGroup.before(group);
+            } else {
+                $("table.table tbody").first().replaceWith(group);
+            }
 
             group.find("[name=description]").focus();
         }
@@ -764,7 +769,7 @@
 
                 let value = $input.val();
 
-                // normalizar strings vacíos
+                // normalizar strings vacï¿½os
                 if (typeof value === "string"){
                     value = value.trim();
                 }
