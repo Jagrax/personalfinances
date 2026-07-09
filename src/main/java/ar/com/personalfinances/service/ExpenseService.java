@@ -36,6 +36,12 @@ public class ExpenseService {
             );
         }
 
+        if (expense.getItems() != null) {
+            for (ExpenseItem item : expense.getItems()) {
+                item.setExpense(expense);
+            }
+        }
+
         expense = expenseRepository.save(expense);
 
         alertEventService.saveExpenseAlert(

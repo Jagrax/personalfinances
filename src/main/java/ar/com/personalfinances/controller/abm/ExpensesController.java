@@ -5,6 +5,7 @@ import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
+import ar.com.personalfinances.repository.ExpenseItemRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.ExpenseService;
@@ -38,14 +39,16 @@ import java.util.stream.IntStream;
 public class ExpensesController {
 
     private final ExpenseRepository expenseRepository;
+    private final ExpenseItemRepository expenseItemRepository;
     private final AlertEventService alertEventService;
     private final SpecificationsService specificationsService;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
     private final ExpenseService expenseService;
 
-    public ExpensesController(ExpenseRepository expenseRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository, ExpenseService expenseService) {
+    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository, ExpenseService expenseService) {
         this.expenseRepository = expenseRepository;
+        this.expenseItemRepository = expenseItemRepository;
         this.alertEventService = alertEventService;
         this.specificationsService = specificationsService;
         this.categoryRepository = categoryRepository;
@@ -112,6 +115,7 @@ public class ExpensesController {
 
         // Categorias que se muestran en el filtro de Categorias
         model.addAttribute("categories", userCategories);
+        model.addAttribute("defaultCategoryId", Category.GENERIC_CATEGORY_ID);
         // Cuentas disponibles para editar/duplicar registros.
         List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", userAccounts);
@@ -230,6 +234,12 @@ public class ExpensesController {
         Expense expense = expenseRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Expense", "id", id));
         expenseRepository.delete(expense);
         alertEventService.saveExpenseAlert(EntityEvent.DELETED, expense.getId(), "", ApplicationUtils.getUserFromSession().getId());
+    }
+
+    @GetMapping("/expenses/{id}/items")
+    @ResponseBody
+    public List<ExpenseItem> getExpenseItems(@PathVariable("id") long id) {
+        return expenseItemRepository.findByExpense_Id(id);
     }
 
     private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {

@@ -1,6 +1,7 @@
 package ar.com.personalfinances.entity;
 
 import ar.com.personalfinances.util.DateUtils;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -8,6 +9,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -49,7 +52,12 @@ public class Expense {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "fk_expense_user"))
+    @JsonIgnoreProperties({"expenses", "hibernateLazyInitializer", "handler"})
     private User user;
+
+    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private List<ExpenseItem> items = new ArrayList<>();
 
     public String toDebugString() {
         return "Expense [" +

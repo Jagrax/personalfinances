@@ -202,6 +202,7 @@
                 <th>Detalle</th>
                 <th>Categor&iacute;a</th>
                 <th>Importe</th>
+                <th style="width:55px">Items</th>
                 <th colspan="4">Acciones</th>
             </tr>
             <tr id="bulkEditRow" class="table-warning d-none">
@@ -239,6 +240,7 @@
                     </div>
                 </td>
                 <td></td>
+                <td></td>
                 <td colspan="4" class="text-center">
                     <div class="d-flex gap-2 justify-content-center">
                         <button type="button" id="bulkSaveButton" class="btn btn-sm btn-success" disabled onclick="saveBulkEdit()"><i class="bi bi-save"></i></button>
@@ -248,7 +250,7 @@
             </tr>
             </thead>
             <tbody th:if="${#lists.isEmpty(expensesPage.content)}">
-                <tr><td colspan="10">No hay registros para mostrar!</td></tr>
+                <tr><td colspan="11">No hay registros para mostrar!</td></tr>
             </tbody>
             <tbody th:unless="${#lists.isEmpty(expensesPage.content)}" class="expense-group"
                    th:each="expense : ${expensesPage.content}"
@@ -261,7 +263,8 @@
                    data-amount=${expense.amount},
                    data-category-id=${expense.category.id},
                    data-account-id=${expense.account != null ? expense.account.id : ''},
-                   data-comments=${expense.comments}">
+                   data-comments=${expense.comments},
+                   data-has-items=${!#lists.isEmpty(expense.items)}">
                 <tr>
                     <td class="bulk-edit-column text-center d-none">
                         <input type="checkbox" class="bulk-expense-selector" th:value="${expense.id}" checked>
@@ -291,6 +294,13 @@
                             <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
                             <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
                         </div>
+                    </td>
+                    <td class="text-center" style="width:55px">
+                        <button type="button" class="btn btn-sm btn-link p-1" onclick="openItemsModal(this)"
+                                th:title="${#lists.isEmpty(expense.items) ? 'Agregar items' : 'Ver items'}">
+                            <i class="bi bi-cart-plus" th:classappend="${!#lists.isEmpty(expense.items)} ? '' : 'text-secondary'"></i>
+                            <span th:if="${!#lists.isEmpty(expense.items)}" class="badge bg-secondary rounded-pill" th:text="${#lists.size(expense.items)}"></span>
+                        </button>
                     </td>
                     <td class="text-center" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
                     <td class="text-center" style="width:35px"><button type="button"class="btn btn-link p-0"onclick="editExpenseRow(this)"><i class="bi bi-pencil-square"></i></button></td>
@@ -377,6 +387,11 @@
                         </select>
                     </td>
                     <td><input class="form-control form-control-sm text-end" type="number" step=".01" name="amount"></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-link p-1 text-secondary" onclick="openItemsModal(this)" title="Agregar items">
+                            <i class="bi bi-cart-plus"></i>
+                        </button>
+                    </td>
                     <td colspan="2" rowspan="2" class="text-center" style="width:70px">
                         <button type="button" class="btn btn-sm btn-success" onclick="saveExpense(this)">
                             <i class="bi bi-save"></i>
@@ -402,10 +417,69 @@
         </template>
     </form>
 
+    <!-- Items Modal -->
+    <div class="modal fade" id="itemsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Items del gasto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modalMismatchWarning" class="alert alert-warning py-2 d-none">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        La suma de los items (<span id="modalItemsSum">0.00</span>) no coincide con el importe del gasto (<span id="modalExpenseAmount">0.00</span>)
+                    </div>
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                        <tr>
+                            <th style="width:38%">Descripci&oacute;n</th>
+                            <th style="width:27%">Categor&iacute;a</th>
+                            <th style="width:20%">Importe</th>
+                            <th style="width:40px"></th>
+                        </tr>
+                        </thead>
+                        <tbody id="modalItemsBody">
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="addModalItemRow()">
+                        <i class="bi bi-plus-lg me-1"></i>Agregar item
+                    </button>
+                    <input type="hidden" id="modalExpenseId" value="">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="saveModalItems()">
+                        <i class="bi bi-save me-1"></i>Guardar cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <template id="modalItemRowTemplate">
+        <tr>
+            <td><input class="form-control form-control-sm modal-item-desc" placeholder="Descripci&oacute;n"></td>
+            <td>
+                <select class="form-select form-select-sm modal-item-cat">
+                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}" th:selected="${cat.id == defaultCategoryId}"></option>
+                </select>
+            </td>
+            <td><input class="form-control form-control-sm text-end modal-item-amount" type="number" step=".01" placeholder="0.00"></td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeModalItemRow(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
     <script th:inline="javascript">
         const expenseSaveUrlAjax = [[@{/expenses/save-ajax}]];
+        const expenseItemsBaseUrl = [[@{/expenses}]];
         const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
         const expenseBulkUpdateUrl = [[@{/expenses/bulk-update}]];
+        const defaultCategoryId = [[${defaultCategoryId}]];
 
         $(function () {
             $('[data-bs-toggle="popover"]').each(function () {
@@ -534,6 +608,8 @@
 
             const group = $(button).closest(".editing-group");
 
+            const items = group.data("items") || [];
+
             const data = {
                 id: group.data("expense-id") || null,
                 date: group.find("[name='date']").val(),
@@ -546,7 +622,8 @@
                 },
                 account: {
                     id: group.find("[name='account.id']").val()
-                }
+                },
+                items: items
             };
 
             const $button = $(button);
@@ -721,6 +798,151 @@
             $("#bulkEditRow").toggleClass("d-none", !enabled);
             $(".bulk-edit-column").toggleClass("d-none", !enabled);
         }
+
+        function openItemsModal(button) {
+            const group = $(button).closest(".expense-group, .editing-group");
+            const isEditing = group.hasClass("editing-group");
+            const modal = $("#itemsModal");
+            const body = $("#modalItemsBody");
+            body.empty();
+
+            const amount = isEditing
+                ? group.find("[name='amount']").val()
+                : group.data("amount");
+            $("#modalExpenseAmount").text(parseFloat(amount || 0).toFixed(2));
+
+            const loadItems = function(items) {
+                body.empty();
+                items.forEach(function(item) { addModalItemRow(item); });
+                updateModalMismatchWarning();
+            };
+
+            if (isEditing) {
+                const expenseId = group.data("expense-id");
+                $("#modalExpenseId").val("");
+                if (expenseId) {
+                    fetch(expenseItemsBaseUrl + '/' + expenseId + '/items')
+                        .then(function(res) { return res.json(); })
+                        .then(function(items) {
+                            group.data("items", items);
+                            loadItems(items);
+                        });
+                } else {
+                    loadItems(group.data("items") || []);
+                }
+            } else {
+                const expenseId = group.data("expense-id");
+                $("#modalExpenseId").val(expenseId);
+                fetch(expenseItemsBaseUrl + '/' + expenseId + '/items')
+                    .then(function(res) { return res.json(); })
+                    .then(loadItems);
+            }
+            modal.modal("show");
+        }
+
+        function addModalItemRow(item) {
+            const template = document.getElementById("modalItemRowTemplate");
+            const clone = template.content.cloneNode(true);
+            const row = $(clone).find("tr");
+
+            if (item) {
+                row.find(".modal-item-desc").val(item.description || "");
+                row.find(".modal-item-cat").val(item.category ? item.category.id : defaultCategoryId);
+                row.find(".modal-item-amount").val(item.amount || "");
+                if (item.id) row.data("item-id", item.id);
+            }
+
+            $("#modalItemsBody").append(row);
+        }
+
+        function removeModalItemRow(button) {
+            $(button).closest("tr").remove();
+            updateModalMismatchWarning();
+        }
+
+        function getModalItems() {
+            const items = [];
+            $("#modalItemsBody tr").each(function() {
+                const desc = $(this).find(".modal-item-desc").val();
+                const catId = $(this).find(".modal-item-cat").val();
+                const amount = $(this).find(".modal-item-amount").val();
+                if (desc && desc.trim()) {
+                    const item = {
+                        description: desc,
+                        amount: amount || 0,
+                        category: { id: catId }
+                    };
+                    const itemId = $(this).data("item-id");
+                    if (itemId) item.id = itemId;
+                    items.push(item);
+                }
+            });
+            return items;
+        }
+
+        function updateModalMismatchWarning() {
+            const expenseAmount = parseFloat($("#modalExpenseAmount").text()) || 0;
+            const items = getModalItems();
+            let itemsSum = 0;
+            items.forEach(function(item) { itemsSum += parseFloat(item.amount) || 0; });
+            $("#modalItemsSum").text(itemsSum.toFixed(2));
+            if (items.length > 0 && Math.abs(itemsSum - expenseAmount) > 0.01) {
+                $("#modalMismatchWarning").removeClass("d-none");
+            } else {
+                $("#modalMismatchWarning").addClass("d-none");
+            }
+        }
+
+        function saveModalItems() {
+            const expenseId = $("#modalExpenseId").val();
+            const items = getModalItems();
+
+            if (!expenseId) {
+                // Inline editing mode: store items in the editing group
+                const editingGroup = $(".editing-group").first();
+                editingGroup.data("items", items);
+                // Update the items badge
+                const btn = editingGroup.find("[onclick*='openItemsModal']");
+                const badge = btn.find(".badge");
+                if (items.length > 0) {
+                    if (!badge.length) btn.append('<span class="badge bg-secondary rounded-pill">' + items.length + '</span>');
+                    else badge.text(items.length);
+                } else {
+                    badge.remove();
+                }
+                $("#itemsModal").modal("hide");
+                return;
+            }
+
+            // Existing expense: find its row and save via AJAX
+            const row = $('.expense-group[data-expense-id="' + expenseId + '"]');
+            const data = {
+                id: Number(expenseId),
+                date: row.data("date"),
+                description: row.data("description"),
+                originalDescription: row.data("original-description"),
+                details: row.data("details"),
+                amount: row.data("amount"),
+                comments: row.data("comments"),
+                category: { id: row.data("category-id") },
+                account: { id: row.data("account-id") },
+                items: items
+            };
+
+            const saveBtn = $("#itemsModal .btn-primary");
+            saveBtn.prop("disabled", true).html('<i class="bi bi-hourglass"></i>');
+
+            fetch(expenseSaveUrlAjax, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            }).then(function() {
+                $("#itemsModal").modal("hide");
+                $("#expenseSearchForm").submit();
+            });
+        }
+
+        $(document).on("input", "#modalItemsBody .modal-item-amount", updateModalMismatchWarning);
 
         $(document).on("change", "#bulkSelectAll", function(){
             $(".bulk-expense-selector").prop( "checked", this.checked);
