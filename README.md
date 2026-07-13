@@ -141,7 +141,19 @@ Cada instalación de WildFly debe tener un datasource con JNDI `java:/personalfi
 
 Este archivo está en `.gitignore` (no se versiona), por lo que solo existe en tu máquina local. Al buildear el WAR, Maven lo incluye automáticamente. No hace falta tocar `standalone.xml`.
 
-### 3.4 Configurar JAVA_OPTS
+### 3.4 Configurar Gemini API Key
+
+Agregar en `standalone.xml` dentro de `<server>`, después de `</extensions>`:
+
+```xml
+<system-properties>
+    <property name="app.ai.gemini.api-key" value="AIza..."/>
+</system-properties>
+```
+
+Cada WildFly (dev y prod) tiene su propio `standalone.xml`, así que podés usar keys distintas si querés.
+
+### 3.5 Configurar JAVA_OPTS
 
 Agregar al final de `WILDFLY_HOME/bin/standalone.conf.bat`:
 
@@ -149,7 +161,7 @@ Agregar al final de `WILDFLY_HOME/bin/standalone.conf.bat`:
 set "JAVA_OPTS=%JAVA_OPTS% -Dspring.profiles.active=wildfly"
 ```
 
-### 3.5 Maven: perfil `release`
+### 3.6 Maven: perfil `release`
 
 Se agregó un perfil de Maven llamado `release` que se activa automáticamente cuando ejecutás el build con `-DskipTests` (que es necesario porque los tests no pueden correr fuera del WildFly).
 
@@ -160,7 +172,7 @@ Cuando el perfil está activo, el `maven-war-plugin` excluye del WAR el archivo 
 | `mvn package` (o build desde IntelliJ) | No | Sí | Desarrollo local con WildFly dev |
 | `mvn package -DskipTests` | Sí | No | Release a producción |
 
-### 3.6 Cómo hacer cada build desde IntelliJ
+### 3.7 Cómo hacer cada build desde IntelliJ
 
 **A — Desarrollo (deploy a WildFly dev desde IntelliJ)**
 

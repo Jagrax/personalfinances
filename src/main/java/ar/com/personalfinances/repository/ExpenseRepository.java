@@ -21,7 +21,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByAccountAndDateAndAmountEquals(Account account, LocalDate date, BigDecimal amount);
 
-    @EntityGraph(attributePaths = "category")
+    @EntityGraph(attributePaths = {"category", "items"})
     List<Expense> findByAccountAndDateBetween(Account account, LocalDate dateFrom, LocalDate dateTo, Sort sort);
 
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);

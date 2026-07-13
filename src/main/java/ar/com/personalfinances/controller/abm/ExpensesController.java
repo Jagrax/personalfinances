@@ -9,20 +9,24 @@ import ar.com.personalfinances.repository.ExpenseItemRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.ExpenseService;
+import ar.com.personalfinances.service.ScanService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.*;
 import ar.com.personalfinances.web.model.BulkExpenseUpdateRequest;
 import ar.com.personalfinances.web.model.FilterChip;
 import ar.com.personalfinances.web.model.FilterOperator;
+import ar.com.personalfinances.web.model.ScanTicketResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -30,6 +34,7 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -45,8 +50,9 @@ public class ExpensesController {
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
     private final ExpenseService expenseService;
+    private final ScanService scanService;
 
-    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository, ExpenseService expenseService) {
+    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository, ExpenseService expenseService, ScanService scanService) {
         this.expenseRepository = expenseRepository;
         this.expenseItemRepository = expenseItemRepository;
         this.alertEventService = alertEventService;
@@ -54,6 +60,7 @@ public class ExpensesController {
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.expenseService = expenseService;
+        this.scanService = scanService;
     }
 
     @RequestMapping("/expenses")
@@ -240,6 +247,18 @@ public class ExpensesController {
     @ResponseBody
     public List<ExpenseItem> getExpenseItems(@PathVariable("id") long id) {
         return expenseItemRepository.findByExpense_Id(id);
+    }
+
+    @PostMapping("/expenses/scan-ticket")
+    @ResponseBody
+    public ScanTicketResponse scanTicket(@RequestParam("file") MultipartFile file) {
+        return scanService.scanTicket(file);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    @ResponseBody
+    public ResponseEntity<Map<String, String>> handleScanError(RuntimeException e) {
+        return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
     }
 
     private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {

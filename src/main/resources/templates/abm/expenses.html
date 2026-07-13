@@ -282,7 +282,12 @@
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
                     <td class="text-start filterable" data-field="details">
-                        <span th:text="${expense.details}"></span>
+                        <th:block th:if="${!#strings.isEmpty(expense.details)}">
+                            <span th:text="${expense.details}"></span><th:block th:if="${!#lists.isEmpty(expense.items)}"> - </th:block>
+                        </th:block>
+                        <th:block th:each="item, iterStat : ${expense.items}">
+                            <span th:text="${item.description + ' ($' + #numbers.formatDecimal(item.amount, 1, 'POINT', 2, 'COMMA') + ')'}"></span><th:block th:if="${!iterStat.last}"> + </th:block>
+                        </th:block>
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
                     <td class="text-center filterable" data-field="categoryId" th:attr="data-value=${expense.category.id}">
@@ -428,7 +433,17 @@
                 <div class="modal-body">
                     <div id="modalMismatchWarning" class="alert alert-warning py-2 d-none">
                         <i class="bi bi-exclamation-triangle me-1"></i>
-                        La suma de los items (<span id="modalItemsSum">0.00</span>) no coincide con el importe del gasto (<span id="modalExpenseAmount">0.00</span>)
+                        La suma de los items (<span id="modalItemsSum">0.00</span>) no coincide con el importe del gasto (<span id="modalExpenseAmount">0.00</span>).
+                        Hay una diferencia de <span id="modalDiffAmount">0.00</span>
+                    </div>
+                    <div id="scanDropZone" class="border border-2 rounded p-3 mb-3 text-center" style="border-style: dashed !important; cursor: pointer;">
+                        <i class="bi bi-cloud-upload fs-3 text-muted"></i>
+                        <p class="mb-0 text-muted" style="font-size:0.9rem;">Arrastr&aacute; un ticket/factura o hac&eacute; clic para seleccionar</p>
+                        <input type="file" id="scanFileInput" accept="image/jpeg,image/png,image/webp,image/bmp,application/pdf" class="d-none">
+                    </div>
+                    <div id="scanLoading" class="text-center mb-3 d-none">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-1 mb-0 text-muted">Analizando ticket...</p>
                     </div>
                     <table class="table table-sm table-bordered">
                         <thead class="table-light">
@@ -446,6 +461,7 @@
                         <i class="bi bi-plus-lg me-1"></i>Agregar item
                     </button>
                     <input type="hidden" id="modalExpenseId" value="">
+                    <input type="hidden" id="modalParentCategoryId" value="">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -462,7 +478,7 @@
             <td><input class="form-control form-control-sm modal-item-desc" placeholder="Descripci&oacute;n"></td>
             <td>
                 <select class="form-select form-select-sm modal-item-cat">
-                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}" th:selected="${cat.id == defaultCategoryId}"></option>
+                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
                 </select>
             </td>
             <td><input class="form-control form-control-sm text-end modal-item-amount" type="number" step=".01" placeholder="0.00"></td>
@@ -479,6 +495,7 @@
         const expenseItemsBaseUrl = [[@{/expenses}]];
         const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
         const expenseBulkUpdateUrl = [[@{/expenses/bulk-update}]];
+        const scanTicketUrl = [[@{/expenses/scan-ticket}]];
         const defaultCategoryId = [[${defaultCategoryId}]];
 
         $(function () {
@@ -501,6 +518,16 @@
             const hasOriginalDescriptionFilter = !!$("#expenseFilterOriginalDescription").val()
                 || ["EMPTY", "NOT_EMPTY"].includes($("#expenseFilterOriginalDescriptionOperator").val());
             setOriginalDescriptionColumnVisible(hasOriginalDescriptionFilter || localStorage.getItem("expenses.showOriginalDescription") === "true");
+
+            var scanZone = document.getElementById("scanDropZone");
+            var scanInput = document.getElementById("scanFileInput");
+            if (scanZone && scanInput) {
+                scanZone.addEventListener("click", function() { scanInput.click(); });
+                scanZone.addEventListener("dragover", function(e) { e.preventDefault(); e.stopPropagation(); this.style.borderColor = "#0d6efd"; this.style.backgroundColor = "#f0f8ff"; });
+                scanZone.addEventListener("dragleave", function(e) { e.preventDefault(); e.stopPropagation(); this.style.borderColor = ""; this.style.backgroundColor = ""; });
+                scanZone.addEventListener("drop", function(e) { e.preventDefault(); e.stopPropagation(); this.style.borderColor = ""; this.style.backgroundColor = ""; if (e.dataTransfer.files.length) uploadTicket(e.dataTransfer.files[0]); });
+                scanInput.addEventListener("change", function() { if (this.files.length) uploadTicket(this.files[0]); this.value = ""; });
+            }
         });
 
         function addExpenseRow() {
@@ -572,8 +599,11 @@
 
             const group = $(clone).find(".editing-group");
 
-            group.data("expense-id", sourceGroup.data("expense-id"));
+            var expenseId = sourceGroup.data("expense-id");
+            group.data("expense-id", expenseId);
             group.data("original-group", sourceGroup);
+            // Mark items as not loaded yet (will be fetched async)
+            group.data("items", undefined);
 
             group.find("[name=date]").val(sourceGroup.data("date"));
             group.find("[name=description]").val(sourceGroup.data("description"));
@@ -582,6 +612,13 @@
             group.find("[name=comments]").val(sourceGroup.data("comments"));
             group.find("[name='category.id']").val(sourceGroup.data("category-id"));
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
+
+            // Load existing items from server
+            if (expenseId) {
+                fetch(expenseItemsBaseUrl + '/' + expenseId + '/items')
+                    .then(function(res) { return res.json(); })
+                    .then(function(items) { group.data("items", items); });
+            }
 
             sourceGroup.replaceWith(group);
             if ($("#showOriginalDescriptionSwitch").is(":checked")) {
@@ -607,6 +644,21 @@
         function saveExpense(button) {
 
             const group = $(button).closest(".editing-group");
+            const expenseId = group.data("expense-id");
+
+            // If items haven't been loaded yet, wait for them
+            if (group.data("items") === undefined && expenseId) {
+                fetch(expenseItemsBaseUrl + '/' + expenseId + '/items')
+                    .then(function(res) { return res.json(); })
+                    .then(function(items) {
+                        group.data("items", items);
+                        saveExpense(button);
+                    })
+                    .catch(function() {
+                        alert("Error al cargar los items. Intentalo de nuevo.");
+                    });
+                return;
+            }
 
             const items = group.data("items") || [];
 
@@ -811,6 +863,11 @@
                 : group.data("amount");
             $("#modalExpenseAmount").text(parseFloat(amount || 0).toFixed(2));
 
+            var parentCategoryId = isEditing
+                ? group.find("[name='category.id']").val()
+                : group.data("category-id");
+            $("#modalParentCategoryId").val(parentCategoryId || "");
+
             const loadItems = function(items) {
                 body.empty();
                 items.forEach(function(item) { addModalItemRow(item); });
@@ -845,11 +902,14 @@
             const clone = template.content.cloneNode(true);
             const row = $(clone).find("tr");
 
+            var parentCat = $("#modalParentCategoryId").val() || defaultCategoryId;
             if (item) {
                 row.find(".modal-item-desc").val(item.description || "");
-                row.find(".modal-item-cat").val(item.category ? item.category.id : defaultCategoryId);
+                row.find(".modal-item-cat").val(item.category ? item.category.id : parentCat);
                 row.find(".modal-item-amount").val(item.amount || "");
                 if (item.id) row.data("item-id", item.id);
+            } else {
+                row.find(".modal-item-cat").val(parentCat);
             }
 
             $("#modalItemsBody").append(row);
@@ -881,12 +941,14 @@
         }
 
         function updateModalMismatchWarning() {
-            const expenseAmount = parseFloat($("#modalExpenseAmount").text()) || 0;
+            const expenseAmount = Math.abs(parseFloat($("#modalExpenseAmount").text()) || 0);
             const items = getModalItems();
             let itemsSum = 0;
             items.forEach(function(item) { itemsSum += parseFloat(item.amount) || 0; });
             $("#modalItemsSum").text(itemsSum.toFixed(2));
-            if (items.length > 0 && Math.abs(itemsSum - expenseAmount) > 0.01) {
+            const diff = itemsSum - expenseAmount;
+            $("#modalDiffAmount").text((diff >= 0 ? "+" : "") + diff.toFixed(2));
+            if (items.length > 0 && Math.abs(diff) > 0.01) {
                 $("#modalMismatchWarning").removeClass("d-none");
             } else {
                 $("#modalMismatchWarning").addClass("d-none");
@@ -939,6 +1001,48 @@
             }).then(function() {
                 $("#itemsModal").modal("hide");
                 $("#expenseSearchForm").submit();
+            });
+        }
+
+        function uploadTicket(file) {
+            if (!file) return;
+            var allowed = ["image/jpeg", "image/png", "image/webp", "image/bmp", "application/pdf"];
+            if (allowed.indexOf(file.type) === -1) {
+                alert("Formato no soportado. Usá JPG, PNG, WebP o BMP.");
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert("La imagen es muy grande (máx 10MB)");
+                return;
+            }
+
+            $("#scanDropZone").addClass("d-none");
+            $("#scanLoading").removeClass("d-none");
+
+            var formData = new FormData();
+            formData.append("file", file);
+
+            fetch(scanTicketUrl, {
+                method: "POST",
+                body: formData
+            })
+            .then(function(res) {
+                if (!res.ok) return res.json().then(
+                    function(errData) { throw new Error(errData.error || "Error al escanear el ticket"); },
+                    function() { throw new Error("Error al escanear el ticket"); }
+                );
+                return res.json();
+            })
+            .then(function(data) {
+                data.items.forEach(function(item) { addModalItemRow(item); });
+                updateModalMismatchWarning();
+            })
+            .catch(function(err) {
+                alert("Error al analizar el ticket: " + err.message);
+            })
+            .finally(function() {
+                $("#scanLoading").addClass("d-none");
+                $("#scanDropZone").removeClass("d-none");
             });
         }
 
