@@ -24,6 +24,7 @@ public class DateUtils {
                 , LocalDate.of(2026,  2, 16) // Feriado por carnaval
                 , LocalDate.of(2026,  2, 17) // Feriado por carnaval
                 , LocalDate.of(2026,  3, 23) // Feriado turístico (por feriado del Martes 24 - Día Nacional de la Memoria por la Verdad y la Justicia)
+                , LocalDate.of(2026,  7, 10) // Feriado turístico (por feriado del Jueves 09 - Día de la Independencia
     );
     public static final Map<String, String> MONTHS_ES = Map.ofEntries(
             Map.entry("Ene","Jan"),
