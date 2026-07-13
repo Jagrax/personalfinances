@@ -137,6 +137,13 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     continue;
                 }
 
+                if (!StringUtils.hasText(expense.getOriginalDescription())) {
+                    String bankDesc = getDescription(movement);
+                    expense.setOriginalDescription(bankDesc);
+                    expenseRepository.save(expense);
+                    log.info("[syncBankAccount] Actualizado originalDescription del gasto {}: {}", expense.getId(), bankDesc);
+                }
+
                 expensesIdFounded.add(expense.getId());
                 return false;
             }
@@ -152,6 +159,13 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     for (Expense expense : expensesByDateAndAmount) {
                         if (expensesIdFounded.contains(expense.getId())) {
                             continue;
+                        }
+
+                        if (!StringUtils.hasText(expense.getOriginalDescription())) {
+                            String bankDesc = getDescription(movement);
+                            expense.setOriginalDescription(bankDesc);
+                            expenseRepository.save(expense);
+                            log.info("[syncBankAccount] Actualizado originalDescription del gasto {}: {}", expense.getId(), bankDesc);
                         }
 
                         expensesIdFounded.add(expense.getId());
@@ -357,6 +371,12 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 for (Expense expense : foundedExpenses) {
                     if (expensesIdFounded.contains(expense.getId())) {
                         continue;
+                    }
+
+                    if (!StringUtils.hasText(expense.getOriginalDescription())) {
+                        expense.setOriginalDescription(consumption.getMerchantName());
+                        expenseRepository.save(expense);
+                        log.info("[syncCreditCardAccountMovements] Actualizado originalDescription del gasto {}: {}", expense.getId(), consumption.getMerchantName());
                     }
 
                     expensesIdFounded.add(expense.getId());
