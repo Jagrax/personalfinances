@@ -147,11 +147,11 @@ Agregar en `standalone.xml` dentro de `<server>`, después de `</extensions>`:
 
 ```xml
 <system-properties>
-    <property name="app.ai.gemini.api-key" value="AIza..."/>
+    <property name="app.ai.gemini.api-keys" value="AIzaKey1,AIzaKey2,AIzaKey3"/>
 </system-properties>
 ```
 
-Cada WildFly (dev y prod) tiene su propio `standalone.xml`, así que podés usar keys distintas si querés.
+Se rotan automáticamente en round-robin. Cuantas más keys, más cuota diaria disponible (1.500/día por key).
 
 ### 3.5 Configurar JAVA_OPTS
 
