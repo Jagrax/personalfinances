@@ -384,7 +384,10 @@
                 <tr>
                     <td><input type="date" class="form-control form-control-sm" name="date"></td>
                     <td><input class="form-control form-control-sm" name="description"></td>
-                    <td class="original-description-column d-none"></td>
+                    <td class="original-description-column d-none">
+                        <span class="original-description-text"></span>
+                        <input type="hidden" name="originalDescription">
+                    </td>
                     <td><input class="form-control form-control-sm" name="details"></td>
                     <td>
                         <select class="form-select form-select-sm" name="category.id">
@@ -572,6 +575,9 @@
 
             group.find("[name=date]").val(sourceGroup.data("date"));
             group.find("[name=description]").val(sourceGroup.data("description"));
+            var origDesc = sourceGroup.data("original-description");
+            group.find("[name=originalDescription]").val(origDesc);
+            group.find(".original-description-text").text(origDesc || "");
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
@@ -607,6 +613,9 @@
 
             group.find("[name=date]").val(sourceGroup.data("date"));
             group.find("[name=description]").val(sourceGroup.data("description"));
+            var origDesc = sourceGroup.data("original-description");
+            group.find("[name=originalDescription]").val(origDesc);
+            group.find(".original-description-text").text(origDesc || "");
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
@@ -666,6 +675,7 @@
                 id: group.data("expense-id") || null,
                 date: group.find("[name='date']").val(),
                 description: group.find("[name='description']").val(),
+                originalDescription: group.find("[name='originalDescription']").val(),
                 details: group.find("[name='details']").val(),
                 amount: group.find("[name='amount']").val(),
                 comments: group.find("[name='comments']").val(),
