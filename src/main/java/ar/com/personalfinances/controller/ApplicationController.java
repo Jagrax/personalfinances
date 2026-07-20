@@ -202,7 +202,7 @@ public class ApplicationController {
         final Map<Long, ChartDataDTO> chartsByAccount = userAccounts.stream()
                 .collect(Collectors.toMap(
                         Account::getId,
-                        chartJsService::buildExpensesSumaryByCategoryChart
+                        chartJsService::buildExpensesSumaryByTagChart
                 ));
         model.addAttribute("chartsByAccount", chartsByAccount);
 

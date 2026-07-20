@@ -23,7 +23,7 @@ public class ChartJsServiceImpl implements ChartJsService {
 
     private final ExpenseRepository expenseRepository;
 
-    private final Map<String, String> categoryColorMap = new HashMap<>();
+    private final Map<String, String> tagColorMap = new HashMap<>();
     private static final List<List<String>> MATERIAL_PALETTE = List.of(
               List.of("#FFEBEE", "#FFCDD2", "#EF9A9A", "#E57373", "#EF5350", "#F44336", "#E53935", "#D32F2F", "#C62828", "#B71C1C") // Red
             , List.of("#FCE4EC", "#F8BBD0", "#F48FB1", "#F06292", "#EC407A", "#E91E63", "#D81B60", "#C2185B", "#AD1457", "#880E4F") // Pink
@@ -51,7 +51,7 @@ public class ChartJsServiceImpl implements ChartJsService {
         this.expenseRepository = expenseRepository;
     }
 
-    public ChartDataDTO buildExpensesSumaryByCategoryChart(Account account) {
+    public ChartDataDTO buildExpensesSumaryByTagChart(Account account) {
         final List<Object[]> results;
         final LocalDate periodStart = resolvePeriodStart(account);
         if (account.getType().equals(AccountType.BANK_ACCOUNT)) {
@@ -95,7 +95,7 @@ public class ChartJsServiceImpl implements ChartJsService {
                 //final int intensityIndex = i % 10; // Intensidad incremental: 50, 100, 200, 300, 400, 500, etc...
                 final int intensityIndex = 5; // Intensidad fija: 500
 
-                final String colorFromMaterialPalette = categoryColorMap.computeIfAbsent((String) results.get(i)[0], k -> MATERIAL_PALETTE.get(familyIndex).get(intensityIndex));
+                final String colorFromMaterialPalette = tagColorMap.computeIfAbsent((String) results.get(i)[0], k -> MATERIAL_PALETTE.get(familyIndex).get(intensityIndex));
                 backgroundColors.add(colorFromMaterialPalette);
             }
         }

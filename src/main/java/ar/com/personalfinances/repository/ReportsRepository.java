@@ -22,6 +22,6 @@ public interface ReportsRepository extends JpaRepository<User, Long> {
             "ORDER BY a.type, a.name", nativeQuery = true)
     List<Object[]> getSumAmountsByAccount(@Param("userId") Long userId);
 
-    @Query(value = "SELECT date_format(e.date, '%m/%Y'), e.description, abs(e.amount) FROM expenses e, categories c WHERE e.category_id = c.id AND c.id = 8 AND e.date < '2020-08-01' ORDER BY e.date, e.description", nativeQuery = true)
+    @Query(value = "SELECT date_format(e.date, '%m/%Y'), e.description, abs(e.amount) FROM expenses e LEFT JOIN expense_tags et ON et.expense_id = e.id LEFT JOIN tags t ON t.id = et.tag_id WHERE t.name = 'Servicios' AND e.date < '2020-08-01' ORDER BY e.date, e.description", nativeQuery = true)
     List<Object[]> getReporteServicios();
 }

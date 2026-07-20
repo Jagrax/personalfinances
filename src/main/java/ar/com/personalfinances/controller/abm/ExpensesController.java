@@ -29,10 +29,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.*;
@@ -68,7 +64,7 @@ public class ExpensesController {
                                   @ModelAttribute ExpenseSearch expenseSearch,
                                   @RequestParam("page") Optional<Integer> page,
                                   @RequestParam("size") Optional<Integer> size,
-                                  @RequestParam("categoryName") Optional<String> categoryName,
+                                  @RequestParam("tagName") Optional<String> tagName,
                                   @RequestParam("accountType") Optional<String> accountType,
                                   @RequestParam("accountName") Optional<String> accountName,
                                   @RequestParam("accountId") Optional<Long> accountId) {
@@ -89,7 +85,7 @@ public class ExpensesController {
         accountId.ifPresent(expenseSearch::setAccountId);
 
         List<Tag> allTags = tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
-        categoryName.ifPresent(s -> {
+        tagName.ifPresent(s -> {
             expenseSearch.setTagName(s);
             for (Tag tag : allTags) {
                 if (s.equals(tag.getName())) {
@@ -165,67 +161,6 @@ public class ExpensesController {
         return "abm/expenses";
     }
 
-    @RequestMapping(value = "/expenses/create", method = RequestMethod.GET)
-    public String createExpense(Model model, @RequestParam("backUrl") Optional<String> backUrl) {
-        Expense expense = new Expense();
-        expense.setUser(ApplicationUtils.getUserFromSession());
-        expense.setDate(LocalDate.now());
-        backUrl.ifPresent(urlString -> {
-            if (urlString.contains("?") && (urlString.contains("accountType") || urlString.contains("accountName"))) {
-                URI url;
-                try {
-                    url = new URI(urlString);
-                } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
-                }
-
-                // Obtener la cadena de consulta (query)
-                String query = url.getQuery();
-
-                // Decodificar la cadena de consulta
-                String decodedQuery = URLDecoder.decode(query, StandardCharsets.UTF_8);
-                if (!decodedQuery.isEmpty()) {
-                    Map<String, String> paramsMap = new HashMap<>();
-                    for (String param : decodedQuery.split("&")) {
-                        String[] keyValue = param.split("=");
-                        if (keyValue.length == 2) {
-                            String key = keyValue[0];
-                            String value = keyValue[1];
-                            paramsMap.put(key, value);
-                        }
-                    }
-
-                    String accountType = null;
-                    if (paramsMap.containsKey("accountType")) {
-                        accountType = paramsMap.get("accountType");
-                    }
-
-                    String accountName = null;
-                    if (paramsMap.containsKey("accountName")) {
-                        accountName = paramsMap.get("accountName");
-                    }
-
-                    AccountSearch accountSearch = new AccountSearch();
-                    if (StringUtils.hasText(accountType)) {
-                        accountSearch.setAccountType(AccountType.valueOf(accountType));
-                    }
-
-                    if (StringUtils.hasText(accountName)) {
-                        accountSearch.setName(accountName);
-                    }
-
-                    User user = ApplicationUtils.getUserFromSession();
-                    accountSearch.setOwnerIds(Collections.singletonList(user.getId()));
-                    List<Account> accounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch));
-                    if (!accounts.isEmpty()) {
-                        expense.setAccount(accounts.iterator().next());
-                    }
-                }
-            }
-        });
-        return getExpensesEditPage(model, expense, backUrl);
-    }
-
     @PostMapping(value = "/expenses/save-ajax")
     @ResponseBody
     public void createOrUpdateExpenseAjax(@RequestBody Expense expense) {
@@ -279,17 +214,6 @@ public class ExpensesController {
     @ResponseBody
     public ResponseEntity<Map<String, String>> handleScanError(RuntimeException e) {
         return ResponseEntity.status(503).body(Map.of("error", e.getMessage()));
-    }
-
-    private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {
-        model.addAttribute("expense", expense);
-        model.addAttribute("tags", tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name")));
-        model.addAttribute("accounts", getEditableAccounts(getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"))));
-        // Atributo usado para settear la clase 'active' en el item del menu que corresponda
-        model.addAttribute("module", "expenses");
-
-        backUrl.ifPresent(s -> model.addAttribute("backUrl", s));
-        return "abm/expenses-edit";
     }
 
     public ExpensePage getExpensesPaginated(Pageable pageable, List<Expense> expensesToPaginate) {

@@ -5,5 +5,5 @@ import ar.com.personalfinances.util.ChartDataDTO;
 
 public interface ChartJsService {
 
-    ChartDataDTO buildExpensesSumaryByCategoryChart(Account account);
+    ChartDataDTO buildExpensesSumaryByTagChart(Account account);
 }

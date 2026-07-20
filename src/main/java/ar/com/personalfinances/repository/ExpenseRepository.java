@@ -21,19 +21,19 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByAccountAndDateAndAmountEquals(Account account, LocalDate date, BigDecimal amount);
 
-    @EntityGraph(attributePaths = {"category", "items"})
+    @EntityGraph(attributePaths = {"tags", "items"})
     List<Expense> findByAccountAndDateBetween(Account account, LocalDate dateFrom, LocalDate dateTo, Sort sort);
 
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
 
-    @Query(value = "SELECT c.name, c.color, SUM(e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND c.name NOT IN (:excludedCategories) GROUP BY c.name, c.color ORDER BY c.name", nativeQuery = true)
-    List<Object[]> getLast30DaysSummary(Account account, List<String> excludedCategories);
+    @Query(value = "SELECT t.name, t.color, SUM(e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND t.name NOT IN (:excludedTags) GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
+    List<Object[]> getLast30DaysSummary(Account account, List<String> excludedTags);
 
-    @Query(value = "SELECT c.name, c.color, SUM(-1 * e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND c.name NOT IN (:excludedCategories) AND e.description NOT LIKE :excludedDescriptionPattern AND e.amount < 0 GROUP BY c.name, c.color ORDER BY c.name", nativeQuery = true)
-    List<Object[]> getLast30DaysSummaryForBankAccount(Account account, List<String> excludedCategories, String excludedDescriptionPattern);
+    @Query(value = "SELECT t.name, t.color, SUM(-1 * e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND t.name NOT IN (:excludedTags) AND e.description NOT LIKE :excludedDescriptionPattern AND e.amount < 0 GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
+    List<Object[]> getLast30DaysSummaryForBankAccount(Account account, List<String> excludedTags, String excludedDescriptionPattern);
 
-    @Query(value = "SELECT c.name, c.color, SUM(e.amount) FROM expenses e JOIN categories c ON c.id = e.category_id WHERE e.account_id = :#{#account.id} AND e.date >= :periodStart AND (e.amount > 0 OR (e.amount < 0 AND c.id IN (:refundCategoryIds)) ) GROUP BY c.name, c.color ORDER BY c.name", nativeQuery = true)
-    List<Object[]> getLastPeriodSummaryForCreditCard(Account account, LocalDate periodStart, List<Long> refundCategoryIds);
+    @Query(value = "SELECT t.name, t.color, SUM(e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND e.date >= :periodStart AND (e.amount > 0 OR (e.amount < 0 AND t.id IN (:refundTagIds)) ) GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
+    List<Object[]> getLastPeriodSummaryForCreditCard(Account account, LocalDate periodStart, List<Long> refundTagIds);
 
     @Query(value = "SELECT MAX(e.date) FROM expenses e WHERE e.account_id = :#{#account.id} and e.description = 'Reembolso Gastos'", nativeQuery = true)
     LocalDate findLastReimbursementDate(Account account);
