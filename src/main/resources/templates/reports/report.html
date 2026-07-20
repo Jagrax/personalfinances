@@ -72,11 +72,11 @@
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
                     <div class="form-floating">
-                        <select class="form-select" id="expenseFilterCategoryId" name="categoryId">
-                            <option th:selected="${expenseSearch.categoryId == null}" th:value="${null}">Todas las categor&iacute;as</option>
-                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${category.id == expenseSearch.getCategoryId()}"></option>
+                        <select class="form-select" id="expenseFilterTagId" name="tagId">
+                            <option th:selected="${expenseSearch.tagId == null}" th:value="${null}">Todos los tags</option>
+                            <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${tag.id == expenseSearch.getTagId()}"></option>
                         </select>
-                        <label for="expenseFilterCategoryId">Categor&iacute;a</label>
+                        <label for="expenseFilterTagId">Tag</label>
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">

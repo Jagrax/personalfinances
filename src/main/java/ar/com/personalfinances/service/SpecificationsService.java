@@ -4,6 +4,7 @@ import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.entity.ExpenseMapping;
+import ar.com.personalfinances.entity.Tag;
 import ar.com.personalfinances.exception.InvalidSearchFilterException;
 import ar.com.personalfinances.util.AccountSearch;
 import ar.com.personalfinances.util.CategorySearch;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -59,12 +61,14 @@ public class SpecificationsService {
 
             addStringFilter(predicates, criteriaBuilder, root.get("comments"), "comments", expenseSearch.getComments(), expenseSearch.getCommentsOperator());
 
-            if (expenseSearch.getCategoryId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("category").get("id"), expenseSearch.getCategoryId()));
+            if (expenseSearch.getTagId() != null && !expenseSearch.getTagId().isEmpty()) {
+                Join<Expense, Tag> tagJoin = root.join("tags");
+                predicates.add(tagJoin.get("id").in(expenseSearch.getTagId()));
             }
 
-            if (expenseSearch.getCategoryName() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("category").get("name"), expenseSearch.getCategoryName()));
+            if (expenseSearch.getTagName() != null) {
+                Join<Expense, Tag> tagJoin = root.join("tags");
+                predicates.add(criteriaBuilder.equal(tagJoin.get("name"), expenseSearch.getTagName()));
             }
 
             if (expenseSearch.getAccountId() != null) {
@@ -193,8 +197,9 @@ public class SpecificationsService {
                 predicates.add(criteriaBuilder.like(root.get("details"), "%" + expenseMappingSearch.getDetails() + "%"));
             }
 
-            if (expenseMappingSearch.getCategoryId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("category").get("id"), expenseMappingSearch.getCategoryId()));
+            if (expenseMappingSearch.getTagId() != null) {
+                Join<ExpenseMapping, Tag> tagJoin = root.join("tags");
+                predicates.add(criteriaBuilder.equal(tagJoin.get("id"), expenseMappingSearch.getTagId()));
             }
 
             if (expenseMappingSearch.getEnabled() != null) {

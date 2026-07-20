@@ -152,13 +152,10 @@
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 col-xxl-2">
-                    <div class="form-floating">
-                        <select class="form-select" id="expenseFilterCategoryId" name="categoryId">
-                            <option th:selected="${expenseSearch.categoryId == null}" th:value="${null}">Todas las categor&iacute;as</option>
-                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}" th:selected="${category.id == expenseSearch.getCategoryId()}"></option>
-                        </select>
-                        <label for="expenseFilterCategoryId">Categor&iacute;a</label>
-                    </div>
+                    <label for="expenseFilterTagId" class="form-label mb-1">Tags</label>
+                    <select id="expenseFilterTagId" name="tagId" multiple>
+                        <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${expenseSearch.getTagId() != null and expenseSearch.getTagId().contains(tag.id)}"></option>
+                    </select>
                 </div>
                 <div class="col-12 text-lg-end">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
@@ -200,7 +197,7 @@
                 <th>Descripci&oacute;n</th>
                 <th class="original-description-column d-none">Origen</th>
                 <th>Detalle</th>
-                <th>Categor&iacute;a</th>
+                <th>Tags</th>
                 <th>Importe</th>
                 <th style="width:55px">Items</th>
                 <th colspan="4">Acciones</th>
@@ -231,11 +228,11 @@
                         <input type="text" class="form-control form-control-sm d-none bulk-input" placeholder="Detalle">
                     </div>
                 </td>
-                <td class="bulk-cell d-none d-lg-table-cell" data-field="categoryId">
+                <td class="bulk-cell d-none d-lg-table-cell" data-field="tagIds">
                     <div class="d-flex align-items-center gap-1">
                         <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
-                        <select class="form-select form-select-sm d-none bulk-input">
-                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
+                        <select name="tagIds" class="form-select form-select-sm d-none bulk-input" multiple size="2">
+                            <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}"></option>
                         </select>
                     </div>
                 </td>
@@ -261,7 +258,7 @@
                    data-original-description=${expense.originalDescription},
                    data-details=${expense.details},
                    data-amount=${expense.amount},
-                   data-category-id=${expense.category.id},
+                   data-tag-ids=${expense.tags.![id].toString().replaceAll('[\\[\\] ]', '')},
                    data-account-id=${expense.account != null ? expense.account.id : ''},
                    data-comments=${expense.comments},
                    data-has-items=${!#lists.isEmpty(expense.items)}">
@@ -290,9 +287,10 @@
                         </th:block>
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
-                    <td class="text-center filterable" data-field="categoryId" th:attr="data-value=${expense.category.id}">
-                        <span th:text="${expense.category.name}"></span>
-                        <i class="bi bi-funnel filter-icon" th:title="${'Filtrar por categor&iacute;a: ' + expense.category.name}"></i>
+                    <td class="text-center" data-field="tagId">
+                        <th:block th:each="tag, iterStat : ${expense.tags}">
+                            <a href="#" class="text-decoration-none tag-filter-link" th:data-tag-id="${tag.id}" th:text="${tag.name}"></a><th:block th:if="${!iterStat.last}">, </th:block>
+                        </th:block>
                     </td>
                     <td class="text-center">
                         <div class="d-flex flex-nowrap">
@@ -390,8 +388,8 @@
                     </td>
                     <td><input class="form-control form-control-sm" name="details"></td>
                     <td>
-                        <select class="form-select form-select-sm" name="category.id">
-                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
+                        <select class="form-select form-select-sm" name="tagIds" multiple size="2">
+                            <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}"></option>
                         </select>
                     </td>
                     <td><input class="form-control form-control-sm text-end" type="number" step=".01" name="amount"></td>
@@ -464,7 +462,7 @@
                         <i class="bi bi-plus-lg me-1"></i>Agregar item
                     </button>
                     <input type="hidden" id="modalExpenseId" value="">
-                    <input type="hidden" id="modalParentCategoryId" value="">
+                    <input type="hidden" id="modalParentTagIds" value="">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -480,8 +478,8 @@
         <tr>
             <td><input class="form-control form-control-sm modal-item-desc" placeholder="Descripci&oacute;n"></td>
             <td>
-                <select class="form-select form-select-sm modal-item-cat">
-                    <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                <select class="form-select form-select-sm modal-item-tags" multiple size="2">
+                    <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}"></option>
                 </select>
             </td>
             <td><input class="form-control form-control-sm text-end modal-item-amount" type="number" step=".01" placeholder="0.00"></td>
@@ -499,7 +497,34 @@
         const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
         const expenseBulkUpdateUrl = [[@{/expenses/bulk-update}]];
         const scanTicketUrl = [[@{/expenses/scan-ticket}]];
-        const defaultCategoryId = [[${defaultCategoryId}]];
+        const tagCreateUrl = [[@{/tags}]];
+        const defaultTagIds = [];
+
+        function createTagOption(input, callback) {
+            fetch(tagCreateUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: input })
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(tag) { callback({ value: String(tag.id), text: tag.name }); });
+        }
+
+        function initTagTomSelect(selectEl) {
+            if (!selectEl) return null;
+            return new TomSelect(selectEl, {
+                plugins: ['remove_button'],
+                maxItems: null,
+                create: createTagOption,
+                closeAfterSelect: false,
+                persist: false
+            });
+        }
+
+        function destroyTagTomSelect(el) {
+            var select = $(el).find("[name='tagIds']")[0];
+            if (select && select.tomselect) select.tomselect.destroy();
+        }
 
         $(function () {
             $('[data-bs-toggle="popover"]').each(function () {
@@ -531,6 +556,25 @@
                 scanZone.addEventListener("drop", function(e) { e.preventDefault(); e.stopPropagation(); this.style.borderColor = ""; this.style.backgroundColor = ""; if (e.dataTransfer.files.length) uploadTicket(e.dataTransfer.files[0]); });
                 scanInput.addEventListener("change", function() { if (this.files.length) uploadTicket(this.files[0]); this.value = ""; });
             }
+
+            new TomSelect("#expenseFilterTagId", {
+                plugins: ['remove_button'],
+                maxItems: null,
+                closeAfterSelect: false,
+                persist: false
+            });
+
+            initTagTomSelect($("#bulkEditRow [name='tagIds']")[0]);
+            var bulkTs = document.querySelector("#bulkEditRow [name='tagIds']");
+            if (bulkTs && bulkTs.tomselect) {
+                bulkTs.tomselect.wrapper.style.display = "none";
+            }
+
+            $("#itemsModal").on("hidden.bs.modal", function() {
+                $("#modalItemsBody .modal-item-tags").each(function() {
+                    if (this.tomselect) this.tomselect.destroy();
+                });
+            });
         });
 
         function addExpenseRow() {
@@ -560,6 +604,7 @@
             } else {
                 group.find("[name=comments]").closest("td").attr("colspan", 2);
             }
+            initTagTomSelect(group.find("[name='tagIds']")[0]);
             group.find("[name=description]").focus();
         }
 
@@ -582,8 +627,9 @@
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
 
-            group.find("[name='category.id']").val(sourceGroup.data("category-id"));
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
+
+            var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
             $(".expense-group").first().before(group);
             if ($("#showOriginalDescriptionSwitch").is(":checked")) {
@@ -592,6 +638,8 @@
             } else {
                 group.find("[name=comments]").closest("td").attr("colspan", 2);
             }
+            var ts = initTagTomSelect(group.find("[name='tagIds']")[0]);
+            if (tagIds.length) ts.setValue(tagIds);
             group.find("[name=description]").focus();
         }
 
@@ -619,8 +667,9 @@
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
-            group.find("[name='category.id']").val(sourceGroup.data("category-id"));
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
+
+            var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
             // Load existing items from server
             if (expenseId) {
@@ -636,11 +685,14 @@
             } else {
                 group.find("[name=comments]").closest("td").attr("colspan", 2);
             }
+            var ts = initTagTomSelect(group.find("[name='tagIds']")[0]);
+            if (tagIds.length) ts.setValue(tagIds);
             group.find("[name=description]").focus();
         }
 
         function cancelEdit(button) {
             const group = $(button).closest(".editing-group");
+            destroyTagTomSelect(group);
             const originalGroup = group.data("original-group");
 
             if (originalGroup) {
@@ -671,6 +723,9 @@
 
             const items = group.data("items") || [];
 
+            var tagSelect = group.find("[name='tagIds']")[0];
+            var tsInstance = tagSelect && tagSelect.tomselect;
+            const selectedTagIds = tsInstance ? String(tsInstance.getValue() || "").split(",").filter(Boolean) : [];
             const data = {
                 id: group.data("expense-id") || null,
                 date: group.find("[name='date']").val(),
@@ -679,9 +734,7 @@
                 details: group.find("[name='details']").val(),
                 amount: group.find("[name='amount']").val(),
                 comments: group.find("[name='comments']").val(),
-                category: {
-                    id: group.find("[name='category.id']").val()
-                },
+                tags: selectedTagIds.map(id => ({ id: Number(id) })),
                 account: {
                     id: group.find("[name='account.id']").val()
                 },
@@ -744,7 +797,8 @@
             const $input = $("#expenseSearchForm [name='" + field + "']");
             const $operator = $("#expenseSearchForm [name='" + field + "Operator']");
             if ($input.is("select")) {
-                $input.prop("selectedIndex", 0);
+                if ($input[0].tomselect) $input[0].tomselect.clear();
+                else $input.prop("selectedIndex", 0);
             } else {
                 $input.val("");
             }
@@ -783,6 +837,19 @@
                 $input.val(value);
             }
 
+            setPage(1);
+        });
+
+        $(document).on("click", ".tag-filter-link", function(e){
+            e.preventDefault();
+            if ($(".editing-group").length) return;
+            var tagId = String($(this).data("tag-id"));
+            var ts = $("#expenseFilterTagId")[0].tomselect;
+            if (ts) {
+                var current = ts.getValue() ? String(ts.getValue()).split(",").filter(Boolean) : [];
+                if (current.indexOf(tagId) === -1) current.push(tagId);
+                ts.setValue(current);
+            }
             setPage(1);
         });
 
@@ -866,6 +933,7 @@
             const isEditing = group.hasClass("editing-group");
             const modal = $("#itemsModal");
             const body = $("#modalItemsBody");
+            body.find(".modal-item-tags").each(function() { if (this.tomselect) this.tomselect.destroy(); });
             body.empty();
 
             const amount = isEditing
@@ -873,10 +941,13 @@
                 : group.data("amount");
             $("#modalExpenseAmount").text(parseFloat(amount || 0).toFixed(2));
 
-            var parentCategoryId = isEditing
-                ? group.find("[name='category.id']").val()
-                : group.data("category-id");
-            $("#modalParentCategoryId").val(parentCategoryId || "");
+            var parentTagIds = isEditing
+                ? (function() {
+                    var tsEl = group.find("[name='tagIds']")[0];
+                    return tsEl && tsEl.tomselect ? String(tsEl.tomselect.getValue() || "") : (group.data("tag-ids") || "");
+                })()
+                : (group.data("tag-ids") || "");
+            $("#modalParentTagIds").val(parentTagIds || "");
 
             const loadItems = function(items) {
                 body.empty();
@@ -912,21 +983,28 @@
             const clone = template.content.cloneNode(true);
             const row = $(clone).find("tr");
 
-            var parentCat = $("#modalParentCategoryId").val() || defaultCategoryId;
+            var parentTagIds = ($("#modalParentTagIds").val() || "").split(",").filter(Boolean);
+            var tagIdsToSet;
             if (item) {
                 row.find(".modal-item-desc").val(item.description || "");
-                row.find(".modal-item-cat").val(item.category ? item.category.id : parentCat);
+                var itemTagIds = (item.tags || []).map(function(t) { return String(t.id || t); });
+                tagIdsToSet = itemTagIds.length ? itemTagIds : parentTagIds;
                 row.find(".modal-item-amount").val(item.amount || "");
                 if (item.id) row.data("item-id", item.id);
             } else {
-                row.find(".modal-item-cat").val(parentCat);
+                tagIdsToSet = parentTagIds;
             }
 
             $("#modalItemsBody").append(row);
+            var ts = initTagTomSelect(row.find(".modal-item-tags")[0]);
+            if (tagIdsToSet && tagIdsToSet.length) ts.setValue(tagIdsToSet);
         }
 
         function removeModalItemRow(button) {
-            $(button).closest("tr").remove();
+            var tr = $(button).closest("tr");
+            var tsEl = tr.find(".modal-item-tags")[0];
+            if (tsEl && tsEl.tomselect) tsEl.tomselect.destroy();
+            tr.remove();
             updateModalMismatchWarning();
         }
 
@@ -934,13 +1012,14 @@
             const items = [];
             $("#modalItemsBody tr").each(function() {
                 const desc = $(this).find(".modal-item-desc").val();
-                const catId = $(this).find(".modal-item-cat").val();
+                var tsEl = $(this).find(".modal-item-tags")[0];
+                const tagIds = tsEl && tsEl.tomselect ? String(tsEl.tomselect.getValue() || "").split(",").filter(Boolean) : [];
                 const amount = $(this).find(".modal-item-amount").val();
                 if (desc && desc.trim()) {
                     const item = {
                         description: desc,
                         amount: amount || 0,
-                        category: { id: catId }
+                        tags: tagIds.map(function(id) { return { id: Number(id) }; })
                     };
                     const itemId = $(this).data("item-id");
                     if (itemId) item.id = itemId;
@@ -996,7 +1075,7 @@
                 details: row.data("details"),
                 amount: row.data("amount"),
                 comments: row.data("comments"),
-                category: { id: row.data("category-id") },
+                tags: String(row.data("tag-ids") || "").split(",").filter(Boolean).map(function(id) { return { id: Number(id) }; }),
                 account: { id: row.data("account-id") },
                 items: items
             };
@@ -1066,18 +1145,23 @@
             const $cell = $(this).closest(".bulk-cell");
             const $input = $cell.find(".bulk-input");
             const enabled = !$input.hasClass("d-none");
+            const tsWrapper = $input[0] && $input[0].tomselect ? $input[0].tomselect.wrapper : null;
             if (enabled){
                 $input.addClass("d-none");
                 $cell.removeClass("table-active");
+                if (tsWrapper) tsWrapper.style.display = "none";
                 if ($input.is("select")){
-                    $input.prop("selectedIndex", 0);
+                    if ($input[0].tomselect) $input[0].tomselect.clear();
+                    else $input.find("option").prop("selected", false);
                 } else {
                     $input.val("");
                 }
             } else {
                 $input.removeClass("d-none");
                 $cell.addClass("table-active");
-                $input.focus();
+                if (tsWrapper) tsWrapper.style.display = "";
+                if ($input[0].tomselect) $input[0].tomselect.focus();
+                else $input.focus();
             }
 
             refreshBulkSaveButton();
@@ -1119,9 +1203,11 @@
 
                 let value = $input.val();
 
-                // normalizar strings vac�os
+                // normalizar strings vacíos
                 if (typeof value === "string"){
                     value = value.trim();
+                } else if (Array.isArray(value)){
+                    value = value.map(Number);
                 }
 
                 data[field] = value;

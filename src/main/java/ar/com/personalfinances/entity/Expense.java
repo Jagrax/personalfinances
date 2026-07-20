@@ -43,9 +43,15 @@ public class Expense {
     @Column(name = "comments")
     private String comments;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", foreignKey = @ForeignKey(name = "fk_expense_category"))
-    private Category category = new Category();
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "expense_tags",
+            joinColumns = @JoinColumn(name = "expense_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @BatchSize(size = 25)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private List<Tag> tags = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", foreignKey = @ForeignKey(name = "fk_expense_account"))
@@ -81,7 +87,7 @@ public class Expense {
                 ((amount != null) ? "amount=" + amount + ", " : "") +
                 ((details != null) ? "details='" + details + "', " : "") +
                 ((comments != null) ? "comments='" + comments + "', " : "") +
-                ((category != null) ? "category=" + category + ", " : "") +
+                ((tags != null) ? "tags=" + tags + ", " : "") +
                 ((account != null) ? "account=" + account + ", " : "") +
                 ((user != null) ? "user=" + user + ", " : "") +
                 "]";

@@ -22,7 +22,7 @@ public class BulkExpenseUpdateRequest {
 
     private String comments;
 
-    private Long categoryId;
+    private List<Long> tagIds;
 
     private Long accountId;
 }

@@ -30,8 +30,8 @@ public class ExpenseSearch {
     private BigDecimal amountTo;
     private String details;
     private String comments;
-    private Long categoryId;
-    private String categoryName;
+    private List<Long> tagId;
+    private String tagName;
     private Long accountId;
     private String accountName;
     private AccountType accountType;
@@ -52,7 +52,7 @@ public class ExpenseSearch {
                 amountTo != null ||
                 StringUtils.hasText(details) ||
                 StringUtils.hasText(comments) ||
-                categoryId != null ||
+                tagId != null && !tagId.isEmpty() ||
                 accountId != null;
     }
 
@@ -69,7 +69,7 @@ public class ExpenseSearch {
         if (amount != null) chips.add(new FilterChip("amount", "Importe", FilterOperator.EQ, amount.toString()));
         if (amountFrom != null) chips.add(new FilterChip("amountFrom", "Importe", FilterOperator.GTE, amountFrom.toString()));
         if (amountTo != null) chips.add(new FilterChip("amountTo", "Importe", FilterOperator.LTE, amountTo.toString()));
-        if (categoryId != null) chips.add(new FilterChip("categoryId", "Categoria", FilterOperator.EQ, categoryId.toString()));
+        if (tagId != null && !tagId.isEmpty()) chips.add(new FilterChip("tagId", "Tag", FilterOperator.EQ, tagId.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("")));
         if (accountId != null) chips.add(new FilterChip("accountId", "Cuenta", FilterOperator.EQ, accountId.toString()));
 
         return chips;

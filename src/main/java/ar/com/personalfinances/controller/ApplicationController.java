@@ -9,6 +9,7 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.ReportsRepository;
+import ar.com.personalfinances.repository.TagRepository;
 import ar.com.personalfinances.service.ChartJsService;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.dto.AccountBalanceDTO;
@@ -41,15 +42,17 @@ public class ApplicationController {
     private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
     private final ChartJsService chartJsService;
+    private final TagRepository tagRepository;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, ChartJsService chartJsService) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, ChartJsService chartJsService, TagRepository tagRepository) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
         this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
         this.chartJsService = chartJsService;
+        this.tagRepository = tagRepository;
     }
 
     @RequestMapping("/expenses/report")
@@ -63,16 +66,16 @@ public class ApplicationController {
         // Por defecto, quiero ver siempre mis gastos
         List<Expense> expenses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by("date", "description"));
         List<String[]> serviciosReport = new ArrayList<>(Collections.singleton(new String[]{
-                "Fecha", "Descripcion", "Origen", "Importe", "Detalles", "Comentarios", "Categoria", "Cuenta"
+                "Fecha", "Descripcion", "Origen", "Importe", "Detalles", "Comentarios", "Tags", "Cuenta"
         }));
         final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
         serviciosReport.addAll(expenses.stream().map(e -> new String[]{
-                e.getDate().format(dateTimeFormatter), e.getDescription(), e.getOriginalDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getCategory().getName(), e.getAccount().getName()
+                e.getDate().format(dateTimeFormatter), e.getDescription(), e.getOriginalDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getTags().stream().map(t -> t.getName()).collect(Collectors.joining(", ")), e.getAccount() != null ? e.getAccount().getName() : ""
         }).collect(Collectors.toList()));
         model.addAttribute("serviciosReport", serviciosReport);
 
-        // Categorias que se muestran en el filtro de Categorias
-        model.addAttribute("categories", categoryRepository.findAll());
+        // Tags que se muestran en el filtro de Tags
+        model.addAttribute("tags", tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name")));
         // Cuentas que se muestran en el filtro Cuentas
         model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
         // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses

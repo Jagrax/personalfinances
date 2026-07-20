@@ -1,15 +1,14 @@
 package ar.com.personalfinances.controller.abm;
 
 import ar.com.personalfinances.controller.ApplicationController;
-import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.ExpenseMapping;
+import ar.com.personalfinances.entity.Tag;
 import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
-import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseMappingRepository;
+import ar.com.personalfinances.repository.TagRepository;
 import ar.com.personalfinances.service.SpecificationsService;
 import ar.com.personalfinances.util.ApplicationUtils;
-import ar.com.personalfinances.util.CategorySearch;
 import ar.com.personalfinances.util.ExpenseMappingSearch;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,7 +22,6 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -36,12 +34,12 @@ import java.util.stream.IntStream;
 public class ExpenseMappingsController {
 
     private final ExpenseMappingRepository expenseMappingRepository;
-    private final CategoryRepository categoryRepository;
+    private final TagRepository tagRepository;
     private final SpecificationsService specificationsService;
 
-    public ExpenseMappingsController(ExpenseMappingRepository expenseMappingRepository, CategoryRepository categoryRepository, SpecificationsService specificationsService) {
+    public ExpenseMappingsController(ExpenseMappingRepository expenseMappingRepository, TagRepository tagRepository, SpecificationsService specificationsService) {
         this.expenseMappingRepository = expenseMappingRepository;
-        this.categoryRepository = categoryRepository;
+        this.tagRepository = tagRepository;
         this.specificationsService = specificationsService;
     }
 
@@ -83,7 +81,7 @@ public class ExpenseMappingsController {
         }
 
         model.addAttribute("expenseMappingSearch", expenseMappingSearch);
-        model.addAttribute("categories", getUserCategories(new CategorySearch(), Sort.by(Sort.Direction.ASC, "name")));
+        model.addAttribute("tags", tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name")));
         model.addAttribute("module", "expenseMappings");
         return "abm/expenseMappings";
     }
@@ -93,9 +91,10 @@ public class ExpenseMappingsController {
                                     @ModelAttribute ExpenseMappingSearch expenseMappingSearch,
                                     @RequestParam("page") Optional<Integer> page,
                                     @RequestParam("size") Optional<Integer> size,
-                                    @RequestParam("expenseMappingIdToEdit") Optional<Long> expenseMappingIdToEdit) {
+                                    @RequestParam("expenseMappingIdToEdit") Optional<Long> expenseMappingIdToEdit,
+                                    @RequestParam(value = "tagIds", required = false) List<Long> tagIds) {
         User user = ApplicationUtils.getUserFromSession();
-        prepareExpenseMapping(expenseMapping, user);
+        prepareExpenseMapping(expenseMapping, user, tagIds);
         validateRegex(expenseMapping, result);
 
         if (result.hasErrors()) {
@@ -113,14 +112,15 @@ public class ExpenseMappingsController {
                                        @ModelAttribute ExpenseMappingSearch expenseMappingSearch,
                                        @RequestParam("page") Optional<Integer> page,
                                        @RequestParam("size") Optional<Integer> size,
-                                       @RequestParam("expenseMappingIdToEdit") Optional<Long> expenseMappingIdToEdit) {
+                                       @RequestParam("expenseMappingIdToEdit") Optional<Long> expenseMappingIdToEdit,
+                                       @RequestParam(value = "tagIds", required = false) List<Long> tagIds) {
         User user = ApplicationUtils.getUserFromSession();
         ExpenseMapping savedExpenseMapping = expenseMappingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ExpenseMapping", "id", id));
         assertCurrentUserOwns(savedExpenseMapping, user);
 
         expenseMapping.setId(id);
-        prepareExpenseMapping(expenseMapping, user);
+        prepareExpenseMapping(expenseMapping, user, tagIds);
         validateRegex(expenseMapping, result);
 
         if (result.hasErrors()) {
@@ -152,7 +152,7 @@ public class ExpenseMappingsController {
         return expenseMapping;
     }
 
-    private void prepareExpenseMapping(ExpenseMapping expenseMapping, User user) {
+    private void prepareExpenseMapping(ExpenseMapping expenseMapping, User user, List<Long> tagIds) {
         expenseMapping.setUser(user);
         if (expenseMapping.getCreationDate() == null) {
             expenseMapping.setCreationDate(LocalDate.now());
@@ -160,8 +160,10 @@ public class ExpenseMappingsController {
         if (expenseMapping.getEnabled() == null) {
             expenseMapping.setEnabled(false);
         }
-        if (expenseMapping.getCategory() != null && expenseMapping.getCategory().getId() == null) {
-            expenseMapping.setCategory(null);
+        if (tagIds != null && !tagIds.isEmpty()) {
+            expenseMapping.setTags(tagRepository.findAllById(tagIds));
+        } else {
+            expenseMapping.setTags(new java.util.ArrayList<>());
         }
     }
 
@@ -181,18 +183,5 @@ public class ExpenseMappingsController {
         if (expenseMapping.getUser() == null || !expenseMapping.getUser().getId().equals(user.getId())) {
             throw new ResourceNotFoundException("ExpenseMapping", "id", expenseMapping.getId());
         }
-    }
-
-    private List<Category> getUserCategories(CategorySearch categorySearch, Sort sort) {
-        List<Long> categorySearchOwnerIds = new ArrayList<>();
-        categorySearchOwnerIds.add(-1L);
-
-        User user = ApplicationUtils.getUserFromSession(false);
-        if (user != null) {
-            categorySearchOwnerIds.add(user.getId());
-        }
-
-        categorySearch.setOwnerIds(categorySearchOwnerIds);
-        return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
     }
 }

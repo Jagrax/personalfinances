@@ -6,7 +6,10 @@ import lombok.Getter;
 import lombok.Setter;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -34,10 +37,15 @@ public class ExpenseItem {
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false, foreignKey = @ForeignKey(name = "fk_expense_item_category"))
-    @JsonIgnoreProperties({"owner", "hibernateLazyInitializer", "handler"})
-    private Category category;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "expense_item_tags",
+            joinColumns = @JoinColumn(name = "expense_item_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @BatchSize(size = 25)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private List<Tag> tags = new ArrayList<>();
 
     @Override
     public String toString() {
@@ -45,7 +53,7 @@ public class ExpenseItem {
                 ((id != null) ? "id=" + id + ", " : "") +
                 ((description != null) ? "description='" + description + "', " : "") +
                 ((amount != null) ? "amount=" + amount + ", " : "") +
-                ((category != null) ? "category=" + category + ", " : "") +
+                ((tags != null) ? "tags=" + tags + ", " : "") +
                 "]";
     }
 }

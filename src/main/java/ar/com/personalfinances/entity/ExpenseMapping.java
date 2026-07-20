@@ -7,6 +7,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -41,9 +43,13 @@ public class ExpenseMapping {
     @Column(name = "details")
     private String details;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", foreignKey = @ForeignKey(name = "fk_expense_mapping_category"))
-    private Category category;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "expense_mapping_tags",
+            joinColumns = @JoinColumn(name = "expense_mapping_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> tags = new ArrayList<>();
 
     @Column(name = "enabled")
     private Boolean enabled = true;
@@ -66,7 +72,7 @@ public class ExpenseMapping {
                 ((regexPattern != null) ? "regexPattern='" + regexPattern + "', " : "") +
                 ((normalizedDescription != null) ? "normalizedDescription='" + normalizedDescription + "', " : "") +
                 ((details != null) ? "details='" + details + "', " : "") +
-                ((category != null) ? "category=" + category + ", " : "") +
+                ((tags != null) ? "tags=" + tags + ", " : "") +
                 ((enabled != null) ? "enabled=" + enabled + ", " : "") +
                 "]";
     }

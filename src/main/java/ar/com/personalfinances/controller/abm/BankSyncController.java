@@ -3,7 +3,6 @@ package ar.com.personalfinances.controller.abm;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.service.*;
 import ar.com.personalfinances.util.*;
@@ -44,9 +43,8 @@ public class BankSyncController {
     private final PDFService pdfService;
     private final ExpenseRepository expenseRepository;
     private final ExpenseService expenseService;
-    private final CategoryRepository categoryRepository;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService, PDFService pdfService, ExpenseRepository expenseRepository, ExpenseService expenseService, CategoryRepository categoryRepository) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService, PDFService pdfService, ExpenseRepository expenseRepository, ExpenseService expenseService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.applicationMessageService = applicationMessageService;
@@ -54,7 +52,6 @@ public class BankSyncController {
         this.pdfService = pdfService;
         this.expenseRepository = expenseRepository;
         this.expenseService = expenseService;
-        this.categoryRepository = categoryRepository;
     }
 
     @RequestMapping(value = "/bank-learn", method = RequestMethod.POST)
@@ -669,7 +666,6 @@ public class BankSyncController {
 
         Account account = accountRepository.findById(accountId).orElseThrow();
         User user = ApplicationUtils.getUserFromSession();
-        final Category automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
 
         for (ExpenseImportItem item : expenseImportForm.getExpenses()) {
             if (item.isSelected()) {
@@ -680,7 +676,7 @@ public class BankSyncController {
                 expense.setDetails(item.getDetails());
                 expense.setAmount(item.getAmount());
                 expense.setAccount(account);
-                expense.setCategory(automaticCategory);
+                expense.setTags(new ArrayList<>());
                 expense.setUser(user);
 
                 expenseService.saveWithAudit(expense, user);

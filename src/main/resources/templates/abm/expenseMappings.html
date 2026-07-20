@@ -28,15 +28,15 @@
                     <label for="mappingFilterNormalizedDescription">Descripcion normalizada</label>
                 </div>
             </div>
-            <div class="col-12 col-lg-4 col-xxl-2">
-                <div class="form-floating">
-                    <select class="form-select" id="mappingFilterCategoryId" name="categoryId">
-                        <option th:selected="${expenseMappingSearch.categoryId == null}" th:value="${null}">Todas</option>
-                        <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.indentedName}" th:selected="${category.id == expenseMappingSearch.categoryId}"></option>
-                    </select>
-                    <label for="mappingFilterCategoryId">Categoria</label>
+                <div class="col-12 col-lg-4 col-xxl-2">
+                    <div class="form-floating">
+                        <select class="form-select" id="mappingFilterTagId" name="tagId">
+                            <option th:selected="${expenseMappingSearch.tagId == null}" th:value="${null}">Todos</option>
+                            <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${tag.id == expenseMappingSearch.tagId}"></option>
+                        </select>
+                        <label for="mappingFilterTagId">Tag</label>
+                    </div>
                 </div>
-            </div>
             <div class="col-12 col-lg-4 col-xxl-2">
                 <div class="form-floating">
                     <select class="form-select" id="mappingFilterEnabled" name="enabled">
@@ -89,7 +89,11 @@
                 <td class="text-start font-monospace small" th:text="${expenseMapping.regexPattern}"></td>
                 <td class="text-start" th:text="${expenseMapping.normalizedDescription}"></td>
                 <td class="text-start" th:text="${expenseMapping.details}"></td>
-                <td class="text-start" th:text="${expenseMapping.category != null ? expenseMapping.category.name : ''}"></td>
+                <td class="text-start">
+                    <th:block th:each="tag, iterStat : ${expenseMapping.tags}">
+                        <span th:text="${tag.name}"></span><th:block th:if="${!iterStat.last}">, </th:block>
+                    </th:block>
+                </td>
                 <td class="text-center" style="width:95px">
                     <span class="badge" th:classappend="${expenseMapping.enabled == true ? ' text-bg-success' : ' text-bg-secondary'}" th:text="${expenseMapping.enabled == true ? 'Activo' : 'Inactivo'}"></span>
                 </td>
@@ -159,15 +163,13 @@
                                 <div class="text-danger small" th:if="${#fields.hasErrors('details')}" th:errors="*{details}"></div>
                             </div>
                             <div class="col-12 col-lg-4">
-                                <label class="form-label" for="category">Categoria</label>
-                                <select class="form-select form-select-sm" name="category.id" id="category">
-                                    <option th:value="${null}">Sin categoria</option>
-                                    <option th:each="category : ${categories}"
-                                            th:value="${category.id}"
-                                            th:text="${category.indentedName}"
-                                            th:selected="${expenseMapping.category != null and expenseMapping.category.id == category.id}"></option>
+                                <label class="form-label" for="tags">Tags</label>
+                                <select class="form-select form-select-sm" name="tagIds" id="tags" multiple size="3">
+                                    <option th:each="tag : ${tags}"
+                                            th:value="${tag.id}"
+                                            th:text="${tag.name}"
+                                            th:selected="${expenseMapping.tags != null and expenseMapping.tags.![id].contains(tag.id)}"></option>
                                 </select>
-                                <div class="text-danger small" th:if="${#fields.hasErrors('category')}" th:errors="*{category}"></div>
                             </div>
                             <div class="col-12">
                                 <div class="form-check form-switch">

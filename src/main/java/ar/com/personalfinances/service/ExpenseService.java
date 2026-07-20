@@ -2,8 +2,8 @@ package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
+import ar.com.personalfinances.repository.TagRepository;
 import ar.com.personalfinances.util.ApplicationUtils;
 import ar.com.personalfinances.web.model.BulkExpenseUpdateRequest;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final AlertEventService alertEventService;
-    private final CategoryRepository categoryRepository;
+    private final TagRepository tagRepository;
     private final AccountRepository accountRepository;
 
     public Expense saveWithAudit(Expense expense, User user) {
@@ -72,10 +72,10 @@ public class ExpenseService {
             throw new IllegalArgumentException("Some expenses were not found");
         }
 
-        Category category = null;
+        List<Tag> tags = null;
 
-        if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId()).orElseThrow();
+        if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
+            tags = tagRepository.findAllById(request.getTagIds());
         }
 
         Account account = null;
@@ -93,7 +93,7 @@ public class ExpenseService {
             if (request.getOriginalDescription() != null) expense.setOriginalDescription(request.getOriginalDescription());
             if (request.getDetails() != null) expense.setDetails(request.getDetails());
             if (request.getComments() != null) expense.setComments(request.getComments());
-            if (category != null) expense.setCategory(category);
+            if (tags != null) expense.setTags(tags);
             if (account != null) expense.setAccount(account);
         }
 

@@ -5,7 +5,6 @@ import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.util.DateUtils;
@@ -31,16 +30,14 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final AccountRepository accountRepository;
     private final AlertEventService alertEventService;
     private final ExpenseMappingService expenseMappingService;
-    private final Category automaticCategory;
     private final ChartJsServiceImpl chartJsServiceImpl;
 
-    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, CategoryRepository categoryRepository, ChartJsServiceImpl chartJsServiceImpl) {
+    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, ChartJsServiceImpl chartJsServiceImpl) {
         this.galiciaApiService = galiciaApiService;
         this.expenseRepository = expenseRepository;
         this.accountRepository = accountRepository;
         this.alertEventService = alertEventService;
         this.expenseMappingService = expenseMappingService;
-        this.automaticCategory = categoryRepository.findById(Category.AUTOMATIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.AUTOMATIC_CATEGORY_ID));
         this.chartJsServiceImpl = chartJsServiceImpl;
     }
 
@@ -413,7 +410,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Expense> creditCardAccountExpensesByDates = expenseRepository.findByAccountAndDateBetween(creditCardAccount, minTransactionDate, maxTransactionDate, Sort.by(Sort.Direction.DESC, "date", "id"));
             List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesByDates.stream()
                     // Filtro a los no encontrados y además, los que sean pagos de tarjetas (no vienen en la API)
-                    .filter(expense -> !expensesIdFounded.contains(expense.getId()) && !"Pago de tarjeta".equals(expense.getCategory().getName()))
+                    .filter(expense -> !expensesIdFounded.contains(expense.getId()) && expense.getTags().stream().noneMatch(tag -> "Pago de tarjeta".equals(tag.getName())))
                     .toList();
             if (!expensesNotFoundInConsuptions.isEmpty()) {
                 BigDecimal amount = BigDecimal.ZERO;
@@ -460,11 +457,11 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             ExpenseMapping mapping = matchOpt.get();
             expense.setDescription(StringUtils.hasText(mapping.getNormalizedDescription()) ? mapping.getNormalizedDescription() : bankDescription);
             expense.setDetails(mapping.getDetails());
-            expense.setCategory(mapping.getCategory() != null ? mapping.getCategory() : automaticCategory);
+            expense.setTags(mapping.getTags() != null ? mapping.getTags() : new ArrayList<>());
         } else {
             expense.setDescription(bankDescription);
             expense.setDetails(null);
-            expense.setCategory(automaticCategory);
+            expense.setTags(new ArrayList<>());
         }
 
         expense = expenseRepository.save(expense);

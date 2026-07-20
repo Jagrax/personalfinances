@@ -4,9 +4,9 @@ import ar.com.personalfinances.controller.ApplicationController;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseItemRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
+import ar.com.personalfinances.repository.TagRepository;
 import ar.com.personalfinances.service.AlertEventService;
 import ar.com.personalfinances.service.ExpenseService;
 import ar.com.personalfinances.service.ScanService;
@@ -47,17 +47,17 @@ public class ExpensesController {
     private final ExpenseItemRepository expenseItemRepository;
     private final AlertEventService alertEventService;
     private final SpecificationsService specificationsService;
-    private final CategoryRepository categoryRepository;
+    private final TagRepository tagRepository;
     private final AccountRepository accountRepository;
     private final ExpenseService expenseService;
     private final ScanService scanService;
 
-    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, CategoryRepository categoryRepository, AccountRepository accountRepository, ExpenseService expenseService, ScanService scanService) {
+    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, TagRepository tagRepository, AccountRepository accountRepository, ExpenseService expenseService, ScanService scanService) {
         this.expenseRepository = expenseRepository;
         this.expenseItemRepository = expenseItemRepository;
         this.alertEventService = alertEventService;
         this.specificationsService = specificationsService;
-        this.categoryRepository = categoryRepository;
+        this.tagRepository = tagRepository;
         this.accountRepository = accountRepository;
         this.expenseService = expenseService;
         this.scanService = scanService;
@@ -88,12 +88,12 @@ public class ExpensesController {
         // Y si me vino un accountName, lo uso para filtrar
         accountId.ifPresent(expenseSearch::setAccountId);
 
-        List<Category> userCategories = getUserCategories(new CategorySearch(), Sort.by(Sort.Direction.ASC,"name"));
+        List<Tag> allTags = tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
         categoryName.ifPresent(s -> {
-            expenseSearch.setCategoryName(s);
-            for (Category userCategory : userCategories) {
-                if (s.equals(userCategory.getName())) {
-                    expenseSearch.setCategoryId(userCategory.getId());
+            expenseSearch.setTagName(s);
+            for (Tag tag : allTags) {
+                if (s.equals(tag.getName())) {
+                    expenseSearch.setTagId(List.of(tag.getId()));
                     break;
                 }
             }
@@ -120,9 +120,8 @@ public class ExpensesController {
             model.addAttribute("pageNumbers", pageNumbers);
         }
 
-        // Categorias que se muestran en el filtro de Categorias
-        model.addAttribute("categories", userCategories);
-        model.addAttribute("defaultCategoryId", Category.GENERIC_CATEGORY_ID);
+        // Tags que se muestran en el filtro de Tags
+        model.addAttribute("tags", allTags);
         // Cuentas disponibles para editar/duplicar registros.
         List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", userAccounts);
@@ -147,7 +146,15 @@ public class ExpensesController {
             filterChips.removeIf(chip -> "accountId".equals(chip.getField()));
         }
         for (FilterChip chip : filterChips) {
-            if ("categoryId".equals(chip.getField())) userCategories.stream().filter(category -> category.getId().equals(Long.valueOf(chip.getValue()))).findFirst().ifPresent(category -> chip.setValue(category.getName()));
+            if ("tagId".equals(chip.getField())) {
+                String resolved = java.util.Arrays.stream(chip.getValue().split(","))
+                        .map(v -> allTags.stream().filter(tag -> tag.getId().equals(Long.valueOf(v.trim()))).findFirst())
+                        .filter(java.util.Optional::isPresent)
+                        .map(java.util.Optional::get)
+                        .map(Tag::getName)
+                        .reduce((a, b) -> a + ", " + b).orElse(chip.getValue());
+                chip.setValue(resolved);
+            }
             if ("accountId".equals(chip.getField())) userAccounts.stream().filter(account -> account.getId().equals(Long.valueOf(chip.getValue()))).findFirst().ifPresent(account -> chip.setValue(account.getName()));
         }
         model.addAttribute("filterChips", filterChips);
@@ -162,7 +169,6 @@ public class ExpensesController {
     public String createExpense(Model model, @RequestParam("backUrl") Optional<String> backUrl) {
         Expense expense = new Expense();
         expense.setUser(ApplicationUtils.getUserFromSession());
-        expense.setCategory(categoryRepository.findById(Category.GENERIC_CATEGORY_ID).orElseThrow(() -> new ResourceNotFoundException("Category", "id", Category.GENERIC_CATEGORY_ID)));
         expense.setDate(LocalDate.now());
         backUrl.ifPresent(urlString -> {
             if (urlString.contains("?") && (urlString.contains("accountType") || urlString.contains("accountName"))) {
@@ -255,6 +261,20 @@ public class ExpensesController {
         return scanService.scanTicket(file);
     }
 
+    @PostMapping(value = "/tags", produces = "application/json")
+    @ResponseBody
+    public Tag createTag(@RequestBody Map<String, String> body) {
+        String name = body.get("name");
+        if (name == null || name.isBlank()) {
+            throw new RuntimeException("Tag name is required");
+        }
+        return tagRepository.findByName(name.trim()).orElseGet(() -> {
+            Tag tag = new Tag();
+            tag.setName(name.trim());
+            return tagRepository.save(tag);
+        });
+    }
+
     @ExceptionHandler(RuntimeException.class)
     @ResponseBody
     public ResponseEntity<Map<String, String>> handleScanError(RuntimeException e) {
@@ -263,7 +283,7 @@ public class ExpensesController {
 
     private String getExpensesEditPage(Model model, Expense expense, Optional<String> backUrl) {
         model.addAttribute("expense", expense);
-        model.addAttribute("categories", categoryRepository.findAll());
+        model.addAttribute("tags", tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name")));
         model.addAttribute("accounts", getEditableAccounts(getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"))));
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         model.addAttribute("module", "expenses");
@@ -349,19 +369,5 @@ public class ExpensesController {
             return account.getBank().getLogo();
         }
         return null;
-    }
-
-    private List<Category> getUserCategories(CategorySearch categorySearch, Sort sort) {
-        List<Long> categorySearchOwnerIds = new ArrayList<>();
-        categorySearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
-
-        User user = ApplicationUtils.getUserFromSession(false);
-        if (user != null) {
-            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
-            categorySearchOwnerIds.add(user.getId());
-        }
-
-        categorySearch.setOwnerIds(categorySearchOwnerIds);
-        return categoryRepository.findAll(specificationsService.getCategories(categorySearch), sort);
     }
 }

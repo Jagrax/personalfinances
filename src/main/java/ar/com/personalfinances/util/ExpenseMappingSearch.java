@@ -12,6 +12,6 @@ public class ExpenseMappingSearch {
     private String regexPattern;
     private String normalizedDescription;
     private String details;
-    private Long categoryId;
+    private Long tagId;
     private Boolean enabled;
 }
