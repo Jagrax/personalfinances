@@ -4,7 +4,6 @@ import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.entity.User;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -21,7 +20,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByAccountAndDateAndAmountEquals(Account account, LocalDate date, BigDecimal amount);
 
-    @EntityGraph(attributePaths = {"tags", "items"})
     List<Expense> findByAccountAndDateBetween(Account account, LocalDate dateFrom, LocalDate dateTo, Sort sort);
 
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
