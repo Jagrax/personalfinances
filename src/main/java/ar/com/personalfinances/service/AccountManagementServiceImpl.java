@@ -457,7 +457,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             ExpenseMapping mapping = matchOpt.get();
             expense.setDescription(StringUtils.hasText(mapping.getNormalizedDescription()) ? mapping.getNormalizedDescription() : bankDescription);
             expense.setDetails(mapping.getDetails());
-            expense.setTags(mapping.getTags() != null ? mapping.getTags() : new ArrayList<>());
+            expense.setTags(mapping.getTags() != null ? new ArrayList<>(mapping.getTags()) : new ArrayList<>());
         } else {
             expense.setDescription(bankDescription);
             expense.setDetails(null);
