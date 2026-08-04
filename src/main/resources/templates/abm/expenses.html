@@ -612,6 +612,7 @@
             if ($(".editing-group").length) return;
 
             const sourceGroup = $(button).closest(".expense-group");
+            var sourceExpenseId = sourceGroup.data("expense-id");
 
             const template = $("#expenseEditGroupTemplate")[0];
             const clone = template.content.cloneNode(true);
@@ -631,16 +632,44 @@
 
             var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
-            $(".expense-group").first().before(group);
-            if ($("#showOriginalDescriptionSwitch").is(":checked")) {
-                group.find(".original-description-column").removeClass("d-none");
-                group.find("[name=comments]").closest("td").attr("colspan", 3);
+            var doInsert = function() {
+                $(".expense-group").first().before(group);
+                if ($("#showOriginalDescriptionSwitch").is(":checked")) {
+                    group.find(".original-description-column").removeClass("d-none");
+                    group.find("[name=comments]").closest("td").attr("colspan", 3);
+                } else {
+                    group.find("[name=comments]").closest("td").attr("colspan", 2);
+                }
+                var ts = initTagTomSelect(group.find("[name='tagIds']")[0]);
+                if (tagIds.length) ts.setValue(tagIds);
+                group.find("[name=description]").focus();
+            };
+
+            var copyItems = function(items) {
+                var clonedItems = (items || []).map(function(item) {
+                    return { description: item.description, amount: item.amount, category: item.category };
+                });
+                group.data("items", clonedItems);
+                doInsert();
+            };
+
+            var existingItems = sourceGroup.data("items");
+            if (existingItems !== undefined) {
+                copyItems(existingItems);
+            } else if (sourceExpenseId) {
+                group.data("items", undefined);
+                fetch(expenseItemsBaseUrl + '/' + sourceExpenseId + '/items')
+                    .then(function(res) { return res.json(); })
+                    .then(function(items) {
+                        sourceGroup.data("items", items);
+                        copyItems(items);
+                    })
+                    .catch(function() {
+                        copyItems([]);
+                    });
             } else {
-                group.find("[name=comments]").closest("td").attr("colspan", 2);
+                copyItems([]);
             }
-            var ts = initTagTomSelect(group.find("[name='tagIds']")[0]);
-            if (tagIds.length) ts.setValue(tagIds);
-            group.find("[name=description]").focus();
         }
 
         function editExpenseRow(button) {
