@@ -162,7 +162,12 @@ public class BankSyncController {
                         applicationMessageService.add(request, ApplicationMessage.error(syncResult.getMessage()));
                         return "redirect:" + backUrl;
                     } else {
-                        applicationMessageService.add(request, ApplicationMessage.success(syncResult.getMessage()));
+                        SyncResult payload = (SyncResult) syncResult.getPayload();
+                        if (payload != null && payload.hasUnmatched()) {
+                            applicationMessageService.add(request, ApplicationMessage.warn(syncResult.getMessage()));
+                        } else {
+                            applicationMessageService.add(request, ApplicationMessage.success(syncResult.getMessage()));
+                        }
                     }
                     break;
                 }
@@ -172,7 +177,12 @@ public class BankSyncController {
                         applicationMessageService.add(request, ApplicationMessage.error(syncAccountMovementsResult.getMessage()));
                         return "redirect:" + backUrl;
                     } else {
-                        applicationMessageService.add(request, ApplicationMessage.success(syncAccountMovementsResult.getMessage()));
+                        SyncResult payload = (SyncResult) syncAccountMovementsResult.getPayload();
+                        if (payload != null && payload.hasUnmatched()) {
+                            applicationMessageService.add(request, ApplicationMessage.warn(syncAccountMovementsResult.getMessage()));
+                        } else {
+                            applicationMessageService.add(request, ApplicationMessage.success(syncAccountMovementsResult.getMessage()));
+                        }
                     }
                     break;
                 }
@@ -191,18 +201,43 @@ public class BankSyncController {
                                       @RequestParam("galiciaCookies") String galiciaCookies,
                                       HttpServletRequest request) {
         List<Account> accounts = accountRepository.findByBank_Id(bankId);
+        List<SyncResult> syncResults = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
         for (Account account : accounts) {
             if (!account.syncEnabled) continue;
             try {
+                CommonResult syncResult;
                 if (account.getType().equals(AccountType.CREDIT_CARD)) {
-                    accountManagementService.syncCreditCardAccountMovements(account, galiciaCookies);
+                    syncResult = accountManagementService.syncCreditCardAccountMovements(account, galiciaCookies);
                 } else if (account.getType().equals(AccountType.BANK_ACCOUNT)) {
-                    accountManagementService.syncAccountMovements(account, galiciaCookies);
+                    syncResult = accountManagementService.syncAccountMovements(account, galiciaCookies);
+                } else {
+                    continue;
+                }
+
+                if (syncResult.isError() || syncResult.isWarning()) {
+                    errors.add(account.getName() + ": " + syncResult.getMessage());
+                } else {
+                    syncResults.add((SyncResult) syncResult.getPayload());
                 }
             } catch (Exception e) {
                 log.warn("Error syncing account {}: {}", account.getName(), e.getMessage());
+                errors.add(account.getName() + ": " + e.getMessage());
             }
         }
+
+        for (SyncResult sr : syncResults) {
+            if (sr.hasUnmatched()) {
+                applicationMessageService.add(request, ApplicationMessage.warn(sr.toHtmlMessage()));
+            } else {
+                applicationMessageService.add(request, ApplicationMessage.success(sr.toHtmlMessage()));
+            }
+        }
+        for (String error : errors) {
+            applicationMessageService.add(request, ApplicationMessage.error(error));
+        }
+
         return "redirect:/dashboard";
     }
 

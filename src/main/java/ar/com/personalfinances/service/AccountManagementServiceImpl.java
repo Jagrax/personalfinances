@@ -8,6 +8,7 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.util.DateUtils;
+import ar.com.personalfinances.util.SyncResult;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -181,9 +182,26 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 ? "no me quedaron movimientos por sincronizar"
                 : "me quedaron " + movements.size() + " movimientos por sincronizar");
 
+        SyncResult syncResult = new SyncResult(account.getName());
+
+        List<Expense> allExpensesInRange = expenseRepository.findByAccountAndDateBetween(account, from, to, Sort.by(Sort.Direction.DESC, "date", "id"));
+        List<Expense> unmatchedDbExpenses = allExpensesInRange.stream()
+                .filter(expense -> !expensesIdFounded.contains(expense.getId()))
+                .filter(expense -> BigDecimal.ZERO.compareTo(expense.getAmount()) != 0)
+                .toList();
+        if (!unmatchedDbExpenses.isEmpty()) {
+            log.info("Los siguientes gastos de la cuenta {} no fueron encontrados al sincronizar con el banco:", account.getName());
+            for (Expense expense : unmatchedDbExpenses) {
+                log.info("  {} - {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getDetails() != null ? "(" + expense.getDetails() + ")" : "", expense.getAmount());
+            }
+        }
+        for (Expense expense : unmatchedDbExpenses) {
+            syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (expense.getDetails() != null ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
+        }
+
         if (movements.isEmpty()) {
             markAccountAsSynced(account);
-            return CommonResult.ok(movements, "Los gastos de la cuenta estan sincronizados!");
+            return CommonResult.ok(syncResult, syncResult.toHtmlMessage());
         }
 
         final List<Expense> expensesCreated = new ArrayList<>();
@@ -192,8 +210,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             expensesCreated.add(createExpense(account.getOwner(), bankAccountMovement.getFecha(), account, getDescription(bankAccountMovement), bankAccountMovement.getAmount()));
         }
 
+        syncResult.setCreatedCount(movements.size());
         markAccountAsSynced(account);
-        return CommonResult.ok(expensesCreated, "Se " + (movements.size() > 1 ? "sincronizaron " + movements.size() + " gastos" : "sincronizo " + movements.size() + " gasto") +  " en la cuenta");
+        return CommonResult.ok(syncResult, syncResult.toHtmlMessage());
     }
 
     /*
@@ -396,21 +415,19 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     : "me quedaron " + consumptionsToCreate.size() + " movimientos por sincronizar");
 
             final List<Expense> expensesCreated;
-            final String resultMessage;
             if (consumptionsToCreate.isEmpty()) {
                 expensesCreated = new ArrayList<>();
-                resultMessage = "Los gastos de la cuenta estan sincronizados!";
             } else {
                 expensesCreated = consumptionsToCreate.stream().map(consumption -> createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount())).collect(Collectors.toList());
                 // Agrego los gastos recien creados al listado de IDs de gastos encontrados
                 expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
-                resultMessage = "Se sincronizaron " + consumptionsToCreate.size() + " gastos en la cuenta";
             }
 
             List<Expense> creditCardAccountExpensesByDates = expenseRepository.findByAccountAndDateBetween(creditCardAccount, minTransactionDate, maxTransactionDate, Sort.by(Sort.Direction.DESC, "date", "id"));
             List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesByDates.stream()
                     // Filtro a los no encontrados y además, los que sean pagos de tarjetas (no vienen en la API)
                     .filter(expense -> !expensesIdFounded.contains(expense.getId()) && expense.getTags().stream().noneMatch(tag -> "Pago de tarjeta".equals(tag.getName())))
+                    .filter(expense -> BigDecimal.ZERO.compareTo(expense.getAmount()) != 0)
                     .toList();
             if (!expensesNotFoundInConsuptions.isEmpty()) {
                 BigDecimal amount = BigDecimal.ZERO;
@@ -422,8 +439,14 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 log.info("En total, estos gastos suman {}", amount);
             }
 
+            SyncResult syncResult = new SyncResult(creditCardAccount.getName());
+            syncResult.setCreatedCount(expensesCreated.size());
+            for (Expense expense : expensesNotFoundInConsuptions) {
+                syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (expense.getDetails() != null ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
+            }
+
             markAccountAsSynced(creditCardAccount);
-            return CommonResult.ok(expensesCreated, resultMessage);
+            return CommonResult.ok(syncResult, syncResult.toHtmlMessage());
         } else {
             throw new IllegalArgumentException("AccountAPICredentials.provider invalid [" + /*accountApiCredentials.getProvider() + */"]");
         }
