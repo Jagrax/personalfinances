@@ -439,7 +439,7 @@
                     </div>
                     <div id="scanDropZone" class="border border-2 rounded p-3 mb-3 text-center" style="border-style: dashed !important; cursor: pointer;">
                         <i class="bi bi-cloud-upload fs-3 text-muted"></i>
-                        <p class="mb-0 text-muted" style="font-size:0.9rem;">Arrastr&aacute; un ticket/factura o hac&eacute; clic para seleccionar</p>
+                        <p class="mb-0 text-muted" style="font-size:0.9rem;">Arrastr&aacute; un ticket/factura, hac&eacute; clic para seleccionar, o peg&aacute; una imagen del clipboard</p>
                         <input type="file" id="scanFileInput" accept="image/jpeg,image/png,image/webp,image/bmp,application/pdf" class="d-none">
                     </div>
                     <div id="scanLoading" class="text-center mb-3 d-none">
@@ -555,6 +555,24 @@
                 scanZone.addEventListener("dragleave", function(e) { e.preventDefault(); e.stopPropagation(); this.style.borderColor = ""; this.style.backgroundColor = ""; });
                 scanZone.addEventListener("drop", function(e) { e.preventDefault(); e.stopPropagation(); this.style.borderColor = ""; this.style.backgroundColor = ""; if (e.dataTransfer.files.length) uploadTicket(e.dataTransfer.files[0]); });
                 scanInput.addEventListener("change", function() { if (this.files.length) uploadTicket(this.files[0]); this.value = ""; });
+
+                document.addEventListener("paste", function(e) {
+                    if ($("#scanLoading").is(":visible")) return;
+                    if ($(".editing-group").length) return;
+                    var items = (e.clipboardData || window.clipboardData).items;
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].type.indexOf("image/") === 0) {
+                            e.preventDefault();
+                            var file = items[i].getAsFile();
+                            if (!file) {
+                                var blob = items[i].getAsFile();
+                                file = new File([blob], "clipboard-image.png", { type: "image/png" });
+                            }
+                            uploadTicket(file);
+                            return;
+                        }
+                    }
+                });
             }
 
             new TomSelect("#expenseFilterTagId", {
