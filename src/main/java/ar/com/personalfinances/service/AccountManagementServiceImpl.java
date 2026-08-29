@@ -332,7 +332,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             if (CollectionUtils.isEmpty(consumptions)) {
                 log.info("[syncCreditCardAccountMovements] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
                 markAccountAsSynced(creditCardAccount);
-                return CommonResult.ok(consumptions, "No se recuperaron movimientos de la tarjeta de credito");
+                SyncResult syncResult = new SyncResult(creditCardAccount.getName());
+                syncResult.setCreatedCount(0);
+                return CommonResult.ok(syncResult, "No se recuperaron movimientos de la tarjeta de credito");
             }
 
             log.info("[syncCreditCardAccountMovements] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", consumptions.size());
