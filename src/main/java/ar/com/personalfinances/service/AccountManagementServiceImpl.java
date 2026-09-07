@@ -129,14 +129,19 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             }
 
             // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+            String bankDesc = getDescription(movement);
             List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, movement.getFecha(), movement.getAmount());
             for (Expense expense : expensesByDateAndAmount) {
                 if (expensesIdFounded.contains(expense.getId())) {
                     continue;
                 }
 
+                // Si hay varios gastos con la misma cuenta, fecha e importe, me fijo que la descripcion original (la que baja el banco y no se puede modificar desde la app) coincida, para no consumir un gasto que corresponde a otro movimiento
+                if (!descriptionMatches(expense, bankDesc)) {
+                    continue;
+                }
+
                 if (!StringUtils.hasText(expense.getOriginalDescription())) {
-                    String bankDesc = getDescription(movement);
                     expense.setOriginalDescription(bankDesc);
                     expenseRepository.save(expense);
                     log.info("[syncBankAccount] Actualizado originalDescription del gasto {}: {}", expense.getId(), bankDesc);
@@ -159,8 +164,11 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                             continue;
                         }
 
+                        if (!descriptionMatches(expense, bankDesc)) {
+                            continue;
+                        }
+
                         if (!StringUtils.hasText(expense.getOriginalDescription())) {
-                            String bankDesc = getDescription(movement);
                             expense.setOriginalDescription(bankDesc);
                             expenseRepository.save(expense);
                             log.info("[syncBankAccount] Actualizado originalDescription del gasto {}: {}", expense.getId(), bankDesc);
@@ -468,6 +476,26 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         }
 
         return description;
+    }
+
+    private String normalizeDescription(String description) {
+        if (!StringUtils.hasText(description)) {
+            return null;
+        }
+
+        return description.replaceAll("<br\\s*/?>", " ")
+                .replaceAll("[^a-zA-Z0-9\\u00C0-\\u024F]", " ")
+                .trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
+    private boolean descriptionMatches(Expense expense, String bankDesc) {
+        if (!StringUtils.hasText(expense.getOriginalDescription())) {
+            return true;
+        }
+
+        return normalizeDescription(expense.getOriginalDescription()).equals(normalizeDescription(bankDesc));
     }
 
     private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount) {
