@@ -199,12 +199,10 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 .toList();
         if (!unmatchedDbExpenses.isEmpty()) {
             log.info("Los siguientes gastos de la cuenta {} no fueron encontrados al sincronizar con el banco:", account.getName());
-            for (Expense expense : unmatchedDbExpenses) {
-                log.info("  {} - {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getDetails() != null ? "(" + expense.getDetails() + ")" : "", expense.getAmount());
+            for (Expense unmatchedDbExpense : unmatchedDbExpenses) {
+                log.info("  {} - {} {} {}", DateUtils.format(unmatchedDbExpense.getDate()), unmatchedDbExpense.getDescription(), unmatchedDbExpense.getDetails() != null ? "(" + unmatchedDbExpense.getDetails() + ")" : "", unmatchedDbExpense.getAmount());
+                syncResult.getUnmatchedDbExpenses().add(DateUtils.format(unmatchedDbExpense.getDate()) + " - " + unmatchedDbExpense.getDescription() + (unmatchedDbExpense.getDetails() != null ? " (" + unmatchedDbExpense.getDetails() + ")" : "") + " " + unmatchedDbExpense.getAmount());
             }
-        }
-        for (Expense expense : unmatchedDbExpenses) {
-            syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (expense.getDetails() != null ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
         }
 
         if (movements.isEmpty()) {
