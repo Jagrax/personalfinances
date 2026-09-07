@@ -528,10 +528,29 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             expense.setTags(new ArrayList<>());
         }
 
+        expense.setDescription(resolveCompleteDescription(account, expense.getDescription()));
+
         expense = expenseRepository.save(expense);
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
+    }
+
+    private String resolveCompleteDescription(Account account, String description) {
+        if (!StringUtils.hasText(description)) {
+            return description;
+        }
+
+        String completeDescription = expenseRepository.findByAccountAndDescriptionStartingWith(account, description).stream()
+                .map(Expense::getDescription)
+                .filter(candidate -> candidate.length() > description.length())
+                .max(Comparator.comparingInt(String::length))
+                .orElse(description);
+
+        if (!completeDescription.equals(description)) {
+            log.info("[createExpense] Usando descripcion completa '{}' en lugar de '{}'", completeDescription, description);
+        }
+        return completeDescription;
     }
 
     @Override

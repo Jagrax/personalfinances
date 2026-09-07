@@ -24,6 +24,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
 
+    List<Expense> findByAccountAndDescriptionStartingWith(Account account, String descriptionPrefix);
+
     @Query(value = "SELECT t.name, t.color, SUM(e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND t.name NOT IN (:excludedTags) GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
     List<Object[]> getLast30DaysSummary(Account account, List<String> excludedTags);
 
