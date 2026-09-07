@@ -506,7 +506,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         Optional<ExpenseMapping> matchOpt = expenseMappingService.matchExpenseMapping(user, bankDescription);
         if (matchOpt.isPresent()) {
             ExpenseMapping mapping = matchOpt.get();
-            expense.setDescription(StringUtils.hasText(mapping.getNormalizedDescription()) ? mapping.getNormalizedDescription() : bankDescription);
+            expense.setDescription(expenseMappingService.resolveNormalizedDescription(mapping, bankDescription));
             expense.setDetails(mapping.getDetails());
             expense.setTags(mapping.getTags() != null ? new ArrayList<>(mapping.getTags()) : new ArrayList<>());
         } else {
