@@ -476,16 +476,29 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         return description;
     }
 
-    private String normalizeDescription(String description) {
+    private String movementStableKey(String description) {
         if (!StringUtils.hasText(description)) {
             return null;
         }
 
-        return description.replaceAll("<br\\s*/?>", " ")
-                .replaceAll("[^a-zA-Z0-9\\u00C0-\\u024F]", " ")
-                .trim()
-                .replaceAll("\\s+", " ")
-                .toLowerCase();
+        // El banco puede reordenar/variar los campos de la cola (CBU, medios de pago, numeros de referencia), pero los primeros campos
+        // (header, nombre del tercero, CUIT/DNI) son estables para la misma transferencia. Los primeros 3 alcanzan para identificar el movimiento.
+        String[] segments = description.split("<br\\s*/?>");
+        List<String> stableFields = new ArrayList<>();
+        for (String segment : segments) {
+            String normalized = segment.replaceAll("[^a-zA-Z0-9\\u00C0-\\u024F]", " ")
+                    .trim()
+                    .replaceAll("\\s+", " ")
+                    .toLowerCase();
+            if (StringUtils.hasText(normalized)) {
+                stableFields.add(normalized);
+            }
+            if (stableFields.size() == 3) {
+                break;
+            }
+        }
+
+        return String.join("|", stableFields);
     }
 
     private boolean descriptionMatches(Expense expense, String bankDesc) {
@@ -493,7 +506,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             return true;
         }
 
-        return normalizeDescription(expense.getOriginalDescription()).equals(normalizeDescription(bankDesc));
+        return movementStableKey(expense.getOriginalDescription()).equals(movementStableKey(bankDesc));
     }
 
     private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount) {
