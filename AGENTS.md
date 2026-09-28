@@ -20,10 +20,10 @@ Aplicación web personal de finanzas (MVC server-side, no SPA). Sincroniza movim
 ## Entorno / Config
 
 - **Datasource**: JNDI `java:/personalfinancesDS` definido en `src/main/webapp/WEB-INF/personalfinances-ds.xml` (gitignored; credenciales SOLO ahí, nunca duplicadas). Para ambiente local los datos apuntan a DB MySQL.
-- **BD**: MySQL 8 local. Existen BD `pfindesa` (dev) y `pfinprod` (prod). Cliente MySQL instalado en `C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe` (usar solo si hace falta consultar; preguntar antes de modificar datos).
+- **BD**: MySQL 8. Existen dos bases: una de desarrollo y una de producción. El cliente `mysql.exe` va en el PATH o se configura con `app.mysql.bin.path` (usar solo si hace falta consultar; preguntar antes de modificar datos).
 - `src/main/resources/application-wildfly.properties`: profile `wildfly`, `ddl-auto=validate` (no altera schema), context-path `/personalfinances`, formatos dd/MM/yyyy. **No hay `application.properties` default**.
 - `src/main/webapp/WEB-INF/jboss-deployment-structure.xml`: excluye módulos JBoss (SLF4J, Hibernate, Jackson) para que el WAR use sus versiones.
-- Perfil maven `release` (se activa con `-DskipTests`): excluye `personalfinances-ds.xml` y copia el WAR a `C:\wildfly-33.0.1.Final-pfinprod\standalone\deployments` vía maven-antrun-plugin.
+- Perfil maven `release` (se activa con `-DskipTests`): excluye `personalfinances-ds.xml` y copia el WAR al directorio de deployments vía maven-antrun-plugin, solo si se pasa `-Dwildfly.deploy.dir=<ruta>` (con el default vacío no copia a ningún lado).
 - Migraciones SQL en `db/` (raíz) y `src/main/resources/db/`. `db/` y `personalfinances-ds.xml` están gitignored.
 
 ## Arquitectura (paquetes principales)

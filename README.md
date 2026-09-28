@@ -1,36 +1,39 @@
 # PFIN - Configuración de Base de Datos (DESA / PROD)
 
-Este proyecto utiliza dos bases de datos distintas para los entornos de desarrollo y producción:
+Este proyecto utiliza dos bases de datos distintas para los entornos de desarrollo y producción.
 
-- **pfindesa**: Entorno de desarrollo
-- **pfinprod**: Entorno de producción
+Los nombres concretos de cada base son locales de cada instalación y **no se versionan**: en los
+ejemplos de abajo se usan `<db_desarrollo>` y `<db_produccion>` como placeholders. Reemplazalos por
+los tuyos.
 
-Ambas bases tienen usuarios propios con el mismo nombre que la base:
-
-| Entorno    | Base de datos | Usuario  |
-| ---------- | ------------- | -------- |
-| Desarrollo | pfindesa      | pfindesa |
-| Producción | pfinprod      | pfinprod |
+| Entorno    | Base de datos     | Usuario           |
+| ---------- | ----------------- | ----------------- |
+| Desarrollo | `<db_desarrollo>` | `<usuario_desarrollo>` |
+| Producción | `<db_produccion>` | `<usuario_produccion>`  |
 
 ---
 
 ## 1. Creación de bases de datos y usuarios
 
-Ejecutar este script en tu servidor MySQL:
+Ejecutar este script en tu servidor MySQL (reemplazando los placeholders, y usando contraseñas
+reales fuertes):
 
 ```sql
 -- Base de datos de desarrollo
-CREATE DATABASE IF NOT EXISTS pfindesa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'pfindesa'@'localhost' IDENTIFIED BY 'pfindesa';
-GRANT ALL PRIVILEGES ON pfindesa.* TO 'pfindesa'@'localhost';
+CREATE DATABASE IF NOT EXISTS <db_desarrollo> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '<usuario_desarrollo>'@'localhost' IDENTIFIED BY '<password_desarrollo>';
+GRANT ALL PRIVILEGES ON <db_desarrollo>.* TO '<usuario_desarrollo>'@'localhost';
 
 -- Base de datos de producción
-CREATE DATABASE IF NOT EXISTS pfinprod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'pfinprod'@'localhost' IDENTIFIED BY 'pfinprod';
-GRANT ALL PRIVILEGES ON pfinprod.* TO 'pfinprod'@'localhost';
+CREATE DATABASE IF NOT EXISTS <db_produccion> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '<usuario_produccion>'@'localhost' IDENTIFIED BY '<password_produccion>';
+GRANT ALL PRIVILEGES ON <db_produccion>.* TO '<usuario_produccion>'@'localhost';
 
 FLUSH PRIVILEGES;
 ```
+
+> Nunca uses una contraseña igual al nombre del usuario. Las credenciales reales viven en
+> `standalone.xml` (producción) o en `personalfinances-ds.xml` (local, gitignored).
 
 ---
 
@@ -109,13 +112,13 @@ Cada instalación de WildFly debe tener un datasource con JNDI `java:/personalfi
 ```xml
 <datasource jndi-name="java:/personalfinancesDS"
             pool-name="personalfinancesDS">
-    <connection-url>jdbc:mysql://localhost:3306/pfindesa</connection-url>
+    <connection-url>jdbc:mysql://localhost:3306/&lt;db_produccion&gt;</connection-url>
     <driver>mysql</driver>
     <pool>
         <min-pool-size>5</min-pool-size>
         <max-pool-size>20</max-pool-size>
     </pool>
-    <security user-name="pfindesa" password="pfindesa"/>
+    <security user-name="&lt;usuario&gt;" password="&lt;password&gt;"/>
 </datasource>
 ```
 
@@ -126,11 +129,11 @@ Cada instalación de WildFly debe tener un datasource con JNDI `java:/personalfi
 ```xml
 <datasource jndi-name="java:/personalfinancesDS"
             pool-name="personalfinancesDS">
-    <connection-url>jdbc:mysql://localhost:3306/pfindesa</connection-url>
+    <connection-url>jdbc:mysql://localhost:3306/&lt;db_desarrollo&gt;</connection-url>
     <driver>mysql</driver>
     <security>
-        <user-name>pfindesa</user-name>
-        <password>pfindesa</password>
+        <user-name>&lt;usuario_desarrollo&gt;</user-name>
+        <password>&lt;password_desarrollo&gt;</password>
     </security>
     <pool>
         <min-pool-size>5</min-pool-size>
@@ -180,32 +183,37 @@ No requiere ningún cambio. Simplemente ejecutás la configuración de Run/Debug
 
 **B — Release a producción (generar el WAR con `mvn package -DskipTests`)**
 
-Cuando quieras generar el WAR para producción (que se copia solo a `C:\wildfly-33.0.1.Final-pfinprod\standalone\deployments\`), tenés dos opciones desde IntelliJ:
+Cuando quieras generar el WAR para producción, tenés dos opciones desde IntelliJ. El destino del
+deploy **no está hardcodeado en el repo**: se pasa por línea de comandos con `-Dwildfly.deploy.dir=<ruta>`
+(si no se pasa, el build no copia el WAR a ningún lado).
 
 1. **Opcion recomendada — Run Configuration Maven** (una vez creada, es solo un click):
    - `Run → Edit Configurations...`
    - Click `+` → `Maven`
    - Name: `personalfinances release`
-   - Working directory: `C:\Users\Jagrax\Workspace\personalfinances`
-   - Command line: `package -DskipTests`
+   - Working directory: la carpeta raíz del proyecto
+   - Command line: `package -DskipTests -Dwildfly.deploy.dir=<standalone/deployments del WildFly de producción>`
    - Aceptar
    - A partir de ahora, para release ejecutás esa configuración (el botón de Run con el nombre `personalfinances release` seleccionado)
 
 2. **Maven tool window (una vez, sin crear configuración)**:
    - Abrir la ventana `Maven` (View → Tool Windows → Maven, o el costado derecho)
    - Click en el ícono `Execute Maven Goal` (una `m` con una flechita, o `Ctrl+Alt+Shift+X` → `Ctrl+Alt+Shift+X` de vuelta para goals)
-   - Escribir: `package -DskipTests`
+   - Escribir: `package -DskipTests -Dwildfly.deploy.dir=<ruta>`
    - Enter
 
-Con cualquiera de las dos, el perfil `release` se activa por el `-DskipTests`, se excluye el `-ds.xml` del WAR, y el `maven-antrun-plugin` copia el WAR a la carpeta de producción automáticamente.
+Con cualquiera de las dos, el perfil `release` se activa por el `-DskipTests`, se excluye el `-ds.xml` del WAR, y el `maven-antrun-plugin` copia el WAR a la carpeta de producción si y solo si definiste `wildfly.deploy.dir`.
 
 ---
 
 ## 4. Recomendaciones
 
-- El usuario debe tener el mismo nombre que la base.
+- No usar contraseñas iguales al nombre del usuario ni de la base.
 - Mantener las contraseñas en un archivo `.env` si se usan herramientas como Docker o un gestor de secretos.
 - No usar `ddl-auto=create` en producción (peligroso).
 - Hacer backups periódicos.
+- **No versionar rutas de tu máquina**: installs de MySQL/WildFly, carpetas de deployments y
+  nombres de bases van por system property (`standalone.xml`) o por línea de comandos
+  (`-Dwildfly.deploy.dir=...`). Criterio: si el valor depende de dónde corre, no va en el repo.
 
 
