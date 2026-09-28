@@ -32,14 +32,18 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final AlertEventService alertEventService;
     private final ExpenseMappingService expenseMappingService;
     private final ChartJsServiceImpl chartJsServiceImpl;
+    private final CardPeriodService cardPeriodService;
+    private final CardInstallmentGenerator cardInstallmentGenerator;
 
-    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, ChartJsServiceImpl chartJsServiceImpl) {
+    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, ChartJsServiceImpl chartJsServiceImpl, CardPeriodService cardPeriodService, CardInstallmentGenerator cardInstallmentGenerator) {
         this.galiciaApiService = galiciaApiService;
         this.expenseRepository = expenseRepository;
         this.accountRepository = accountRepository;
         this.alertEventService = alertEventService;
         this.expenseMappingService = expenseMappingService;
         this.chartJsServiceImpl = chartJsServiceImpl;
+        this.cardPeriodService = cardPeriodService;
+        this.cardInstallmentGenerator = cardInstallmentGenerator;
     }
 
     private CommonResult validateBankAccountToSync(Account account) {
@@ -329,6 +333,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
 
             final String galiciaAccountNumber = creditCardAccount.getExternalAccountId();
             log.info("[syncCreditCardAccountMovements] Por sincronizar movimientos de la tarjeta de credito {} con externalAccountId {}", creditCardAccount.getName(), galiciaAccountNumber);
+            cardPeriodService.syncFromGalicia(creditCardAccount, cookies);
             CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(cookies, creditCardBrand, galiciaAccountNumber);
             if (getCardMovementsResult.isError()) {
                 return getCardMovementsResult;
@@ -337,6 +342,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
             if (CollectionUtils.isEmpty(consumptions)) {
                 log.info("[syncCreditCardAccountMovements] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
+                cardPeriodService.backfillPeriods(creditCardAccount);
+                cardInstallmentGenerator.generatePendingInstallments(creditCardAccount);
                 markAccountAsSynced(creditCardAccount);
                 SyncResult syncResult = new SyncResult(creditCardAccount.getName());
                 syncResult.setCreatedCount(0);
@@ -403,6 +410,15 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                         log.info("[syncCreditCardAccountMovements] Actualizado originalDescription del gasto {}: {}", expense.getId(), consumption.getMerchantName());
                     }
 
+                    if (expense.getPeriod() == null) {
+                        final CardPeriod period = resolvePeriodForConsumption(creditCardAccount, consumption);
+                        if (period != null) {
+                            expense.setPeriod(period);
+                            expenseRepository.save(expense);
+                            log.info("[syncCreditCardAccountMovements] Asignado periodo {} al gasto {}: {}", period.getClosingDate(), expense.getId(), consumption.getMerchantName());
+                        }
+                    }
+
                     expensesIdFounded.add(expense.getId());
                     found = true;
                     break;
@@ -411,10 +427,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
                 if (!found) {
                     if (isQuota) {
-                        log.info("No se encontra la expense para el {}", consumption);
-                    } else {
-                        consumptionsToCreate.add(consumption);
+                        log.info("[syncCreditCardAccountMovements] Cuota {} de {} por {} no encontrada, se crea el Expense", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
                     }
+                    consumptionsToCreate.add(consumption);
                 }
             }
 
@@ -426,13 +441,22 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             if (consumptionsToCreate.isEmpty()) {
                 expensesCreated = new ArrayList<>();
             } else {
-                expensesCreated = consumptionsToCreate.stream().map(consumption -> createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount())).collect(Collectors.toList());
+                expensesCreated = consumptionsToCreate.stream().map(consumption -> {
+                    final CardPeriod period = resolvePeriodForConsumption(creditCardAccount, consumption);
+                    final String details = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0 && consumption.getInstallmentNumber() != null
+                            ? "Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan()
+                            : null;
+                    return createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details);
+                }).collect(Collectors.toList());
                 // Agrego los gastos recien creados al listado de IDs de gastos encontrados
                 expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
             }
 
-            List<Expense> creditCardAccountExpensesByDates = expenseRepository.findByAccountAndDateBetween(creditCardAccount, minTransactionDate, maxTransactionDate, Sort.by(Sort.Direction.DESC, "date", "id"));
-            List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesByDates.stream()
+            final CardPeriod openPeriod = cardPeriodService.findOpenPeriod(creditCardAccount);
+            final List<Expense> creditCardAccountExpensesToCheck = openPeriod != null
+                    ? expenseRepository.findByAccountAndPeriod(creditCardAccount, openPeriod)
+                    : expenseRepository.findByAccountAndDateBetween(creditCardAccount, minTransactionDate, maxTransactionDate, Sort.by(Sort.Direction.DESC, "date", "id"));
+            List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesToCheck.stream()
                     // Filtro a los no encontrados y además, los que sean pagos de tarjetas (no vienen en la API)
                     .filter(expense -> !expensesIdFounded.contains(expense.getId()) && expense.getTags().stream().noneMatch(tag -> "Pago de tarjeta".equals(tag.getName())))
                     .filter(expense -> BigDecimal.ZERO.compareTo(expense.getAmount()) != 0)
@@ -450,8 +474,13 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             SyncResult syncResult = new SyncResult(creditCardAccount.getName());
             syncResult.setCreatedCount(expensesCreated.size());
             for (Expense expense : expensesNotFoundInConsuptions) {
-                syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (expense.getDetails() != null ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
+                syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (StringUtils.hasText(expense.getDetails()) ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
             }
+
+            // Asigno periodo a los gastos historicos de la tarjeta que todavia no lo tienen
+            cardPeriodService.backfillPeriods(creditCardAccount);
+            // Genero las cuotas siguientes de los periodos que hayan cerrado
+            cardInstallmentGenerator.generatePendingInstallments(creditCardAccount);
 
             markAccountAsSynced(creditCardAccount);
             return CommonResult.ok(syncResult, syncResult.toHtmlMessage());
@@ -509,7 +538,16 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         return movementStableKey(expense.getOriginalDescription()).equals(movementStableKey(bankDesc));
     }
 
+    private CardPeriod resolvePeriodForConsumption(Account creditCardAccount, Consumption consumption) {
+        final LocalDate periodDate = consumption.getSubmissionDate() != null ? consumption.getSubmissionDate() : consumption.getTransactionDate();
+        return cardPeriodService.findPeriodForDate(creditCardAccount, periodDate);
+    }
+
     private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount) {
+        return createExpense(user, date, account, bankDescription, amount, null, null);
+    }
+
+    private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount, CardPeriod period, String details) {
         Expense expense = new Expense();
         expense.setUser(user);
         expense.setDate(date);
@@ -520,15 +558,16 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         if (matchOpt.isPresent()) {
             ExpenseMapping mapping = matchOpt.get();
             expense.setDescription(expenseMappingService.resolveNormalizedDescription(mapping, bankDescription));
-            expense.setDetails(mapping.getDetails());
+            expense.setDetails(StringUtils.hasText(details) ? details : mapping.getDetails());
             expense.setTags(mapping.getTags() != null ? new ArrayList<>(mapping.getTags()) : new ArrayList<>());
         } else {
             expense.setDescription(bankDescription);
-            expense.setDetails(null);
+            expense.setDetails(StringUtils.hasText(details) ? details : null);
             expense.setTags(new ArrayList<>());
         }
 
         expense.setDescription(resolveCompleteDescription(account, expense.getDescription()));
+        expense.setPeriod(period);
 
         expense = expenseRepository.save(expense);
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
