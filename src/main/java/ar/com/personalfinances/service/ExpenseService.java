@@ -20,6 +20,7 @@ public class ExpenseService {
     private final AlertEventService alertEventService;
     private final TagRepository tagRepository;
     private final AccountRepository accountRepository;
+    private final CardPeriodService cardPeriodService;
 
     public Expense saveWithAudit(Expense expense, User user) {
 
@@ -40,6 +41,12 @@ public class ExpenseService {
             for (ExpenseItem item : expense.getItems()) {
                 item.setExpense(expense);
             }
+        }
+
+        if (expense.getPeriod() == null
+                && expense.getAccount() != null
+                && AccountType.CREDIT_CARD.equals(expense.getAccount().getType())) {
+            expense.setPeriod(cardPeriodService.findPeriodForDate(expense.getAccount(), expense.getDate()));
         }
 
         expense = expenseRepository.save(expense);

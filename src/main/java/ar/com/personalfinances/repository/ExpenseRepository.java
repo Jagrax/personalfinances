@@ -1,6 +1,7 @@
 package ar.com.personalfinances.repository;
 
 import ar.com.personalfinances.entity.Account;
+import ar.com.personalfinances.entity.CardPeriod;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.entity.User;
 import org.springframework.data.domain.Sort;
@@ -32,7 +33,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     @Query(value = "SELECT t.name, t.color, SUM(-1 * e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND e.date >= CURDATE() - INTERVAL 30 DAY AND t.name NOT IN (:excludedTags) AND e.description NOT LIKE :excludedDescriptionPattern AND e.amount < 0 GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
     List<Object[]> getLast30DaysSummaryForBankAccount(Account account, List<String> excludedTags, String excludedDescriptionPattern);
 
-    @Query(value = "SELECT t.name, t.color, SUM(e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND e.date >= :periodStart AND (e.amount > 0 OR (e.amount < 0 AND t.id IN (:refundTagIds)) ) GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
+    @Query(value = "SELECT t.name, t.color, SUM(e.amount) FROM expenses e JOIN expense_tags et ON et.expense_id = e.id JOIN tags t ON t.id = et.tag_id WHERE e.account_id = :#{#account.id} AND ((e.period_id IS NOT NULL AND e.period_id IN (SELECT id FROM card_periods WHERE account_id = :#{#account.id} AND status = 'OPEN')) OR (e.period_id IS NULL AND e.date >= :periodStart)) AND (e.amount > 0 OR (e.amount < 0 AND t.id IN (:refundTagIds))) GROUP BY t.name, t.color ORDER BY t.name", nativeQuery = true)
     List<Object[]> getLastPeriodSummaryForCreditCard(Account account, LocalDate periodStart, List<Long> refundTagIds);
 
     @Query(value = "SELECT MAX(e.date) FROM expenses e WHERE e.account_id = :#{#account.id} and e.description = 'Reembolso Gastos'", nativeQuery = true)
@@ -45,4 +46,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     BigDecimal sumByAccount(Account account);
 
     List<Expense> findByAccount(Account account);
+
+    List<Expense> findByAccountAndPeriodIsNull(Account account);
+
+    List<Expense> findByAccountAndPeriod(Account account, CardPeriod period);
 }

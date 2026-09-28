@@ -126,7 +126,12 @@ public class AccountsController {
             return getAccountsPage(model, accountSearch, page, size, accountIdToEdit);
         }
 
-        accountRepository.save(account);
+        Account existingAccount = accountRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Account", "id", id));
+        existingAccount.setOwner(account.getOwner());
+        existingAccount.setName(account.getName());
+        existingAccount.setType(account.getType());
+        existingAccount.setIcon(account.getIcon());
+        accountRepository.save(existingAccount);
 
         return "redirect:/accounts";
     }

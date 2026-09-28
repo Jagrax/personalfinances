@@ -5,6 +5,7 @@ import lombok.Setter;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -49,7 +50,7 @@ public class Account {
     public SyncProvider syncProvider;
 
     @Column(name = "closing_day")
-    private Integer closingDay;
+    private LocalDate closingDay;
 
     @Column(name = "last_sync_at")
     private LocalDateTime lastSyncAt;

@@ -58,6 +58,11 @@ public class Expense {
     private Account account = new Account();
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "period_id", foreignKey = @ForeignKey(name = "fk_expense_period"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private CardPeriod period;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", foreignKey = @ForeignKey(name = "fk_expense_user"))
     @JsonIgnoreProperties({"expenses", "hibernateLazyInitializer", "handler"})
     private User user;
