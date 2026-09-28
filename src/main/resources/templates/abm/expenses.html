@@ -193,17 +193,18 @@
             <thead class="text-center">
             <tr>
                 <th class="bulk-edit-column d-none" style="width:35px"><input type="checkbox" id="bulkSelectAll" checked></th>
+                <th>Per&iacute;odo</th>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
                 <th class="original-description-column d-none">Origen</th>
                 <th>Detalle</th>
                 <th>Tags</th>
                 <th>Importe</th>
-                <th style="width:55px">Items</th>
-                <th colspan="4">Acciones</th>
+                <th colspan="5">Acciones</th>
             </tr>
             <tr id="bulkEditRow" class="table-warning d-none">
                 <td class="bulk-edit-column text-center"><i class="bi bi-lightning-charge"></i></td>
+                <td></td>
                 <td class="bulk-cell" data-field="date">
                     <div class="d-flex align-items-center gap-1">
                         <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
@@ -237,8 +238,7 @@
                     </div>
                 </td>
                 <td></td>
-                <td></td>
-                <td colspan="4" class="text-center">
+                <td colspan="5" class="text-center">
                     <div class="d-flex gap-2 justify-content-center">
                         <button type="button" id="bulkSaveButton" class="btn btn-sm btn-success" disabled onclick="saveBulkEdit()"><i class="bi bi-save"></i></button>
                         <button type="button" class="btn btn-sm btn-secondary" onclick="toggleBulkEditMode(false)"><i class="bi bi-x-lg"></i></button>
@@ -247,7 +247,7 @@
             </tr>
             </thead>
             <tbody th:if="${#lists.isEmpty(expensesPage.content)}">
-                <tr><td colspan="11">No hay registros para mostrar!</td></tr>
+                <tr><td colspan="12">No hay registros para mostrar!</td></tr>
             </tbody>
             <tbody th:unless="${#lists.isEmpty(expensesPage.content)}" class="expense-group"
                    th:each="expense : ${expensesPage.content}"
@@ -265,6 +265,9 @@
                 <tr>
                     <td class="bulk-edit-column text-center d-none">
                         <input type="checkbox" class="bulk-expense-selector" th:value="${expense.id}" checked>
+                    </td>
+                    <td class="text-center period-column">
+                        <span class="period-label" th:text="${expense.period != null ? expense.period.periodMonthLabel : ''}"></span>
                     </td>
                     <td class="text-center filterable" data-field="date" style="width:100px" th:attr="data-value=${#temporals.format(expense.date,'yyyy-MM-dd')}">
                         <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
@@ -298,11 +301,10 @@
                             <span class="col-auto px-2" th:text="${expense.account != null && expense.account.currency != null ? expense.account.currency : 'ARS'}"></span>
                         </div>
                     </td>
-                    <td class="text-center" style="width:55px">
-                        <button type="button" class="btn btn-sm btn-link p-1" onclick="openItemsModal(this)"
+                    <td class="text-center" style="width:35px">
+                        <button type="button" class="btn btn-link p-0" onclick="openItemsModal(this)"
                                 th:title="${#lists.isEmpty(expense.items) ? 'Agregar items' : 'Ver items'}">
                             <i class="bi bi-cart-plus" th:classappend="${!#lists.isEmpty(expense.items)} ? '' : 'text-secondary'"></i>
-                            <span th:if="${!#lists.isEmpty(expense.items)}" class="badge bg-secondary rounded-pill" th:text="${#lists.size(expense.items)}"></span>
                         </button>
                     </td>
                     <td class="text-center" style="width:35px"><button th:disabled="${#strings.isEmpty(expense.comments)}" type="button" class="btn btn-link p-0" data-bs-title="Comentario" data-bs-custom-class="custom-popover" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="left" th:attr="data-bs-content=|${expense.comments}|"><i class="bi bi-chat-text"></i></button></td>
@@ -320,7 +322,7 @@
                         <span class="col-auto px-2" th:text="${onPageTotalAmountsAcumByCurrency.key}"></span>
                     </div>
                 </td>
-                <td colspan="5"></td>
+                <td colspan="6"></td>
             </tr>
             </tfoot>
         </table>
@@ -380,6 +382,7 @@
         <template id="expenseEditGroupTemplate">
             <tbody class="editing-group table-warning">
                 <tr>
+                    <td class="text-center period-column"><span class="period-label"></span></td>
                     <td><input type="date" class="form-control form-control-sm" name="date"></td>
                     <td><input class="form-control form-control-sm" name="description"></td>
                     <td class="original-description-column d-none">
@@ -393,24 +396,19 @@
                         </select>
                     </td>
                     <td><input class="form-control form-control-sm text-end" type="number" step=".01" name="amount"></td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-link p-1 text-secondary" onclick="openItemsModal(this)" title="Agregar items">
-                            <i class="bi bi-cart-plus"></i>
-                        </button>
-                    </td>
-                    <td colspan="2" rowspan="2" class="text-center" style="width:70px">
-                        <button type="button" class="btn btn-sm btn-success" onclick="saveExpense(this)">
-                            <i class="bi bi-save"></i>
-                        </button>
-                    </td>
-                    <td colspan="2" rowspan="2" class="text-center" style="width:70px">
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(this)">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
+                    <td colspan="5" rowspan="2" class="text-center">
+                        <div class="d-flex justify-content-around">
+                            <button type="button" class="btn btn-sm btn-success" onclick="saveExpense(this)">
+                                <i class="bi bi-save"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEdit(this)">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-end">Comentario</td>
+                    <td class="text-end" colspan="2">Comentario</td>
                     <td colspan="3"><input class="form-control form-control-sm" name="comments"></td>
                     <td class="text-end">Cuenta</td>
                     <td>
@@ -655,6 +653,7 @@
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
+            group.find(".period-label").text(sourceGroup.find(".period-label").text());
 
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
 
@@ -724,6 +723,7 @@
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
+            group.find(".period-label").text(sourceGroup.find(".period-label").text());
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
 
             var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
