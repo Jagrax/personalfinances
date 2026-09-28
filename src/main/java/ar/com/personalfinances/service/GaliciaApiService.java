@@ -31,6 +31,8 @@ public interface GaliciaApiService {
 
     CommonResult getCardsOverview(String cookies);
 
+    CommonResult getCardSettlements(String cookies);
+
     CommonResult establishCuentasSession(String onlinebankingCookies);
 
     CommonResult establishCuentasSessionDirect(String onlinebankingCookies);

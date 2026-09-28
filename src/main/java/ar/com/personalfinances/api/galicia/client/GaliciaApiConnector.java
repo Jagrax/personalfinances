@@ -1,5 +1,6 @@
 package ar.com.personalfinances.api.galicia.client;
 
+import ar.com.personalfinances.api.galicia.io.GetCardsOverviewResponse;
 import ar.com.personalfinances.api.galicia.io.GetMovimientosCuentaResponse;
 import ar.com.personalfinances.api.galicia.io.PostCardsMovementsRequest;
 import ar.com.personalfinances.api.galicia.io.PostCardsMovementsResponse;
@@ -9,6 +10,9 @@ import ar.com.personalfinances.util.DateUtils;
 import ar.com.personalfinances.webclient.RestConnector;
 import ar.com.personalfinances.webclient.RestConnectorException;
 import ar.com.personalfinances.webclient.RestSecurityManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -36,6 +40,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class GaliciaApiConnector {
+
+    private static final ObjectMapper OVERVIEW_OBJECT_MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     public GetMovimientosCuentaResponse getMovimientosCuenta(String cuentasCookies, LocalDate fechaDesde, LocalDate fechaHasta, GaliciaApiService.TipoMovimiento tipoMovimiento, Long pageNumber) throws RestConnectorException {
         final RestConnector connector = new RestConnector("https://cuentas.bancogalicia.com.ar", new RestSecurityManager() {
@@ -322,6 +330,18 @@ public class GaliciaApiConnector {
             throw new RestConnectorException("getCardsOverview failed: " + e.getResponseBodyAsString(), e.getStatusCode().value(), e.getStatusCode(), e.getResponseBodyAsString());
         } catch (RestClientException e) {
             throw new RestConnectorException("getCardsOverview error: " + e.getMessage(), e);
+        }
+    }
+
+    public GetCardsOverviewResponse getCardsOverviewResponse(String cookies) throws RestConnectorException {
+        final String rawJson = getCardsOverview(cookies);
+        if (!StringUtils.hasText(rawJson)) {
+            throw new RestConnectorException("getCardsOverview returns an empty body");
+        }
+        try {
+            return OVERVIEW_OBJECT_MAPPER.readValue(rawJson, GetCardsOverviewResponse.class);
+        } catch (Exception e) {
+            throw new RestConnectorException("La respuesta de getCardsOverview no tiene el formato esperado. Resultado: [" + rawJson + "]", e);
         }
     }
 

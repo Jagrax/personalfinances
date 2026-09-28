@@ -2,6 +2,7 @@ package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.api.galicia.client.GaliciaApiConnector;
 import ar.com.personalfinances.api.galicia.io.ErrorResponse;
+import ar.com.personalfinances.api.galicia.io.GetCardsOverviewResponse;
 import ar.com.personalfinances.api.galicia.io.GetMovimientosCuentaResponse;
 import ar.com.personalfinances.api.galicia.io.PostCardsMovementsRequest;
 import ar.com.personalfinances.api.galicia.io.PostCardsMovementsResponse;
@@ -11,10 +12,13 @@ import ar.com.personalfinances.webclient.RestConnectorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -95,6 +99,32 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
         }
 
         return CommonResult.ok(data.getConsumptions());
+    }
+
+    @Override
+    public CommonResult getCardSettlements(String cookies) {
+        final GetCardsOverviewResponse getCardsOverviewResponse;
+        try {
+            getCardsOverviewResponse = new GaliciaApiConnector().getCardsOverviewResponse(cookies);
+        } catch (RestConnectorException e) {
+            return logAndReturnError("getCardSettlements", e);
+        }
+
+        if (getCardsOverviewResponse == null || CollectionUtils.isEmpty(getCardsOverviewResponse.getData())) {
+            return CommonResult.error("getCardsOverview returns no data");
+        }
+
+        final Map<String, CardSettlements> settlementsByAccountNumber = new LinkedHashMap<>();
+        for (DataOverview dataOverview : getCardsOverviewResponse.getData()) {
+            if (CollectionUtils.isEmpty(dataOverview.getCreditCards())) continue;
+
+            for (CreditCardOverview creditCard : dataOverview.getCreditCards()) {
+                settlementsByAccountNumber.put(creditCard.getAccountNumber(), CardSettlements.from(creditCard.getSettlementClosingDates(), creditCard.getSettlementDueDates()));
+            }
+        }
+
+        log.info("[getCardSettlements] Periodos obtenidos de Galicia: {}", settlementsByAccountNumber);
+        return CommonResult.ok(settlementsByAccountNumber);
     }
 
     @Override
