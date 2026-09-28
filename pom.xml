@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>ar.com</groupId>
 	<artifactId>personalfinances</artifactId>
-	<version>2.5.1</version>
+	<version>2.5.2</version>
 	<packaging>war</packaging>
 	<name>personalfinances</name>
 	<description>Application to register income and expenses of money in different accounts</description>
@@ -142,13 +142,25 @@
 						</goals>
 						<configuration>
 							<target>
-								<condition property="wildfly.deploy.enabled">
-									<not>
-										<equals arg1="${wildfly.deploy.dir}" arg2="" />
-									</not>
+								<condition property="wildfly.deploy.skip">
+									<equals arg1="${wildfly.deploy.dir}" arg2="" />
 								</condition>
+								<fail message="wildfly.deploy.dir no existe o no es un directorio: ${wildfly.deploy.dir}"
+									  unless="wildfly.deploy.skip">
+									<condition>
+										<not>
+											<available file="${wildfly.deploy.dir}" type="dir" />
+										</not>
+									</condition>
+								</fail>
+								<antcall target="deploy-war" />
+								<echo message="Sin -Dwildfly.deploy.dir no se copia el WAR. Queda en target/${project.build.finalName}.war"
+									  if="wildfly.deploy.skip" />
+							</target>
+							<target name="deploy-war" unless="wildfly.deploy.skip">
 								<copy file="${project.build.directory}/${project.build.finalName}.war"
-									  todir="${wildfly.deploy.dir}" overwrite="true" if="wildfly.deploy.enabled"/>
+									  todir="${wildfly.deploy.dir}" overwrite="true" />
+								<echo message="WAR copiado a ${wildfly.deploy.dir}" />
 							</target>
 						</configuration>
 					</execution>
