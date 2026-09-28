@@ -1,11 +1,14 @@
 package ar.com.personalfinances.controller;
 
 import ar.com.personalfinances.entity.Account;
+import ar.com.personalfinances.entity.AccountType;
+import ar.com.personalfinances.entity.CardPeriodStatus;
 import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
+import ar.com.personalfinances.repository.CardPeriodRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.ReportsRepository;
@@ -43,9 +46,10 @@ public class ApplicationController {
     private final SpecificationsService specificationsService;
     private final ChartJsService chartJsService;
     private final TagRepository tagRepository;
+    private final CardPeriodRepository cardPeriodRepository;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, ChartJsService chartJsService, TagRepository tagRepository) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, ChartJsService chartJsService, TagRepository tagRepository, CardPeriodRepository cardPeriodRepository) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
@@ -53,6 +57,7 @@ public class ApplicationController {
         this.specificationsService = specificationsService;
         this.chartJsService = chartJsService;
         this.tagRepository = tagRepository;
+        this.cardPeriodRepository = cardPeriodRepository;
     }
 
     @RequestMapping("/expenses/report")
@@ -69,8 +74,11 @@ public class ApplicationController {
                 "Fecha", "Descripcion", "Origen", "Importe", "Detalles", "Comentarios", "Tags", "Cuenta"
         }));
         final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+        final DateTimeFormatter periodDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         serviciosReport.addAll(expenses.stream().map(e -> new String[]{
-                e.getDate().format(dateTimeFormatter), e.getDescription(), e.getOriginalDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getTags().stream().map(t -> t.getName()).collect(Collectors.joining(", ")), e.getAccount() != null ? e.getAccount().getName() : ""
+                e.getPeriod() != null && e.getPeriod().getPeriodStart() != null
+                        ? "Resumen " + e.getPeriod().getPeriodStart().format(periodDateFormatter) + " - " + e.getPeriod().getClosingDate().format(periodDateFormatter)
+                        : e.getDate().format(dateTimeFormatter), e.getDescription(), e.getOriginalDescription(), e.getAmount().abs().toString(), e.getDetails(), e.getComments(), e.getTags().stream().map(t -> t.getName()).collect(Collectors.joining(", ")), e.getAccount() != null ? e.getAccount().getName() : ""
         }).collect(Collectors.toList()));
         model.addAttribute("serviciosReport", serviciosReport);
 
@@ -184,6 +192,14 @@ public class ApplicationController {
     public String getDashboardPage(Model model) {
         List<Object[]> raw = reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId());
         List<AccountBalanceDTO> allAccounts = raw.stream().map(this::toAccountBalanceDTO).toList();
+
+        // Para tarjetas, el "Total consumido del período" se alinea al gasto del resumen abierto cuando ya existen periodos sincronizados
+        for (AccountBalanceDTO account : allAccounts) {
+            if (AccountType.CREDIT_CARD.name().equals(account.getType())
+                    && cardPeriodRepository.existsByAccountIdAndStatus(account.getId(), CardPeriodStatus.OPEN)) {
+                account.setBalance(reportsRepository.getSumAmountsInOpenPeriod(account.getId()));
+            }
+        }
 
         Map<Long, List<AccountBalanceDTO>> accountsByBank = new LinkedHashMap<>();
         List<AccountBalanceDTO> noBankAccounts = new ArrayList<>();

@@ -2,6 +2,9 @@ package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountType;
+import ar.com.personalfinances.entity.CardPeriod;
+import ar.com.personalfinances.entity.CardPeriodStatus;
+import ar.com.personalfinances.repository.CardPeriodRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.ChartDataDTO;
 import ar.com.personalfinances.util.ChartDatasetDTO;
@@ -22,6 +25,7 @@ import java.util.stream.Collectors;
 public class ChartJsServiceImpl implements ChartJsService {
 
     private final ExpenseRepository expenseRepository;
+    private final CardPeriodRepository cardPeriodRepository;
 
     private final Map<String, String> tagColorMap = new HashMap<>();
     private static final List<List<String>> MATERIAL_PALETTE = List.of(
@@ -47,8 +51,9 @@ public class ChartJsServiceImpl implements ChartJsService {
     );
 
     @Autowired
-    public ChartJsServiceImpl(ExpenseRepository expenseRepository) {
+    public ChartJsServiceImpl(ExpenseRepository expenseRepository, CardPeriodRepository cardPeriodRepository) {
         this.expenseRepository = expenseRepository;
+        this.cardPeriodRepository = cardPeriodRepository;
     }
 
     public ChartDataDTO buildExpensesSumaryByTagChart(Account account) {
@@ -100,27 +105,29 @@ public class ChartJsServiceImpl implements ChartJsService {
             }
         }
         final List<Number> dataValues = results.stream().map(r -> ((BigDecimal) r[2]).doubleValue()).collect(Collectors.toList());
-        return new ChartDataDTO(labels, List.of(new ChartDatasetDTO("Total", dataValues, backgroundColors)), "Desde " + periodStart.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+
+        final String subtitle;
+        if (account.getType().equals(AccountType.CREDIT_CARD)) {
+            final CardPeriod openPeriod = cardPeriodRepository.findByAccountAndStatusOrderByClosingDateDesc(account, CardPeriodStatus.OPEN).stream().findFirst().orElse(null);
+            if (openPeriod != null && openPeriod.getPeriodStart() != null) {
+                final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                subtitle = "Resumen " + openPeriod.getPeriodStart().format(dateFormatter) + " - " + openPeriod.getClosingDate().format(dateFormatter);
+            } else {
+                subtitle = "Desde " + periodStart.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
+        } else {
+            subtitle = "Desde " + periodStart.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        }
+        return new ChartDataDTO(labels, List.of(new ChartDatasetDTO("Total", dataValues, backgroundColors)), subtitle);
     }
 
     public LocalDate resolvePeriodStart(Account account) {
         if (account.getType().equals(AccountType.CREDIT_CARD)) {
-            LocalDate today = LocalDate.now();
             if (account.getClosingDay() == null) {
-                // fallback → 1er daa del mes
-                return today.withDayOfMonth(1);
+                return LocalDate.now().withDayOfMonth(1);
             }
 
-            int closingDay = account.getClosingDay();
-            LocalDate thisMonthClosing = today.withDayOfMonth(
-                    Math.min(closingDay, today.lengthOfMonth())
-            );
-
-            if (today.isAfter(thisMonthClosing)) {
-                return thisMonthClosing.plusDays(1);
-            } else {
-                return thisMonthClosing.minusMonths(1).plusDays(1);
-            }
+            return account.getClosingDay().plusDays(1);
         } else if (account.getName().equals("SDD")) {
             return expenseRepository.findLastReimbursementDate(account);
         } else {
