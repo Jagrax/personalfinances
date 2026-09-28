@@ -16,4 +16,13 @@ public class ApplicationProperties {
 
     @Value("${app.version:unknown}")
     private String version;
+
+    @Value("${app.backup.dir:}")
+    private String backupDir;
+
+    @Value("${app.backup.archive-dir:}")
+    private String backupArchiveDir;
+
+    @Value("${app.mysql.bin.path:}")
+    private String mysqlBinPath;
 }

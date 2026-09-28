@@ -6,4 +6,8 @@ import ar.com.personalfinances.util.CommonResult;
 public abstract class BaseInstanceTaskService {
 
     public abstract CommonResult runTask(InstanceTask instanceTask);
+
+    public int getMinHoursBetweenRuns() {
+        return 0;
+    }
 }

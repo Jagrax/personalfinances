@@ -71,4 +71,7 @@ Aplicación web personal de finanzas (MVC server-side, no SPA). Sincroniza movim
 
 ## Backups / tareas
 
-- `DbBackupService`: `mysqldump` a `db/backups/` con deduplicación por SHA-256, configurable vía `InstanceTask` (scheduler dinámico con cron QUARTZ). Backup local a cons. de `restic`/otro no configurado.
+- `DbBackupService`: `mysqldump` por base de datos en `app.backup.dir` (vacío = `<user.home>/pfin-backups`), con deduplicación SHA-256 contra el backup anterior, validación del encabezado/cierre del dump, publicación atómica y retención de 10 recientes + 12 mensuales (el primero de cada mes). Los mensuales se copian comprimidos a `app.backup.archive-dir`, que no se borran.
+- `BackupSnapshot`: conteo de filas de tablas clave tomado **antes** del dump, guardado en `<dump>.counts`. `DbRestoreVerifyService` restaura el último dump en `<dbName>_restorecheck` y falla solo si restauró menos filas de las esperadas (el dump es siempre igual o más nuevo que el snapshot, por eso comparar contra la base viva daría falsos positivos).
+- Rutas y binarios de MySQL **no** van hardcodeados en el repo: se resuelven por system property en `standalone.xml` o VM Options de IntelliJ. Criterio: si la ruta depende de la máquina donde corre, no se versiona.
+- `getMinHoursBetweenRuns()` en `BaseInstanceTaskService` evita corridas duplicadas; `DynamicTaskScheduler` no actualiza `lastExecution` si la tarea falla.
