@@ -43,3 +43,43 @@
     --bs-table-color-type: var(--bs-table-striped-color);
     --bs-table-bg-type: var(--bs-table-striped-bg);
 }
+
+.modal-item-label {
+    display: none;
+}
+
+@media (max-width: 575.98px) {
+    #itemsModal .table thead {
+        display: none;
+    }
+
+    #itemsModal .table,
+    #itemsModal .table tbody,
+    #itemsModal .table tr,
+    #itemsModal .table td {
+        display: block;
+        width: auto;
+    }
+
+    #itemsModal .table tr {
+        border: 1px solid var(--bs-border-color);
+        border-radius: .375rem;
+        margin-bottom: .5rem;
+        padding: .35rem .5rem;
+    }
+
+    #itemsModal .table td {
+        border: 0;
+        padding: .2rem 0;
+    }
+
+    #itemsModal .modal-item-label {
+        display: block;
+        font-size: .75rem;
+        color: var(--bs-secondary-color);
+    }
+
+    #itemsModal .table td.text-center {
+        text-align: right;
+    }
+}

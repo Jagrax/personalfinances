@@ -36,7 +36,7 @@ public class ScanService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
-    private static final List<String> ALLOWED_TYPES = Arrays.asList("image/jpeg", "image/png", "image/webp", "image/bmp", "application/pdf");
+    private static final List<String> ALLOWED_TYPES = Arrays.asList("image/jpeg", "image/png", "image/webp", "image/bmp", "image/heic", "image/heif", "application/pdf");
 
     public ScanTicketResponse scanTicket(MultipartFile file) {
         log.info("Iniciando scan: archivo={}, size={}, type={}", file.getOriginalFilename(), file.getSize(), file.getContentType());
@@ -46,7 +46,7 @@ public class ScanService {
         }
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Formato no soportado. Usá JPG, PNG, WebP, BMP o PDF");
+            throw new IllegalArgumentException("Formato no soportado. Usá JPG, PNG, WebP, BMP, HEIC o PDF");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new IllegalArgumentException("La imagen es demasiado grande (máx 10MB)");
