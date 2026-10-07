@@ -31,9 +31,17 @@ public class ExpenseService {
         String eventDetails = "";
 
         if (event.equals(EntityEvent.UPDATED)) {
+            final Expense currentExpense = expenseRepository.findById(expense.getId()).orElseThrow();
+            final Long currentAccountId = currentExpense.getAccount() != null ? currentExpense.getAccount().getId() : null;
+            final Long accountId = expense.getAccount() != null ? expense.getAccount().getId() : null;
+
+            // El periodo no se edita, asi que conservo el que ya tenia el gasto guardado, siempre que la cuenta no haya cambiado
+            if (expense.getPeriod() == null && currentAccountId != null && currentAccountId.equals(accountId)) {
+                expense.setPeriod(currentExpense.getPeriod());
+            }
             eventDetails = ApplicationUtils.getChangeLog(
                     expense,
-                    expenseRepository.findById(expense.getId()).orElseThrow()
+                    currentExpense
             );
         }
 
@@ -59,6 +67,12 @@ public class ExpenseService {
         );
 
         return expense;
+    }
+
+    private boolean hasSameAccount(Expense currentExpense, Expense expense) {
+        final Long currentAccountId = currentExpense.getAccount() != null ? currentExpense.getAccount().getId() : null;
+        final Long accountId = expense.getAccount() != null ? expense.getAccount().getId() : null;
+        return currentAccountId != null && currentAccountId.equals(accountId);
     }
 
     public void saveAllWithAudit(List<Expense> expenses, User user) {
