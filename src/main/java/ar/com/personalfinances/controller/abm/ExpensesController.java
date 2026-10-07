@@ -95,8 +95,24 @@ public class ExpensesController {
             }
         });
 
+        // Cuentas disponibles para editar/duplicar registros.
+        List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
+        Optional<Account> selectedAccount = resolveSelectedAccountFromUrl(userAccounts, accountId, accountType, accountName);
+        boolean showPeriodColumn = selectedAccount.isPresent()
+                ? AccountType.CREDIT_CARD.equals(selectedAccount.get().getType())
+                : userAccounts.size() == 1 && AccountType.CREDIT_CARD.equals(userAccounts.getFirst().getType());
+
         // Me traigo las expenses ordenadas por fecha y id desc y las paso por el paginador
-        ExpensePage expensesPage = getExpensesPaginated(PageRequest.of(currentPage - 1, pageSize), expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
+        List<Expense> expenses = new ArrayList<>(expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
+        // En tarjetas de credito primero ordeno por periodo (fecha de cierre del resumen) y despues por fecha
+        if (showPeriodColumn) {
+            Comparator<LocalDate> dateDesc = Comparator.nullsLast(Comparator.reverseOrder());
+            expenses.sort(Comparator
+                    .comparing((Expense e) -> e.getPeriod() != null ? e.getPeriod().getClosingDate() : null, dateDesc)
+                    .thenComparing(Expense::getDate, dateDesc)
+                    .thenComparing(Expense::getId, Comparator.reverseOrder()));
+        }
+        ExpensePage expensesPage = getExpensesPaginated(PageRequest.of(currentPage - 1, pageSize), expenses);
         // Agrego la pagina de expensas que tengo que dibujar en pantalla
         model.addAttribute("expensesPage", expensesPage);
         model.addAttribute("hasPrevious", expensesPage.hasPrevious());
@@ -118,22 +134,17 @@ public class ExpensesController {
 
         // Tags que se muestran en el filtro de Tags
         model.addAttribute("tags", allTags);
-        // Cuentas disponibles para editar/duplicar registros.
-        List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         model.addAttribute("accounts", userAccounts);
         model.addAttribute("editableAccounts", getEditableAccounts(userAccounts));
         if (userAccounts.size() == 1) expenseSearch.setAccountId(userAccounts.iterator().next().getId());
 
-        Optional<Account> selectedAccount = resolveSelectedAccountFromUrl(userAccounts, accountId, accountType, accountName);
         if (selectedAccount.isPresent()) {
             Account account = selectedAccount.get();
             model.addAttribute("selectedAccount", account);
             String selectedAccountIcon = resolveAccountIcon(account);
             model.addAttribute("selectedAccountIcon", selectedAccountIcon != null ? selectedAccountIcon : "");
-            model.addAttribute("showPeriodColumn", AccountType.CREDIT_CARD.equals(account.getType()));
-        } else {
-            model.addAttribute("showPeriodColumn", userAccounts.size() == 1 && AccountType.CREDIT_CARD.equals(userAccounts.getFirst().getType()));
         }
+        model.addAttribute("showPeriodColumn", showPeriodColumn);
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";
         if (accountType.isPresent()) {
