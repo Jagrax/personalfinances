@@ -154,6 +154,25 @@ public class CardPeriodService {
         }
     }
 
+    /**
+     * Actualiza los periodos (card_periods) de la tarjeta con los que se deducen de los resumenes PDF y,
+     * si no hay gastos en el PDF, con los que homologa Galicia (settlement_closing_dates y settlement_due_dates del overview).
+     * Si Galicia falla o no trae datos, no bloquea el sync de movimientos: solo quedan los periodos tal como estaban.
+     */
+    public void syncPeriodsFromSummaries(Account account, List<CardPeriod> periodsFromSummaries) {
+        if (account == null || account.getId() == null || CollectionUtils.isEmpty(periodsFromSummaries)) return;
+
+        for (CardPeriod period : periodsFromSummaries) {
+            if (period == null || period.getClosingDate() == null) continue;
+            upsertPeriod(account, period.getClosingDate(), period.getPeriodStart(), period.getDueDate());
+        }
+
+        // Cierro todo periodo cuya fecha de cierre ya paso (hoy inclusive)
+        closeOverduePeriods(account);
+
+        backfillPeriods(account);
+    }
+
     private boolean contains(CardPeriod period, LocalDate date) {
         if (period.getPeriodStart() == null) return false;
         return !date.isBefore(period.getPeriodStart()) && !date.isAfter(period.getClosingDate());

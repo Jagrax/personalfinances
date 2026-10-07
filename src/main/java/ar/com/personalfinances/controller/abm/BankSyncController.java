@@ -22,7 +22,11 @@ import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -31,6 +35,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Controller
@@ -43,8 +48,9 @@ public class BankSyncController {
     private final PDFService pdfService;
     private final ExpenseRepository expenseRepository;
     private final ExpenseService expenseService;
+    private final CardPeriodService cardPeriodService;
 
-    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService, PDFService pdfService, ExpenseRepository expenseRepository, ExpenseService expenseService) {
+    public BankSyncController(SpecificationsService specificationsService, AccountRepository accountRepository, ApplicationMessageService applicationMessageService, AccountManagementService accountManagementService, PDFService pdfService, ExpenseRepository expenseRepository, ExpenseService expenseService, CardPeriodService cardPeriodService) {
         this.specificationsService = specificationsService;
         this.accountRepository = accountRepository;
         this.applicationMessageService = applicationMessageService;
@@ -52,6 +58,7 @@ public class BankSyncController {
         this.pdfService = pdfService;
         this.expenseRepository = expenseRepository;
         this.expenseService = expenseService;
+        this.cardPeriodService = cardPeriodService;
     }
 
     @RequestMapping(value = "/bank-learn", method = RequestMethod.POST)
@@ -364,63 +371,25 @@ public class BankSyncController {
     }
 
     private Pair<Map<Expense, Expense>, List<Expense>> parseAndAnalyzeVisaPdf(Account account, String pdfVisaAsText) {
-        final Pattern expenseRowPattern = Pattern.compile(
-                "^"
-                        + "(\\d{2}\\.\\d{2}\\.\\d{2})"          // Fecha
-                        + "\\s+"
-                        + "(?:\\d{5,6}[A-Z*]?\\s+)?"            // Comprobante (opcional)
-                        + "(.+?)"                               // Detalle de transaccion
-                        + "(?:\\s+Cuota\\s+(\\d{2})/(\\d{2}))?" // Detalle de la cuota (opcional)
-                        + "\\s+"
-                        + "(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2}-?)" // Importe
-                        + "\\s*$"
-        );
+        LocalDate minDate = null, maxDate = null;
+        final List<Expense> expensesFromPDF = new ArrayList<>();
+        final List<String> pdfVisaLines = Arrays.stream(pdfVisaAsText.split("\\R"))
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .collect(Collectors.toList());
 
-        final String datePattern = "dd.MM.yy";
-        final DateTimeFormatter formatterEs = DateTimeFormatter.ofPattern(datePattern, new Locale("es"));
-        final DateTimeFormatter formatterEn = DateTimeFormatter.ofPattern(datePattern, Locale.ENGLISH);
+        // Resuelvo los periodos del resumen. Los resumenes mas nuevos usan el layout con labels (CIERRE ACTUAL, PROXIMO CIERRE...)
+        final List<CardPeriod> periodsFromPdf = resolveVisaPeriods(account, pdfVisaLines);
+        cardPeriodService.syncPeriodsFromSummaries(account, periodsFromPdf);
+        final CardPeriod currentPeriod = periodsFromPdf.isEmpty() ? null : periodsFromPdf.get(0);
+
+        // Las cuotas se imputan al primer dia del periodo del resumen
+        final LocalDate fixedQuotaDate = currentPeriod != null ? currentPeriod.getPeriodStart() : null;
+
         boolean startReading = false;
-        LocalDate minDate = null, maxDate = null, fixedQuotaDate = null;
-        List<Expense> expensesFromPDF = new ArrayList<>();
-        for (String textRow : pdfVisaAsText.split("\n")) {
-            if (textRow == null) continue;
-            String row = textRow.trim();              // quita espacios alrededor
-            if (row.isEmpty()) continue;
-
-            if (row.startsWith("CIERRE ANTERIOR")) {
-                final String cierreAnteriorRaw = row.substring("CIERRE ANTERIOR".length(), row.indexOf("PAGO MIN. ANT."));
-                if (StringUtils.hasText(cierreAnteriorRaw)) {
-                    final String cierreAnteriorClened = cierreAnteriorRaw.replaceAll("\\s+", "");
-                    final Matcher m = Pattern.compile("(\\d{1,2})([A-Za-z]{3})(\\d{2})").matcher(cierreAnteriorClened);
-                    if (m.matches()) {
-                        String monthStr = m.group(2).toLowerCase(Locale.ROOT);
-                        int month;
-                        switch (monthStr) {
-                            case "ene": month = Calendar.JANUARY; break;
-                            case "feb": month = Calendar.FEBRUARY; break;
-                            case "mar": month = Calendar.MARCH; break;
-                            case "abr": month = Calendar.APRIL; break;
-                            case "may": month = Calendar.MAY; break;
-                            case "jun": month = Calendar.JUNE; break;
-                            case "jul": month = Calendar.JULY; break;
-                            case "ago": month = Calendar.AUGUST; break;
-                            case "sep": month = Calendar.SEPTEMBER; break;
-                            case "oct": month = Calendar.OCTOBER; break;
-                            case "nov": month = Calendar.NOVEMBER; break;
-                            case "dic": month = Calendar.DECEMBER; break;
-                            default:
-                                throw new IllegalArgumentException("Mes inválido: " + monthStr);
-                        }
-
-                        fixedQuotaDate = LocalDate.of(2000 + Integer.parseInt(m.group(3)), month + 1, Integer.parseInt(m.group(1)))
-                                // Le sumo 1 dia para que simule el 1er dia del periodo actual
-                                .plusDays(1);
-                    }
-                }
-            }
-
+        for (String line : pdfVisaLines) {
             if (startReading) {
-                Matcher matcher = expenseRowPattern.matcher(row);
+                Matcher matcher = VISA_EXPENSE_ROW_PATTERN.matcher(line);
                 if (matcher.find()) {
                     String description = matcher.group(2).trim();
 
@@ -437,10 +406,10 @@ public class BankSyncController {
 
                     LocalDate date;
                     try {
-                        date = LocalDate.parse(matcher.group(1), formatterEs);
+                        date = LocalDate.parse(matcher.group(1), VISA_DATE_FORMATTER_ES);
                     } catch (DateTimeParseException e) {
                         try {
-                            date = LocalDate.parse(matcher.group(1), formatterEn);
+                            date = LocalDate.parse(matcher.group(1), VISA_DATE_FORMATTER_EN);
                         } catch (DateTimeParseException e2) {
                             throw new IllegalArgumentException("Fecha inválida: " + matcher.group(1));
                         }
@@ -464,18 +433,145 @@ public class BankSyncController {
                     if (maxDate == null || date.isAfter(maxDate)) maxDate = date;
                 }
             } else {
-                startReading = row.startsWith("FECHA");
+                startReading = line.startsWith("FECHA");
             }
         }
 
         return matchPdfExpensesWithAccount(expensesFromPDF, account, minDate, maxDate);
     }
 
-    private final static Pattern FECHA_CIERRE_PATTERN = Pattern.compile(
+    /**
+     * Los resumenes con labels muestran el cierre actual, el vencimiento, el cierre anterior y los proximos cierre y vencimiento.
+     * Cuando el vencimiento no entra en su linea (el label desborda la pagina) se toma de la linea siguiente.
+     */
+    private List<CardPeriod> resolveVisaPeriods(Account account, List<String> pdfVisaLines) {
+        final List<CardPeriod> periodsFromSixDates = resolvePeriodsFromSixDates(account, pdfVisaLines);
+        if (!periodsFromSixDates.isEmpty()) return periodsFromSixDates;
+
+        LocalDate previousClosing = null, currentClosing = null, currentDue = null, nextClosing = null, nextDue = null;
+        for (int i = 0; i < pdfVisaLines.size(); i++) {
+            final String line = pdfVisaLines.get(i);
+
+            if (currentClosing == null) {
+                final Matcher matcher = VISA_CIERRE_ACTUAL_PATTERN.matcher(line);
+                if (matcher.find()) currentClosing = parseSummaryDate(matcher.group(1));
+            }
+            if (nextClosing == null) {
+                final Matcher matcher = VISA_PROXIMO_CIERRE_PATTERN.matcher(line);
+                if (matcher.find()) nextClosing = parseSummaryDate(matcher.group(1));
+            }
+            if (nextDue == null) {
+                final Matcher matcher = VISA_PROXIMO_VTO_PATTERN.matcher(line);
+                if (matcher.find()) nextDue = parseSummaryDate(matcher.group(1));
+            }
+            if (previousClosing == null && line.startsWith("CIERRE ANTERIOR")) {
+                final int valueStart = line.indexOf("CIERRE ANTERIOR") + "CIERRE ANTERIOR".length();
+                final int valueEnd = line.indexOf("PAGO MIN. ANT.");
+                if (valueEnd > valueStart) previousClosing = parseSummaryDate(line.substring(valueStart, valueEnd));
+            }
+            if (currentDue == null && line.contains("VENCIMIENTO SALDO") && i + 1 < pdfVisaLines.size()) {
+                final Matcher matcher = SUMMARY_DATE_IN_TEXT_PATTERN.matcher(pdfVisaLines.get(i + 1));
+                if (matcher.find()) currentDue = parseSummaryDate(matcher.group(1));
+            }
+        }
+
+        return buildSummaryPeriods(account, previousClosing, currentClosing, currentDue, nextClosing, nextDue);
+    }
+
+    /**
+     * Los resumenes de Galicia traen 6 fechas correlativas: cierre del resumen anterior, su vencimiento,
+     * cierre del resumen actual, su vencimiento, cierre del resumen siguiente y su vencimiento.
+     */
+    private List<CardPeriod> resolvePeriodsFromSixDates(Account account, List<String> pdfLines) {
+        LocalDate[] dates = null;
+        for (String line : pdfLines) {
+            final Matcher matcher = SIX_DATES_PATTERN.matcher(line);
+            if (!matcher.find()) continue;
+
+            dates = new LocalDate[matcher.groupCount()];
+            for (int i = 0; i < dates.length; i++) {
+                dates[i] = parseSummaryDate(matcher.group(i + 1));
+            }
+            break;
+        }
+        if (dates == null || dates.length < 6) return List.of();
+
+        return buildSummaryPeriods(account, dates[0], dates[2], dates[3], dates[4], dates[5]);
+    }
+
+    /**
+     * Arma el periodo del resumen actual (cierre anterior + 1 dia .. cierre actual) y el del resumen siguiente,
+     * para no tener que esperar al proximo PDF.
+     */
+    private List<CardPeriod> buildSummaryPeriods(Account account, LocalDate previousClosing, LocalDate currentClosing, LocalDate currentDue, LocalDate nextClosing, LocalDate nextDue) {
+        if (currentClosing == null) return List.of();
+
+        final List<CardPeriod> periods = new ArrayList<>();
+        periods.add(buildSummaryPeriod(account, previousClosing != null ? previousClosing.plusDays(1) : null, currentClosing, currentDue));
+        if (nextClosing != null) {
+            periods.add(buildSummaryPeriod(account, currentClosing.plusDays(1), nextClosing, nextDue));
+        }
+        return periods;
+    }
+
+    private CardPeriod buildSummaryPeriod(Account account, LocalDate periodStart, LocalDate closingDate, LocalDate dueDate) {
+        final CardPeriod period = new CardPeriod();
+        period.setAccount(account);
+        period.setPeriodStart(periodStart);
+        period.setClosingDate(closingDate);
+        period.setDueDate(dueDate);
+        return period;
+    }
+
+    /**
+     * Parsea las fechas de los resumenes, que vienen como dd-MMM-yy (dd-Nov-24) o dd MMM yy (01 Oct 26),
+     * a veces con las letras separadas por espacios (2 9 E n e 2 6).
+     */
+    private LocalDate parseSummaryDate(String rawDate) {
+        if (!StringUtils.hasText(rawDate)) return null;
+
+        final Matcher matcher = SUMMARY_DATE_PATTERN.matcher(rawDate.replaceAll("[\\s.-]", ""));
+        if (!matcher.matches()) return null;
+
+        final String monthKey = matcher.group(2).substring(0, 1).toUpperCase(Locale.ROOT) + matcher.group(2).substring(1).toLowerCase(Locale.ROOT);
+        final String month = DateUtils.MONTHS_ES.get(monthKey);
+        if (month == null) return null;
+
+        try {
+            return LocalDate.parse(matcher.group(1) + "-" + month + "-" + matcher.group(3), SUMMARY_DATE_FORMATTER_EN);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private final static Pattern VISA_EXPENSE_ROW_PATTERN = Pattern.compile(
+            "^"
+                    + "(\\d{2}\\.\\d{2}\\.\\d{2})"          // Fecha
+                    + "\\s+"
+                    + "(?:\\d{5,6}[A-Z*]?\\s+)?"            // Comprobante (opcional)
+                    + "(.+?)"                               // Detalle de transaccion
+                    + "(?:\\s+Cuota\\s+(\\d{2})/(\\d{2}))?" // Detalle de la cuota (opcional)
+                    + "\\s+"
+                    + "(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2}-?)" // Importe
+                    + "\\s*$"
+    );
+    private final static DateTimeFormatter VISA_DATE_FORMATTER_ES = DateTimeFormatter.ofPattern("dd.MM.yy", new Locale("es"));
+    private final static DateTimeFormatter VISA_DATE_FORMATTER_EN = DateTimeFormatter.ofPattern("dd.MM.yy", Locale.ENGLISH);
+
+    private final static Pattern SIX_DATES_PATTERN = Pattern.compile(
             "(\\d{2}-[A-Za-z]{3}-\\d{2})\\s+" +
+                    "(\\d{2}-[A-Za-z]{3}-\\d{2})\\s+" +
+                    "(\\d{2}-[A-Za-z]{3}-\\d{2})\\s+" +
+                    "(\\d{2}-[A-Za-z]{3}-\\d{2})\\s+" +
                     "(\\d{2}-[A-Za-z]{3}-\\d{2})\\s+" +
                     "(\\d{2}-[A-Za-z]{3}-\\d{2})"
     );
+    private final static Pattern SUMMARY_DATE_PATTERN = Pattern.compile("(\\d{1,2})([A-Za-z]{3})(\\d{2})");
+    private final static Pattern SUMMARY_DATE_IN_TEXT_PATTERN = Pattern.compile("(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{2})");
+    private final static Pattern VISA_CIERRE_ACTUAL_PATTERN = Pattern.compile("CIERRE ACTUAL:?\\s*(\\d{1,2}\\s*[A-Za-z]{3}\\s*\\d{2})");
+    private final static Pattern VISA_PROXIMO_CIERRE_PATTERN = Pattern.compile("PROXIMO CIERRE:?\\s*(\\d{1,2}\\s*[A-Za-z]{3}\\s*\\d{2})");
+    private final static Pattern VISA_PROXIMO_VTO_PATTERN = Pattern.compile("PROXIMO VTO\\.?:?\\s*(\\d{1,2}\\s*[A-Za-z]{3}\\s*\\d{2})");
+    private final static DateTimeFormatter SUMMARY_DATE_FORMATTER_EN = DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.ENGLISH);
     private final static Pattern CONSUMPTION_PATTERN = Pattern.compile(
             "^"
                     + "(\\d{2}-[A-Za-z]{3}-\\d{2})"        // 1 fecha
@@ -500,25 +596,23 @@ public class BankSyncController {
 
     private final static Locale PDF_LOCALE = new Locale("es", "AR");
     private final static DateTimeFormatter FORMATTER_ARG = DateTimeFormatter.ofPattern("dd-MMM-yy", PDF_LOCALE);
+    private final static DateTimeFormatter MASTERCARD_DATE_FORMATTER_EN = DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.ENGLISH);
 
     private Pair<Map<Expense, Expense>, List<Expense>> parseAndAnalyzeMasterCardPdf(Account account, Map<String, List<String>> masterCardPdfsWithLines) {
-        final String datePattern = "dd-MMM-yy";
-        final DateTimeFormatter formatterEn = DateTimeFormatter.ofPattern(datePattern, Locale.ENGLISH);
         LocalDate minDate = null, maxDate = null;
         final List<Expense> expensesFromPDFs = new ArrayList<>();
+        final List<CardPeriod> periodsFromPDFs = new ArrayList<>();
         for (String pdfName : masterCardPdfsWithLines.keySet()) {
             final List<Expense> expensesFromPDF = new ArrayList<>();
             final List<String> pdfMasterCardLines = masterCardPdfsWithLines.get(pdfName);
 
-            // Resuelvo la fecha de cierre
-            final LocalDate cierreAnterior = pdfMasterCardLines.stream()
-                    .filter(StringUtils::hasText)
-                    .map(FECHA_CIERRE_PATTERN::matcher)
-                    .filter(Matcher::find)
-                    .map(matcher -> parseSpanishDate(matcher.group(1)))
-                    .findFirst()
-                    .orElse(null);
-            final LocalDate fixedQuotaDate = cierreAnterior != null ? cierreAnterior.plusDays(1) : null;
+            // Resuelvo el periodo del resumen a partir de las 6 fechas del encabezado
+            final List<CardPeriod> periodsFromPdf = resolvePeriodsFromSixDates(account, pdfMasterCardLines);
+            periodsFromPDFs.addAll(periodsFromPdf);
+            final LocalDate periodStart = periodsFromPdf.isEmpty() ? null : periodsFromPdf.get(0).getPeriodStart();
+            // Los DEV/PERCEP no tienen fecha propia, se imputan al cierre del resumen anterior
+            final LocalDate previousClosing = periodStart != null ? periodStart.minusDays(1) : null;
+            final LocalDate fixedQuotaDate = periodStart;
 
             boolean areCuotas = false;
             boolean isConsumptionSection = false;
@@ -544,7 +638,7 @@ public class BankSyncController {
 
                         LocalDate date;
                         try {
-                            date = LocalDate.parse(rawDate, formatterEn);
+                            date = LocalDate.parse(rawDate, MASTERCARD_DATE_FORMATTER_EN);
                         } catch (DateTimeParseException e) {
                             throw new IllegalArgumentException("Fecha inválida: " + matcher.group(1));
                         }
@@ -575,7 +669,7 @@ public class BankSyncController {
                                     .replace(",", ".");
 
                             Expense expenseFromPDF = new Expense();
-                            if (cierreAnterior != null) expenseFromPDF.setDate(cierreAnterior);
+                            if (previousClosing != null) expenseFromPDF.setDate(previousClosing);
                             expenseFromPDF.setDescription(description);
                             expenseFromPDF.setOriginalDescription(description);
                             expenseFromPDF.setAmount(new BigDecimal(amount));
@@ -590,11 +684,13 @@ public class BankSyncController {
                 }
             }
 
-            log.debug("{}[fechaCierre: {}, consumos: {}, cantLineas: {}]", pdfName, cierreAnterior != null ? cierreAnterior.format(FORMATTER_ARG) : "N/A", expensesFromPDF.size(), pdfMasterCardLines.size());
+            log.debug("{}[fechaCierre: {}, consumos: {}, cantLineas: {}]", pdfName, previousClosing != null ? previousClosing.format(FORMATTER_ARG) : "N/A", expensesFromPDF.size(), pdfMasterCardLines.size());
             expensesFromPDFs.addAll(expensesFromPDF);
         }
 
         log.debug("Luego de procesar {} obtuve como rango de fechas: {} al {}", masterCardPdfsWithLines.size() + " PDF" + (masterCardPdfsWithLines.size() > 1 ? "s" : ""), DateUtils.format(minDate), DateUtils.format(maxDate));
+
+        cardPeriodService.syncPeriodsFromSummaries(account, periodsFromPDFs);
 
         return matchPdfExpensesWithAccount(expensesFromPDFs, account, minDate, maxDate);
     }
@@ -665,34 +761,6 @@ public class BankSyncController {
         }
 
         return Pair.of(expensesFounded, expensesNotFounded);
-    }
-
-    private LocalDate parseSpanishDate(String rawDate) {
-        Matcher m = Pattern.compile("(\\d{1,2})-([A-Za-z]{3})-(\\d{2})").matcher(rawDate.trim());
-        if (!m.matches()) {
-            throw new IllegalArgumentException("Fecha inválida: " + rawDate);
-        }
-
-        String monthStr = m.group(2).toLowerCase(Locale.ROOT);
-        int month;
-        switch (monthStr) {
-            case "ene": month = 1; break;
-            case "feb": month = 2; break;
-            case "mar": month = 3; break;
-            case "abr": month = 4; break;
-            case "may": month = 5; break;
-            case "jun": month = 6; break;
-            case "jul": month = 7; break;
-            case "ago": month = 8; break;
-            case "sep": month = 9; break;
-            case "oct": month = 10; break;
-            case "nov": month = 11; break;
-            case "dic": month = 12; break;
-            default:
-                throw new IllegalArgumentException("Mes inválido: " + monthStr);
-        }
-
-        return LocalDate.of(2000 + Integer.parseInt(m.group(3)), month, Integer.parseInt(m.group(1)));
     }
 
     @PostMapping("/bank-pdf/save-expenses")
