@@ -193,7 +193,7 @@
             <thead class="text-center">
             <tr>
                 <th class="bulk-edit-column d-none" style="width:35px"><input type="checkbox" id="bulkSelectAll" checked></th>
-                <th>Per&iacute;odo</th>
+                <th th:if="${showPeriodColumn}">Per&iacute;odo</th>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
                 <th class="original-description-column d-none">Origen</th>
@@ -204,7 +204,7 @@
             </tr>
             <tr id="bulkEditRow" class="table-warning d-none">
                 <td class="bulk-edit-column text-center"><i class="bi bi-lightning-charge"></i></td>
-                <td></td>
+                <td th:if="${showPeriodColumn}"></td>
                 <td class="bulk-cell" data-field="date">
                     <div class="d-flex align-items-center gap-1">
                         <button type="button" class="btn btn-sm btn-link bulk-toggle"><i class="bi bi-pencil"></i></button>
@@ -247,7 +247,7 @@
             </tr>
             </thead>
             <tbody th:if="${#lists.isEmpty(expensesPage.content)}">
-                <tr><td colspan="12">No hay registros para mostrar!</td></tr>
+                <tr><td th:colspan="${showPeriodColumn} ? 12 : 11">No hay registros para mostrar!</td></tr>
             </tbody>
             <tbody th:unless="${#lists.isEmpty(expensesPage.content)}" class="expense-group"
                    th:each="expense : ${expensesPage.content}"
@@ -266,7 +266,7 @@
                     <td class="bulk-edit-column text-center d-none">
                         <input type="checkbox" class="bulk-expense-selector" th:value="${expense.id}" checked>
                     </td>
-                    <td class="text-center period-column">
+                    <td th:if="${showPeriodColumn}" class="text-center period-column">
                         <span class="period-label" th:text="${expense.period != null ? expense.period.periodMonthLabel : ''}"></span>
                     </td>
                     <td class="text-center filterable" data-field="date" style="width:100px" th:attr="data-value=${#temporals.format(expense.date,'yyyy-MM-dd')}">
@@ -315,14 +315,14 @@
             </tbody>
             <tfoot>
             <tr th:each="onPageTotalAmountsAcumByCurrency : ${expensesPage.getOnPageTotalAmountsAcumByCurrency()}">
-                <td id="onPageTotalLabel" class="text-end" colspan="4">Total en pantalla</td>
+                <td id="onPageTotalLabel" class="text-end" th:colspan="${showPeriodColumn} ? 4 : 3">Total en pantalla</td>
                 <td class="text-end">
                     <div class="d-flex flex-nowrap">
                         <span class="col text-end" th:text="${#numbers.formatDecimal(onPageTotalAmountsAcumByCurrency.value, 1, 'POINT', 2, 'COMMA')}"></span>
                         <span class="col-auto px-2" th:text="${onPageTotalAmountsAcumByCurrency.key}"></span>
                     </div>
                 </td>
-                <td colspan="6"></td>
+                <td th:colspan="${showPeriodColumn} ? 6 : 7"></td>
             </tr>
             </tfoot>
         </table>
@@ -382,7 +382,7 @@
         <template id="expenseEditGroupTemplate">
             <tbody class="editing-group table-warning">
                 <tr>
-                    <td class="text-center period-column"><span class="period-label"></span></td>
+                    <td th:if="${showPeriodColumn}" class="text-center period-column"><span class="period-label"></span></td>
                     <td><input type="date" class="form-control form-control-sm" name="date"></td>
                     <td><input class="form-control form-control-sm" name="description"></td>
                     <td class="original-description-column d-none">
@@ -507,6 +507,7 @@
         const scanTicketUrl = [[@{/expenses/scan-ticket}]];
         const tagCreateUrl = [[@{/tags}]];
         const defaultTagIds = [];
+        const showPeriodColumn = [[${showPeriodColumn}]];
 
         function createTagOption(input, callback) {
             fetch(tagCreateUrl, {
@@ -968,7 +969,7 @@
         function setOriginalDescriptionColumnVisible(visible){
             $(".original-description-column").toggleClass("d-none", !visible);
             $("#showOriginalDescriptionSwitch").prop("checked", visible);
-            $("#onPageTotalLabel").attr("colspan", visible ? 5 : 4);
+            $("#onPageTotalLabel").attr("colspan", (visible ? 5 : 4) - (showPeriodColumn ? 0 : 1));
             $(".editing-group [name=comments]").closest("td").attr("colspan", visible ? 3 : 2);
             localStorage.setItem("expenses.showOriginalDescription", visible ? "true" : "false");
         }

@@ -125,11 +125,15 @@ public class ExpensesController {
         if (userAccounts.size() == 1) expenseSearch.setAccountId(userAccounts.iterator().next().getId());
 
         Optional<Account> selectedAccount = resolveSelectedAccountFromUrl(userAccounts, accountId, accountType, accountName);
-        selectedAccount.ifPresent(account -> {
+        if (selectedAccount.isPresent()) {
+            Account account = selectedAccount.get();
             model.addAttribute("selectedAccount", account);
             String selectedAccountIcon = resolveAccountIcon(account);
             model.addAttribute("selectedAccountIcon", selectedAccountIcon != null ? selectedAccountIcon : "");
-        });
+            model.addAttribute("showPeriodColumn", AccountType.CREDIT_CARD.equals(account.getType()));
+        } else {
+            model.addAttribute("showPeriodColumn", userAccounts.size() == 1 && AccountType.CREDIT_CARD.equals(userAccounts.getFirst().getType()));
+        }
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";
         if (accountType.isPresent()) {
