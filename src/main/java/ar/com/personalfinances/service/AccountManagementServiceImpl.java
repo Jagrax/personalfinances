@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 @Service
 public class AccountManagementServiceImpl implements AccountManagementService {
 
+    private static final BigDecimal AMOUNT_TOLERANCE = new BigDecimal("0.50");
+
     private final GaliciaApiService galiciaApiService;
     private final ExpenseRepository expenseRepository;
     private final AccountRepository accountRepository;
@@ -387,7 +389,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
                 if (isQuota) {
                     log.debug("Por buscar gasto con cuota {} de {} por {}", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
-                    foundedExpenses = expenseRepository.findByAccountAndAmountEqualsAndDetailsLike(creditCardAccount, consumption.getFinalAmount(), "%Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan() + "%");
+                    foundedExpenses = filterByAmount(
+                            expenseRepository.findByAccountAndDetailsLike(creditCardAccount, "%Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan() + "%"),
+                            consumption.getFinalAmount());
                 } else {
                     // Solo contemplo las fechas si el consumo es de este periodo (cuotas/devoluciones pueden tener como fecha de transaccion la fecha de compra)
                     if (consumption.getTransactionDate().isAfter(periodStart)) {
@@ -395,7 +399,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                         if (maxTransactionDate == null || consumption.getTransactionDate().isAfter(maxTransactionDate))  maxTransactionDate = consumption.getTransactionDate();
                     }
                     log.debug("Por buscar gasto del {} por {}. Consumption.desc: {}", DateUtils.format(consumption.getTransactionDate()), consumption.getFinalAmount(), consumption.getMerchantName());
-                    foundedExpenses = expenseRepository.findByAccountAndDateAndAmountEquals(creditCardAccount, consumption.getTransactionDate(), consumption.getFinalAmount());
+                    foundedExpenses = filterByAmount(
+                            expenseRepository.findByAccountAndDate(creditCardAccount, consumption.getTransactionDate()),
+                            consumption.getFinalAmount());
                 }
 
                 boolean found = false;
@@ -443,10 +449,12 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             } else {
                 expensesCreated = consumptionsToCreate.stream().map(consumption -> {
                     final CardPeriod period = resolvePeriodForConsumption(creditCardAccount, consumption);
-                    final String details = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0 && consumption.getInstallmentNumber() != null
+                    final boolean isQuota = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0;
+                    final String details = isQuota && consumption.getInstallmentNumber() != null
                             ? "Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan()
                             : null;
-                    return createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details);
+                    final LocalDate date = resolveExpenseDate(period, consumption, isQuota);
+                    return createExpense(creditCardAccount.getOwner(), date, creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details);
                 }).collect(Collectors.toList());
                 // Agrego los gastos recien creados al listado de IDs de gastos encontrados
                 expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
@@ -539,8 +547,66 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     private CardPeriod resolvePeriodForConsumption(Account creditCardAccount, Consumption consumption) {
+        if (consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0) {
+            final CardPeriod periodFromPreviousInstallment = resolvePeriodFromPreviousInstallment(creditCardAccount, consumption);
+            if (periodFromPreviousInstallment != null) {
+                return periodFromPreviousInstallment;
+            }
+        }
+
         final LocalDate periodDate = consumption.getSubmissionDate() != null ? consumption.getSubmissionDate() : consumption.getTransactionDate();
         return cardPeriodService.findPeriodForDate(creditCardAccount, periodDate);
+    }
+
+    private CardPeriod resolvePeriodFromPreviousInstallment(Account creditCardAccount, Consumption consumption) {
+        if (consumption.getInstallmentNumber() == null || consumption.getInstallmentNumber() <= 1) {
+            return null;
+        }
+
+        final String previousDetails = "Cuota " + (consumption.getInstallmentNumber() - 1) + " de " + consumption.getInstallmentPlan();
+        final List<Expense> candidates = expenseRepository.findByAccountAndDetailsLike(creditCardAccount, "%" + previousDetails + "%").stream()
+                .filter(previous -> previous.getPeriod() != null && previous.getPeriod().getClosingDate() != null)
+                .collect(Collectors.toList());
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        final List<Expense> sameMerchant = candidates.stream()
+                .filter(previous -> descriptionMatchesConsumption(previous, consumption))
+                .collect(Collectors.toList());
+        final List<Expense> pool = sameMerchant.isEmpty() ? candidates : sameMerchant;
+
+        return pool.stream()
+                .max(Comparator.comparing((Expense previous) -> previous.getPeriod().getClosingDate()))
+                .map(previous -> cardPeriodService.findNextPeriod(creditCardAccount, previous.getPeriod()))
+                .orElse(null);
+    }
+
+    private boolean descriptionMatchesConsumption(Expense expense, Consumption consumption) {
+        final String merchantName = consumption.getMerchantName();
+        if (!StringUtils.hasText(merchantName)) {
+            return false;
+        }
+
+        return merchantName.equalsIgnoreCase(expense.getDescription()) || merchantName.equalsIgnoreCase(expense.getOriginalDescription());
+    }
+
+    private LocalDate resolveExpenseDate(CardPeriod period, Consumption consumption, boolean isQuota) {
+        final LocalDate transactionDate = consumption.getTransactionDate();
+        if (!isQuota || period == null || period.getPeriodStart() == null || transactionDate == null) {
+            return transactionDate;
+        }
+
+        if (transactionDate.isBefore(period.getPeriodStart()) || transactionDate.isAfter(period.getClosingDate())) {
+            return period.getPeriodStart();
+        }
+        return transactionDate;
+    }
+
+    private List<Expense> filterByAmount(List<Expense> expenses, BigDecimal amount) {
+        return expenses.stream()
+                .filter(expense -> expense.getAmount() != null && expense.getAmount().subtract(amount).abs().compareTo(AMOUNT_TOLERANCE) <= 0)
+                .collect(Collectors.toList());
     }
 
     private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount) {

@@ -129,6 +129,20 @@ public class CardPeriodService {
     }
 
     /**
+     * Devuelve el periodo inmediatamente posterior a {@code current} (el que arranca al dia siguiente de su cierre).
+     * Devuelve null si no existe, sin caer en el periodo abierto.
+     */
+    public CardPeriod findNextPeriod(Account account, CardPeriod current) {
+        if (account == null || account.getId() == null || current == null || current.getClosingDate() == null) return null;
+
+        final LocalDate nextPeriodStart = current.getClosingDate().plusDays(1);
+        return cardPeriodRepository.findByAccountOrderByClosingDateDesc(account).stream()
+                .filter(period -> nextPeriodStart.equals(period.getPeriodStart()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
      * Asigna el periodo correspondiente a todos los gastos de la tarjeta que todavia no tienen uno.
      * Idempotente: se puede correr en cada sync sin riesgo.
      */

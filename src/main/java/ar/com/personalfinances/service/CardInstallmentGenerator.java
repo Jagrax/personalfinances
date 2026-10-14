@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,7 +25,9 @@ import java.util.stream.Collectors;
 @Service
 public class CardInstallmentGenerator {
 
-    private static final Pattern QUOTA_PATTERN = Pattern.compile("^Cuota (\\d+) de (\\d+)$");
+    private static final Pattern QUOTA_PATTERN = Pattern.compile("Cuota (\\d+) de (\\d+)\\s*$");
+
+    private static final BigDecimal AMOUNT_TOLERANCE = new BigDecimal("0.50");
 
     private final ExpenseRepository expenseRepository;
     private final CardPeriodRepository cardPeriodRepository;
@@ -80,20 +83,26 @@ public class CardInstallmentGenerator {
     private boolean createNextInstallment(CardPeriod nextPeriod, Expense installment) {
         if (installment.getAmount() == null) return false;
 
-        final Matcher matcher = QUOTA_PATTERN.matcher(installment.getDetails() != null ? installment.getDetails().trim() : "");
-        if (!matcher.matches()) return false;
+        final String details = installment.getDetails() != null ? installment.getDetails().trim() : "";
+        final Matcher matcher = QUOTA_PATTERN.matcher(details);
+        if (!matcher.find()) return false;
 
         final int installmentNumber = Integer.parseInt(matcher.group(1));
         final int installmentPlan = Integer.parseInt(matcher.group(2));
         if (installmentNumber >= installmentPlan) return false;
 
-        final String nextDetails = "Cuota " + (installmentNumber + 1) + " de " + installmentPlan;
-        final boolean alreadyExists = !expenseRepository.findByAccountAndAmountEqualsAndDetailsLike(installment.getAccount(), installment.getAmount(), "%" + nextDetails + "%").isEmpty();
+        // Conservo cualquier prefijo que tenga el detalle original (ej: "Samsung Galaxy - Cuota 17 de 18")
+        final String prefix = details.substring(0, matcher.start());
+        final String nextBareDetails = "Cuota " + (installmentNumber + 1) + " de " + installmentPlan;
+        final String nextDetails = prefix + nextBareDetails;
+        final boolean alreadyExists = !filterByAmount(
+                expenseRepository.findByAccountAndDetailsLike(installment.getAccount(), "%" + nextBareDetails + "%"),
+                installment.getAmount()).isEmpty();
         if (alreadyExists) return false;
 
         Expense nextInstallment = new Expense();
         nextInstallment.setUser(installment.getUser());
-        nextInstallment.setDate(installment.getDate());
+        nextInstallment.setDate(nextPeriod.getPeriodStart() != null ? nextPeriod.getPeriodStart() : installment.getDate());
         nextInstallment.setAccount(installment.getAccount());
         nextInstallment.setAmount(installment.getAmount());
         nextInstallment.setDescription(installment.getDescription());
@@ -107,6 +116,12 @@ public class CardInstallmentGenerator {
         log.info("[generatePendingInstallments] Creada {} de {} para {}", nextDetails, installment.getDescription(), DateUtils.format(nextInstallment.getDate()));
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, nextInstallment.getId(), "", nextInstallment.getUser().getId());
         return true;
+    }
+
+    private List<Expense> filterByAmount(List<Expense> expenses, BigDecimal amount) {
+        return expenses.stream()
+                .filter(expense -> expense.getAmount() != null && expense.getAmount().subtract(amount).abs().compareTo(AMOUNT_TOLERANCE) <= 0)
+                .collect(Collectors.toList());
     }
 
     private CardPeriod findNextPeriod(List<CardPeriod> periods, CardPeriod closedPeriod) {

@@ -21,9 +21,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
 
     List<Expense> findByAccountAndDateAndAmountEquals(Account account, LocalDate date, BigDecimal amount);
 
+    List<Expense> findByAccountAndDate(Account account, LocalDate date);
+
     List<Expense> findByAccountAndDateBetween(Account account, LocalDate dateFrom, LocalDate dateTo, Sort sort);
 
-    List<Expense> findByAccountAndAmountEqualsAndDetailsLike(Account account, BigDecimal amount, String detailsLike);
+    List<Expense> findByAccountAndDetailsLike(Account account, String detailsLike);
 
     List<Expense> findByAccountAndDescriptionStartingWith(Account account, String descriptionPrefix);
 
