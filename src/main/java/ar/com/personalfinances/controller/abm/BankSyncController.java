@@ -356,6 +356,11 @@ public class BankSyncController {
                     item.setOriginalDescription(e.getOriginalDescription());
                     item.setDetails(e.getDetails());
                     item.setAmount(e.getAmount());
+                    if (e.getPeriod() != null) {
+                        item.setPeriodId(e.getPeriod().getId());
+                        item.setPeriodClosingDate(e.getPeriod().getClosingDate());
+                        item.setPeriodMonthLabel(e.getPeriod().getPeriodMonthLabel());
+                    }
                     return item;
                 })
                 .collect(Collectors.toList());
@@ -782,6 +787,9 @@ public class BankSyncController {
                 expense.setAccount(account);
                 expense.setTags(new ArrayList<>());
                 expense.setUser(user);
+                if (item.getPeriodId() != null) {
+                    cardPeriodService.findById(item.getPeriodId()).ifPresent(expense::setPeriod);
+                }
 
                 expenseService.saveWithAudit(expense, user);
             }

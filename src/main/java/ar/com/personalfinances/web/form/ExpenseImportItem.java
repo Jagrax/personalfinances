@@ -16,4 +16,7 @@ public class ExpenseImportItem {
     private String details;
     private BigDecimal amount;
     private boolean selected = true;
+    private Long periodId;
+    private LocalDate periodClosingDate;
+    private String periodMonthLabel;
 }
