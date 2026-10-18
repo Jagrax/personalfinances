@@ -258,7 +258,7 @@ public class BankSyncController {
         Account account;
         if (accountName.isEmpty()) {
             applicationMessageService.add(request, ApplicationMessage.error("Account name is null"));
-            return backUrl;
+            return "redirect:" + backUrl;
         } else {
             List<Long> accountSearchOwnerIds = new ArrayList<>();
             accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
@@ -282,7 +282,7 @@ public class BankSyncController {
 
         if (file == null) {
             applicationMessageService.add(request, ApplicationMessage.error("File is null"));
-            return backUrl;
+            return "redirect:" + backUrl;
         }
 
         final String pdfAsText;
@@ -292,10 +292,11 @@ public class BankSyncController {
             throw new RuntimeException(e);
         }
 
-        if (!StringUtils.hasText(pdfAsText)) {
-            applicationMessageService.add(request, ApplicationMessage.error("Pdf convertion returned null or empty text"));
-            return backUrl;
-        }
+                if (!StringUtils.hasText(pdfAsText)) {
+                    applicationMessageService.add(request, ApplicationMessage.error("Pdf convertion returned null or empty text"));
+                    return "redirect:" + backUrl;
+                }
+            }
 
         Pair<Map<Expense, Expense>, List<Expense>> expensesAnalizedFromPdf;
         if (AccountType.CREDIT_CARD.equals(account.getType())){
@@ -337,11 +338,11 @@ public class BankSyncController {
                 expensesAnalizedFromPdf = parseAndAnalyzeVisaPdf(account, pdfAsText);
             } else {
                 applicationMessageService.add(request, ApplicationMessage.error("Invalid credit card: " + account.getName()));
-                return backUrl;
+                return "redirect:" + backUrl;
             }
         } else {
             applicationMessageService.add(request, ApplicationMessage.error("Invalid account type: " + account.getType()));
-            return backUrl;
+            return "redirect:" + backUrl;
         }
         List<Expense> expensesNotFounded = expensesAnalizedFromPdf.getSecond();
 
