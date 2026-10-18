@@ -83,9 +83,9 @@ public class CardPeriod {
     public String toString() {
         return "CardPeriod [" +
                 ((id != null) ? "id=" + id + ", " : "") +
-                ((account != null) ? "account=" + account + ", " : "") +
-                ((closingDate != null) ? "closingDate=" + closingDate + ", " : "") +
+                ((account != null) ? "account=[id=" + account.getId() + ", name=" + account.getName() + "], " : "") +
                 ((periodStart != null) ? "periodStart=" + periodStart + ", " : "") +
+                ((closingDate != null) ? "closingDate=" + closingDate + ", " : "") +
                 ((dueDate != null) ? "dueDate=" + dueDate + ", " : "") +
                 status +
                 "]";

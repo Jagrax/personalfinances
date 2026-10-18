@@ -277,7 +277,7 @@ public class BankSyncController {
                 applicationMessageService.add(request, ApplicationMessage.error("Invalid account: " + accountName.get()));
                 return "redirect:" + backUrl;
             }
-            account = userAccounts.get(0);
+            account = userAccounts.getFirst();
         }
 
         if (file == null) {
