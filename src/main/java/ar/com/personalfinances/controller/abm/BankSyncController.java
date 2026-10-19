@@ -152,7 +152,7 @@ public class BankSyncController {
                 AccountSearch accountSearch = new AccountSearch();
                 accountSearch.setOwnerIds(accountSearchOwnerIds);
                 accountSearch.setName(bankSyncModelAttribute.getAccountName());
-                List<Account> userAccounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC,"name"));
+                List<Account> userAccounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC, "name"));
                 if (CollectionUtils.isEmpty(userAccounts)) {
                     applicationMessageService.add(request, ApplicationMessage.error("Invalid account"));
                     return "redirect:" + backUrl;
@@ -205,8 +205,8 @@ public class BankSyncController {
 
     @RequestMapping(value = "/bank-sync/bank/{bankId}", method = RequestMethod.POST)
     public String postBankSyncByBank(@PathVariable("bankId") Long bankId,
-                                      @RequestParam("galiciaCookies") String galiciaCookies,
-                                      HttpServletRequest request) {
+                                     @RequestParam("galiciaCookies") String galiciaCookies,
+                                     HttpServletRequest request) {
         List<Account> accounts = accountRepository.findByBank_Id(bankId);
         List<SyncResult> syncResults = new ArrayList<>();
         List<String> errors = new ArrayList<>();
@@ -252,33 +252,14 @@ public class BankSyncController {
     public String postAnalizePdf(Model model,
                                  @RequestParam("accountName") Optional<String> accountName,
                                  @RequestParam("file") MultipartFile file,
+                                 @RequestParam(value = "pathToPdfs", defaultValue = "D:\\Javi\\Credit cards statements\\Master Card") Optional<String> pathToPdfs,
                                  @RequestParam(value = "visaFormat", required = false, defaultValue = "VISA_GALICIA") CreditCardStatementFormat visaFormat,
                                  HttpServletRequest request) {
         final String backUrl = ApplicationUtils.getBackUrl(request, false, "/dashboard");
 
-        Account account;
         if (accountName.isEmpty()) {
             applicationMessageService.add(request, ApplicationMessage.error("Account name is null"));
             return "redirect:" + backUrl;
-        } else {
-            List<Long> accountSearchOwnerIds = new ArrayList<>();
-            accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
-
-            User user = ApplicationUtils.getUserFromSession(false);
-            if (user != null) {
-                // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
-                accountSearchOwnerIds.add(user.getId());
-            }
-
-            AccountSearch accountSearch = new AccountSearch();
-            accountSearch.setOwnerIds(accountSearchOwnerIds);
-            accountSearch.setName(accountName.get());
-            List<Account> userAccounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC, "name"));
-            if (CollectionUtils.isEmpty(userAccounts)) {
-                applicationMessageService.add(request, ApplicationMessage.error("Invalid account: " + accountName.get()));
-                return "redirect:" + backUrl;
-            }
-            account = userAccounts.getFirst();
         }
 
         if (file == null) {
@@ -286,86 +267,97 @@ public class BankSyncController {
             return "redirect:" + backUrl;
         }
 
-        Pair<Map<Expense, Expense>, List<Expense>> expensesAnalizedFromPdf;
-        if (AccountType.CREDIT_CARD.equals(account.getType())) {
-            Map<String, String> linesByPdf;
-            String folderPath = "";
-            //noinspection ConstantValue
-            if (!folderPath.isEmpty()) {
-                try (Stream<Path> paths = Files.list(Path.of(folderPath))) {
-                    linesByPdf = paths
-                            .filter(Files::isRegularFile)
-                            .filter(fileName -> fileName.toString().toLowerCase().endsWith(".pdf"))
-                            .collect(Collectors.toMap(
-                                    pdf -> pdf.getFileName().toString(),
-                                    pdf -> {
-                                        try {
-                                            byte[] bytes = Files.readAllBytes(pdf);
-                                            return pdfService.extractText(bytes);
-                                        } catch (IOException e) {
-                                            throw new UncheckedIOException(e);
-                                        }
-                                    },
-                                    (existing, replacement) -> existing,
-                                    TreeMap::new
-                            ));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            } else {
-                final String pdfAsText;
-                try {
-                    pdfAsText = pdfService.extractText(file);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+        List<Long> accountSearchOwnerIds = new ArrayList<>();
+        accountSearchOwnerIds.add(-1L); // La cuenta Generica la pueden utilizar todos los usuarios
 
-                if (!StringUtils.hasText(pdfAsText)) {
-                    applicationMessageService.add(request, ApplicationMessage.error("Pdf convertion returned null or empty text"));
-                    return "redirect:" + backUrl;
-                }
+        User user = ApplicationUtils.getUserFromSession(false);
+        if (user != null) {
+            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
+            accountSearchOwnerIds.add(user.getId());
+        }
 
-                linesByPdf = Map.of(Objects.requireNonNullElse(file.getOriginalFilename(), file.getName()), pdfAsText);
-            }
+        AccountSearch accountSearch = new AccountSearch();
+        accountSearch.setOwnerIds(accountSearchOwnerIds);
+        accountSearch.setName(accountName.get());
+        List<Account> userAccounts = accountRepository.findAll(specificationsService.getAccounts(accountSearch), Sort.by(Sort.Direction.ASC, "name"));
+        if (CollectionUtils.isEmpty(userAccounts)) {
+            applicationMessageService.add(request, ApplicationMessage.error("Invalid account: " + accountName.get()));
+            return "redirect:" + backUrl;
+        }
+        final Account account = userAccounts.getFirst();
 
-            Map<String, List<String>> linesByFileName = new LinkedHashMap<>();
-            for (String pdfFileName : linesByPdf.keySet()) {
-                String pdfLines = linesByPdf.get(pdfFileName);
-                linesByFileName.put(
-                        pdfFileName,
-                        Arrays.stream(pdfLines.split("\\R"))
-                                .map(String::trim)
-                                .filter(line -> !line.isEmpty())
-                                .collect(Collectors.toList()));
-            }
-            final CreditCardStatementFormat format;
-            if ("Master Card".equals(account.getName())) {
-                format = CreditCardStatementFormat.MASTER_CARD_GALICIA;
-            } else if ("VISA".equals(account.getName())) {
-                format = visaFormat;
-            } else {
-                applicationMessageService.add(request, ApplicationMessage.error("Invalid credit card: " + account.getName()));
-                return "redirect:" + backUrl;
-            }
-
-            final CreditCardStatement statement = creditCardStatementResolver.resolve(format);
-            final Map<CardPeriod, List<Expense>> expensesByPeriod = new LinkedHashMap<>();
-            for (String pdfFileName : linesByFileName.keySet()) {
-                final CreditCardStatementResult result = statement.parse(account, pdfFileName, linesByFileName.get(pdfFileName));
-                expensesByPeriod.computeIfAbsent(result.getPeriod(), k -> new ArrayList<>()).addAll(result.getExpenses());
-            }
-
-            // Con todos los periodos ya dados de alta, asigno el periodo a los gastos que aun no tienen uno,
-            // para que el matching los encuentre por periodo y no como candidatos huerfanos
-            //cardPeriodService.backfillPeriods(account);
-
-            expensesAnalizedFromPdf = matchPdfExpensesWithAccount(expensesByPeriod, account);
-        } else {
+        if (!AccountType.CREDIT_CARD.equals(account.getType())) {
             applicationMessageService.add(request, ApplicationMessage.error("Invalid account type: " + account.getType()));
             return "redirect:" + backUrl;
         }
-        List<Expense> expensesNotFounded = expensesAnalizedFromPdf.getSecond();
 
+        final CreditCardStatementFormat format;
+        if ("Master Card".equals(account.getName())) {
+            format = CreditCardStatementFormat.MASTER_CARD_GALICIA;
+        } else if ("VISA".equals(account.getName())) {
+            format = visaFormat;
+        } else {
+            applicationMessageService.add(request, ApplicationMessage.error("Invalid credit card: " + account.getName()));
+            return "redirect:" + backUrl;
+        }
+
+        Map<String, String> linesByPdf;
+        if (pathToPdfs.isPresent()) {
+            try (Stream<Path> paths = Files.list(Path.of(pathToPdfs.get()))) {
+                linesByPdf = paths
+                        .filter(Files::isRegularFile)
+                        .filter(fileName -> fileName.toString().toLowerCase().endsWith(".pdf"))
+                        .collect(Collectors.toMap(
+                                pdf -> pdf.getFileName().toString(),
+                                pdf -> {
+                                    try {
+                                        byte[] bytes = Files.readAllBytes(pdf);
+                                        return pdfService.extractText(bytes);
+                                    } catch (IOException e) {
+                                        throw new UncheckedIOException(e);
+                                    }
+                                },
+                                (existing, replacement) -> existing,
+                                TreeMap::new
+                        ));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            final String pdfAsText;
+            try {
+                pdfAsText = pdfService.extractText(file);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+            if (!StringUtils.hasText(pdfAsText)) {
+                applicationMessageService.add(request, ApplicationMessage.error("Pdf convertion returned null or empty text"));
+                return "redirect:" + backUrl;
+            }
+
+            linesByPdf = Map.of(Objects.requireNonNullElse(file.getOriginalFilename(), file.getName()), pdfAsText);
+        }
+
+        Map<String, List<String>> linesByFileName = new LinkedHashMap<>();
+        for (String pdfFileName : linesByPdf.keySet()) {
+            String pdfLines = linesByPdf.get(pdfFileName);
+            linesByFileName.put(
+                    pdfFileName,
+                    Arrays.stream(pdfLines.split("\\R"))
+                            .map(String::trim)
+                            .filter(line -> !line.isEmpty())
+                            .collect(Collectors.toList()));
+        }
+
+        final CreditCardStatement statement = creditCardStatementResolver.resolve(format);
+        final Map<CardPeriod, List<Expense>> expensesByPeriod = new LinkedHashMap<>();
+        for (String pdfFileName : linesByFileName.keySet()) {
+            final CreditCardStatementResult result = statement.parse(account, pdfFileName, linesByFileName.get(pdfFileName));
+            expensesByPeriod.computeIfAbsent(result.getPeriod(), k -> new ArrayList<>()).addAll(result.getExpenses());
+        }
+
+        Pair<Map<Expense, Expense>, List<Expense>> expensesAnalizedFromPdf = matchPdfExpensesWithAccount(expensesByPeriod, account);
         ExpenseImportForm form = new ExpenseImportForm();
         List<ExpenseImportItem> items = expensesAnalizedFromPdf.getSecond()
                 .stream()
@@ -394,7 +386,7 @@ public class BankSyncController {
         model.addAttribute("accountId", account.getId());
         model.addAttribute("currency", account.getCurrency() != null ? account.getCurrency() : "ARS");
         model.addAttribute("expensesFounded", expensesAnalizedFromPdf.getFirst());
-        model.addAttribute("expensesNotFounded", expensesNotFounded);
+        model.addAttribute("expensesNotFounded", items);
 
         return "/report-expenses";
     }
