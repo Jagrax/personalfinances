@@ -16,11 +16,11 @@
             <thead class="text-center">
             <tr>
                 <th></th>
+                <th>Per&iacute;odo</th>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
                 <th>Detalle</th>
                 <th>Importe</th>
-                <th>Per&iacute;odo</th>
             </tr>
             </thead>
             <tbody>
@@ -29,6 +29,9 @@
             </tr>
             <tr th:unless="${#lists.isEmpty(expensesNotFounded)}" th:each="expense, iterStat : *{expenses}">
                 <td class="text-center"><input type="checkbox" th:field="*{expenses[__${iterStat.index}__].selected}" /></td>
+                <td class="text-center" style="width:120px">
+                    <span class="period-label" th:text="${expense.periodMonthLabel != null ? expense.periodMonthLabel : ''}"></span>
+                </td>
                 <td class="text-center" style="width:100px">
                     <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
                     <input type="hidden" th:field="*{expenses[__${iterStat.index}__].date}" />
@@ -49,10 +52,7 @@
                          <span class="col text-end" th:text="${#numbers.formatDecimal(expense.amount, 1, 'POINT', 2, 'COMMA')}"></span>
                          <span class="col-auto px-2" th:text="${currency}"></span>
                      </div>
-                 </td>
-                 <td class="text-center" style="width:120px">
-                     <span class="period-label" th:text="${expense.periodMonthLabel != null ? expense.periodMonthLabel : ''}"></span>
-                 </td>
+                </td>
             </tr>
             </tbody>
         </table>
