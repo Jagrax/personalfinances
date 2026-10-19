@@ -102,7 +102,7 @@ public class MasterCardIssuedByGaliciaStatement extends AbstractCreditCardStatem
             }
         }
 
-        log.info("{}[periodo: {}, consumos: {}, cantLineas: {}]", pdfName, currentPeriod.getClosingDate().format(FORMATTER_ARG), expensesFromPDF.size(), pdfLines.size());
+        log.info("{}[periodo: {}, consumos: {}, cantLineas: {}]", pdfName, currentPeriod.getPeriodMonthLabel(), expensesFromPDF.size(), pdfLines.size());
         return new CreditCardStatementResult(currentPeriod, expensesFromPDF);
     }
 

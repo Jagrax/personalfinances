@@ -4,6 +4,7 @@ import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.CardPeriod;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.service.CardPeriodService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Service
 public class VisaIssuedByGaliciaStatement extends AbstractCreditCardStatement {
 
@@ -76,6 +78,7 @@ public class VisaIssuedByGaliciaStatement extends AbstractCreditCardStatement {
             }
         }
 
+        log.info("{}[periodo: {}, consumos: {}, cantLineas: {}]", pdfName, currentPeriod.getPeriodMonthLabel(), expensesFromPDF.size(), pdfLines.size());
         return new CreditCardStatementResult(currentPeriod, expensesFromPDF);
     }
 
