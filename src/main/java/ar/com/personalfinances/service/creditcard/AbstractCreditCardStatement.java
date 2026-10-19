@@ -127,17 +127,47 @@ public abstract class AbstractCreditCardStatement implements CreditCardStatement
         }
     }
 
+    final List<String> foreignCurrencies = List.of(
+            "USD",
+            "U$S",
+            "USA",
+            "EUR",
+            "CLP",
+            "UYU",
+            "DEU"
+    );
     /**
      * Los gastos en monedas distintas a la de la cuenta no se importan. Los resumenes los identifican
      * con el codigo de la moneda en la descripcion: USD, U$S, EUR, CLP (chilenos) y UYU (uruguayos).
      */
     protected boolean isForeignCurrency(String description) {
-        return description.contains("USD") || description.contains("U$S") || description.contains("USA")
-                || description.contains("EUR")
-                || description.contains("CLP")
-                || description.contains("UYU")
-                || description.contains("DEU")
-                ;
+        for (String foreignCurrency : foreignCurrencies) {
+            if (description.contains(foreignCurrency)) {
+                int currPos = description.indexOf(foreignCurrency);
+
+                if (currPos == 0) {
+                    // Hasta ahora no vi ningún gasto en moneda extranjera cuya descripción comience con la moneda
+                    return false;
+                }
+
+                char prevChar = description.charAt(currPos - 1);
+                if (Character.isLetter(prevChar)) {
+                    return false;
+                }
+
+                int nextPos = currPos + foreignCurrency.length();
+                if (nextPos < description.length()) {
+                    char nextChar = description.charAt(nextPos);
+                    if (Character.isLetter(nextChar)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected final static Pattern SIX_DATES_PATTERN = Pattern.compile(
