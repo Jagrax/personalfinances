@@ -3,7 +3,6 @@ package ar.com.personalfinances.service;
 import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
 import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
-import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
@@ -344,7 +343,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
             if (CollectionUtils.isEmpty(consumptions)) {
                 log.info("[syncCreditCardAccountMovements] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
-                cardPeriodService.backfillPeriods(creditCardAccount);
                 cardInstallmentGenerator.generatePendingInstallments(creditCardAccount);
                 markAccountAsSynced(creditCardAccount);
                 SyncResult syncResult = new SyncResult(creditCardAccount.getName());
@@ -485,8 +483,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (StringUtils.hasText(expense.getDetails()) ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
             }
 
-            // Asigno periodo a los gastos historicos de la tarjeta que todavia no lo tienen
-            cardPeriodService.backfillPeriods(creditCardAccount);
             // Genero las cuotas siguientes de los periodos que hayan cerrado
             cardInstallmentGenerator.generatePendingInstallments(creditCardAccount);
 

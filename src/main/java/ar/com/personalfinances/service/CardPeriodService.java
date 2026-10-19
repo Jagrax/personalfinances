@@ -4,12 +4,9 @@ import ar.com.personalfinances.api.galicia.model.CardSettlements;
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.CardPeriod;
 import ar.com.personalfinances.entity.CardPeriodStatus;
-import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.repository.CardPeriodRepository;
-import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.util.CommonResult;
 import ar.com.personalfinances.util.DateUtils;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -25,12 +22,10 @@ public class CardPeriodService {
 
     private final GaliciaApiService galiciaApiService;
     private final CardPeriodRepository cardPeriodRepository;
-    private final ExpenseRepository expenseRepository;
 
-    public CardPeriodService(GaliciaApiService galiciaApiService, CardPeriodRepository cardPeriodRepository, ExpenseRepository expenseRepository) {
+    public CardPeriodService(GaliciaApiService galiciaApiService, CardPeriodRepository cardPeriodRepository) {
         this.galiciaApiService = galiciaApiService;
         this.cardPeriodRepository = cardPeriodRepository;
-        this.expenseRepository = expenseRepository;
     }
 
     /**
@@ -156,32 +151,6 @@ public class CardPeriodService {
     }
 
     /**
-     * Asigna el periodo correspondiente a todos los gastos de la tarjeta que todavia no tienen uno.
-     * Idempotente: se puede correr en cada sync sin riesgo.
-     */
-    public void backfillPeriods(Account account) {
-        if (account == null || account.getId() == null) return;
-
-        final List<CardPeriod> periods = cardPeriodRepository.findByAccountOrderByClosingDateDesc(account);
-        if (periods.isEmpty()) return;
-
-        final List<Expense> expensesWithoutPeriod = expenseRepository.findByAccountAndPeriodIsNull(account);
-        if (expensesWithoutPeriod.isEmpty()) return;
-
-        int updated = 0;
-        for (Expense expense : expensesWithoutPeriod) {
-            final CardPeriod period = findPeriodForDate(account, expense.getDate());
-            if (period == null) continue;
-            expense.setPeriod(period);
-            expenseRepository.save(expense);
-            updated++;
-        }
-        if (updated > 0) {
-            log.info("[backfillPeriods] Asignado periodo a {} gastos de la tarjeta {}", updated, account.getName());
-        }
-    }
-
-    /**
      * Actualiza los periodos (card_periods) de la tarjeta con los que se deducen de los resumenes PDF y,
      * si no hay gastos en el PDF, con los que homologa Galicia (settlement_closing_dates y settlement_due_dates del overview).
      * Si Galicia falla o no trae datos, no bloquea el sync de movimientos: solo quedan los periodos tal como estaban.
@@ -200,32 +169,6 @@ public class CardPeriodService {
 
         // Cierro todo periodo cuya fecha de cierre ya paso (hoy inclusive)
         closeOverduePeriods(account);
-    }
-
-    /**
-     * Asigna a cada gasto de la DB el periodo del resumen PDF con el que quedo emparejado.
-     * Solo toca los gastos cuyo periodo difiere del que corresponde al resumen.
-     */
-    @Transactional
-    public int syncPeriodsOfMatchedExpenses(Map<Expense, Expense> expensesFounded) {
-        if (CollectionUtils.isEmpty(expensesFounded)) return 0;
-
-        int updated = 0;
-        for (Map.Entry<Expense, Expense> entry : expensesFounded.entrySet()) {
-            final Expense dbExpense = entry.getKey();
-            final CardPeriod periodFromPdf = entry.getValue().getPeriod();
-            if (periodFromPdf == null) continue;
-            if (dbExpense.getPeriod() != null && periodFromPdf.getId().equals(dbExpense.getPeriod().getId())) continue;
-
-            dbExpense.setPeriod(periodFromPdf);
-            expenseRepository.save(dbExpense);
-            updated++;
-        }
-
-        if (updated > 0) {
-            log.info("[syncPeriodsOfMatchedExpenses] Actualizado el periodo de {} gastos", updated);
-        }
-        return updated;
     }
 
     private boolean contains(CardPeriod period, LocalDate date) {
