@@ -349,6 +349,9 @@ public class BankSyncController {
         ExpenseImportForm form = new ExpenseImportForm();
         List<ExpenseImportItem> items = expensesAnalizedFromPdf.getSecond()
                 .stream()
+                .sorted(Comparator
+                        .comparing((Expense e) -> e.getPeriod() != null ? e.getPeriod().getClosingDate() : null, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Expense::getDate))
                 .map(e -> {
                     ExpenseImportItem item = new ExpenseImportItem();
                     item.setDate(e.getDate());
