@@ -8,6 +8,7 @@ import ar.com.personalfinances.repository.ExpenseItemRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.TagRepository;
 import ar.com.personalfinances.service.AlertEventService;
+import ar.com.personalfinances.service.CardPeriodService;
 import ar.com.personalfinances.service.ExpenseService;
 import ar.com.personalfinances.service.ScanService;
 import ar.com.personalfinances.service.SpecificationsService;
@@ -47,8 +48,9 @@ public class ExpensesController {
     private final AccountRepository accountRepository;
     private final ExpenseService expenseService;
     private final ScanService scanService;
+    private final CardPeriodService cardPeriodService;
 
-    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, TagRepository tagRepository, AccountRepository accountRepository, ExpenseService expenseService, ScanService scanService) {
+    public ExpensesController(ExpenseRepository expenseRepository, ExpenseItemRepository expenseItemRepository, AlertEventService alertEventService, SpecificationsService specificationsService, TagRepository tagRepository, AccountRepository accountRepository, ExpenseService expenseService, ScanService scanService, CardPeriodService cardPeriodService) {
         this.expenseRepository = expenseRepository;
         this.expenseItemRepository = expenseItemRepository;
         this.alertEventService = alertEventService;
@@ -57,6 +59,7 @@ public class ExpensesController {
         this.accountRepository = accountRepository;
         this.expenseService = expenseService;
         this.scanService = scanService;
+        this.cardPeriodService = cardPeriodService;
     }
 
     @RequestMapping("/expenses")
@@ -145,6 +148,15 @@ public class ExpensesController {
             model.addAttribute("selectedAccountIcon", selectedAccountIcon != null ? selectedAccountIcon : "");
         }
         model.addAttribute("showPeriodColumn", showPeriodColumn);
+        if (showPeriodColumn) {
+            // La columna de periodo solo se muestra cuando hay una unica tarjeta en juego, asi que alcanza
+            // con los periodos de esa cuenta para alimentar el selector
+            final Account periodAccount = selectedAccount.orElseGet(() ->
+                    userAccounts.size() == 1 ? userAccounts.getFirst() : null);
+            model.addAttribute("cardPeriods", periodAccount != null
+                    ? cardPeriodService.findPeriodsInAscendingOrder(periodAccount)
+                    : List.of());
+        }
         // Atributo usado para settear la clase 'active' en el item del menu que corresponda
         String module = "expenses";
         if (accountType.isPresent()) {
@@ -189,6 +201,12 @@ public class ExpensesController {
     public void bulkUpdateExpenses(@RequestBody BulkExpenseUpdateRequest request) {
         User user = ApplicationUtils.getUserFromSession();
         expenseService.bulkUpdateExpenses(request, user);
+    }
+
+    @PostMapping("/expenses/{id}/period-ajax")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateExpensePeriodAjax(@PathVariable("id") long id, @RequestBody Map<String, Long> body) {
+        expenseService.updateExpensePeriod(id, body.get("periodId"), ApplicationUtils.getUserFromSession());
     }
 
     @PostMapping("/expenses/delete-ajax/{id}")

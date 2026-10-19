@@ -87,6 +87,10 @@ public class SpecificationsService {
                 predicates.add(criteriaBuilder.equal(root.get("user").get("id"), expenseSearch.getUserId()));
             }
 
+            if (expenseSearch.getPeriodId() != null) {
+                predicates.add(criteriaBuilder.equal(root.get("period").get("id"), expenseSearch.getPeriodId()));
+            }
+
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }

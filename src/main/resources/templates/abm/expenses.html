@@ -157,6 +157,16 @@
                         <option th:each="tag : ${tags}" th:value="${tag.id}" th:text="${tag.name}" th:selected="${expenseSearch.getTagId() != null and expenseSearch.getTagId().contains(tag.id)}"></option>
                     </select>
                 </div>
+                <div class="col-12 col-lg-4 col-xxl-2" th:if="${showPeriodColumn}">
+                    <label for="expenseFilterPeriodId" class="form-label mb-1">Período</label>
+                    <select id="expenseFilterPeriodId" name="periodId">
+                        <option value="">Todos</option>
+                        <option th:each="cardPeriod : ${cardPeriods}"
+                                th:value="${cardPeriod.id}"
+                                th:text="${cardPeriod.periodMonthLabel}"
+                                th:selected="${expenseSearch.getPeriodId() != null and expenseSearch.getPeriodId() == cardPeriod.id}"></option>
+                    </select>
+                </div>
                 <div class="col-12 text-lg-end">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
                 </div>
@@ -261,6 +271,7 @@
                    data-tag-ids=${expense.tags.![id].toString().replaceAll('[\\[\\] ]', '')},
                    data-account-id=${expense.account != null ? expense.account.id : ''},
                    data-comments=${expense.comments},
+                   data-period-id=${expense.period != null ? expense.period.id : ''},
                    data-has-items=${!#lists.isEmpty(expense.items)}">
                 <tr>
                     <td class="bulk-edit-column text-center d-none">
@@ -382,7 +393,14 @@
         <template id="expenseEditGroupTemplate">
             <tbody class="editing-group table-warning">
                 <tr>
-                    <td th:if="${showPeriodColumn}" class="text-center period-column"><span class="period-label"></span></td>
+                    <td th:if="${showPeriodColumn}" class="text-center period-column">
+                        <select class="form-select form-select-sm" name="periodId">
+                            <option value="">Sin per&iacute;odo</option>
+                            <option th:each="cardPeriod : ${cardPeriods}"
+                                    th:value="${cardPeriod.id}"
+                                    th:text="${cardPeriod.periodMonthLabel}"></option>
+                        </select>
+                    </td>
                     <td><input type="date" class="form-control form-control-sm" name="date"></td>
                     <td><input class="form-control form-control-sm" name="description"></td>
                     <td class="original-description-column d-none">
@@ -504,6 +522,7 @@
         const expenseItemsBaseUrl = [[@{/expenses}]];
         const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
         const expenseBulkUpdateUrl = [[@{/expenses/bulk-update}]];
+        const expensePeriodBaseUrl = [[@{/expenses}]];
         const scanTicketUrl = [[@{/expenses/scan-ticket}]];
         const tagCreateUrl = [[@{/tags}]];
         const defaultTagIds = [];
@@ -658,6 +677,13 @@
 
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
 
+            // El duplicado arrastra el periodo del original
+            var duplicatePeriodId = String(sourceGroup.data("period-id") || "");
+            group.data("original-period-id", duplicatePeriodId);
+            if (duplicatePeriodId) {
+                group.find("[name='periodId']").val(duplicatePeriodId);
+            }
+
             var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
             var doInsert = function() {
@@ -713,6 +739,7 @@
             var expenseId = sourceGroup.data("expense-id");
             group.data("expense-id", expenseId);
             group.data("original-group", sourceGroup);
+            group.data("original-period-id", sourceGroup.data("period-id") || "");
             // Mark items as not loaded yet (will be fetched async)
             group.data("items", undefined);
 
@@ -726,6 +753,11 @@
             group.find("[name=comments]").val(sourceGroup.data("comments"));
             group.find(".period-label").text(sourceGroup.find(".period-label").text());
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
+
+            var periodId = String(sourceGroup.data("period-id") || "");
+            if (periodId) {
+                group.find("[name='periodId']").val(periodId);
+            }
 
             var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
@@ -813,7 +845,31 @@
             })
                 .then(() => {
                     group.find("input,select").prop("disabled", true);
+
+                    // El periodo va por su propio endpoint: saveWithAudit conserva el que ya tenia y no
+                    // permite dejarlo sin asignar
+                    const selectedPeriodId = group.find("[name='periodId']").val() || "";
+                    const originalPeriodId = String(group.data("original-period-id") || "");
+                    if (!expenseId || selectedPeriodId === originalPeriodId) return null;
+
+                    return fetch(expensePeriodBaseUrl + "/" + expenseId + "/period-ajax", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ periodId: selectedPeriodId === "" ? null : Number(selectedPeriodId) })
+                    }).then(function(response){
+                        if (!response.ok){
+                            return response.text().then(function(message){
+                                throw new Error(message || "Error " + response.status);
+                            });
+                        }
+                    });
+                })
+                .then(() => {
                     $("#expenseSearchForm").submit();
+                })
+                .catch(function(error){
+                    alert("No se pudo guardar: " + error.message);
+                    $button.prop("disabled", false).html('<i class="bi bi-save"></i>');
                 });
         }
 

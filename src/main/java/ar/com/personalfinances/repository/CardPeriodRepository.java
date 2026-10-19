@@ -15,6 +15,8 @@ public interface CardPeriodRepository extends JpaRepository<CardPeriod, Long> {
 
     List<CardPeriod> findByAccountOrderByClosingDateDesc(Account account);
 
+    List<CardPeriod> findByAccountOrderByClosingDateAsc(Account account);
+
     List<CardPeriod> findByAccountAndStatusOrderByClosingDateDesc(Account account, CardPeriodStatus status);
 
     boolean existsByAccountIdAndStatus(Long accountId, CardPeriodStatus status);

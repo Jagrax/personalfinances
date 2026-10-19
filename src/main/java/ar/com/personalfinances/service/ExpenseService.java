@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -67,6 +68,48 @@ public class ExpenseService {
         );
 
         return expense;
+    }
+
+/**
+     * Asigna a un gasto el periodo indicado, o se lo quita si {@code periodId} es null. A diferencia de
+     * {@link #saveWithAudit(Expense, User)} no deduce el periodo por fecha: la correccion es manual.
+     */
+    @Transactional
+    public void updateExpensePeriod(Long expenseId, Long periodId, User user) {
+        final Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new IllegalArgumentException("El gasto " + expenseId + " no existe"));
+
+        if (expense.getUser() == null || !expense.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("El gasto no pertenece al usuario");
+        }
+
+        final CardPeriod period = resolvePeriodForExpense(expense, periodId);
+        final Long previousPeriodId = expense.getPeriod() != null ? expense.getPeriod().getId() : null;
+        final Long newPeriodId = period != null ? period.getId() : null;
+        if (Objects.equals(previousPeriodId, newPeriodId)) return;
+
+        expense.setPeriod(period);
+        expenseRepository.save(expense);
+
+        alertEventService.saveExpenseAlert(
+                EntityEvent.UPDATED,
+                expense.getId(),
+                "period[" + previousPeriodId + "] -> [" + newPeriodId + "]",
+                user.getId());
+    }
+
+    private CardPeriod resolvePeriodForExpense(Expense expense, Long periodId) {
+        if (periodId == null) return null;
+
+        final CardPeriod period = cardPeriodService.findById(periodId)
+                .orElseThrow(() -> new IllegalArgumentException("El periodo " + periodId + " no existe"));
+
+        // Un gasto solo puede apuntar a un periodo de su propia tarjeta
+        if (expense.getAccount() == null || period.getAccount() == null
+                || !expense.getAccount().getId().equals(period.getAccount().getId())) {
+            throw new IllegalArgumentException("El periodo seleccionado pertenece a otra tarjeta");
+        }
+        return period;
     }
 
     private boolean hasSameAccount(Expense currentExpense, Expense expense) {

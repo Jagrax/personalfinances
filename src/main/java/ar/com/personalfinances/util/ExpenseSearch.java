@@ -36,6 +36,7 @@ public class ExpenseSearch {
     private String accountName;
     private AccountType accountType;
     private Long userId;
+    private Long periodId;
     private FilterOperator descriptionOperator = FilterOperator.CONTAINS;
     private FilterOperator originalDescriptionOperator = FilterOperator.CONTAINS;
     private FilterOperator detailsOperator = FilterOperator.CONTAINS;
@@ -53,7 +54,8 @@ public class ExpenseSearch {
                 StringUtils.hasText(details) ||
                 StringUtils.hasText(comments) ||
                 tagId != null && !tagId.isEmpty() ||
-                accountId != null;
+                accountId != null ||
+                periodId != null;
     }
 
     public List<FilterChip> getActiveFilters() {
@@ -71,6 +73,7 @@ public class ExpenseSearch {
         if (amountTo != null) chips.add(new FilterChip("amountTo", "Importe", FilterOperator.LTE, amountTo.toString()));
         if (tagId != null && !tagId.isEmpty()) chips.add(new FilterChip("tagId", "Tag", FilterOperator.EQ, tagId.stream().map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("")));
         if (accountId != null) chips.add(new FilterChip("accountId", "Cuenta", FilterOperator.EQ, accountId.toString()));
+        if (periodId != null) chips.add(new FilterChip("periodId", "Período", FilterOperator.EQ, periodId.toString()));
 
         return chips;
     }

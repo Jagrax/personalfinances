@@ -112,6 +112,14 @@ public class CardPeriodService {
         return cardPeriodRepository.findById(id);
     }
 
+    /**
+     * Periodos de la tarjeta del mas viejo al mas reciente, que es como se muestran en el selector de la
+     * columna "Periodo" de expenses.html.
+     */
+    public List<CardPeriod> findPeriodsInAscendingOrder(Account account) {
+        return cardPeriodRepository.findByAccountOrderByClosingDateAsc(account);
+    }
+
     public CardPeriod findPeriodForDate(Account account, LocalDate date) {
         if (date == null || account == null || account.getId() == null) return null;
 
