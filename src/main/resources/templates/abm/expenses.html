@@ -296,7 +296,7 @@
                         <input type="checkbox" class="bulk-expense-selector" th:value="${expense.id}" checked>
                     </td>
                     <td th:if="${showPeriodColumn}" class="text-center text-nowrap">
-                        <span class="period-label" th:text="${expense.period != null ? expense.period.periodMonthLabel : ''}"></span>
+                        <span th:text="${expense.period != null ? expense.period.periodMonthLabel : ''}"></span>
                     </td>
                     <td class="text-center filterable" data-field="date" style="width:100px" th:attr="data-value=${#temporals.format(expense.date,'yyyy-MM-dd')}">
                         <span th:text="${#temporals.format(expense.date, 'dd/MM/yyyy')}"></span>
@@ -425,7 +425,7 @@
             <tbody class="editing-group table-warning">
                 <tr>
                     <td th:if="${showPeriodColumn}" class="text-center text-nowrap">
-                        <select class="form-select form-select-sm" name="periodId">
+                        <select class="form-select form-select-sm" name="period.id">
                             <option value="">Sin per&iacute;odo</option>
                             <option th:each="cardPeriod : ${cardPeriods}"
                                     th:value="${cardPeriod.id}"
@@ -553,7 +553,6 @@
         const expenseItemsBaseUrl = [[@{/expenses}]];
         const expenseDeleteUrlAjax = [[@{/expenses/delete-ajax/}]];
         const expenseBulkUpdateUrl = [[@{/expenses/bulk-update}]];
-        const expensePeriodBaseUrl = [[@{/expenses}]];
         const scanTicketUrl = [[@{/expenses/scan-ticket}]];
         const tagCreateUrl = [[@{/tags}]];
         const defaultTagIds = [];
@@ -696,6 +695,7 @@
 
             const group = $(clone).find(".editing-group");
 
+            group.find("[name='period.id']").val(sourceGroup.data("period-id") || "");
             group.find("[name=date]").val(sourceGroup.data("date"));
             group.find("[name=description]").val(sourceGroup.data("description"));
             var origDesc = sourceGroup.data("original-description");
@@ -704,16 +704,7 @@
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
-            group.find(".period-label").text(sourceGroup.find(".period-label").text());
-
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
-
-            // El duplicado arrastra el periodo del original
-            var duplicatePeriodId = String(sourceGroup.data("period-id") || "");
-            group.data("original-period-id", duplicatePeriodId);
-            if (duplicatePeriodId) {
-                group.find("[name='periodId']").val(duplicatePeriodId);
-            }
 
             var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
@@ -770,7 +761,6 @@
             var expenseId = sourceGroup.data("expense-id");
             group.data("expense-id", expenseId);
             group.data("original-group", sourceGroup);
-            group.data("original-period-id", sourceGroup.data("period-id") || "");
             // Mark items as not loaded yet (will be fetched async)
             group.data("items", undefined);
 
@@ -782,13 +772,8 @@
             group.find("[name=details]").val(sourceGroup.data("details"));
             group.find("[name=amount]").val(sourceGroup.data("amount"));
             group.find("[name=comments]").val(sourceGroup.data("comments"));
-            group.find(".period-label").text(sourceGroup.find(".period-label").text());
             group.find("[name='account.id']").val(sourceGroup.data("account-id"));
-
-            var periodId = String(sourceGroup.data("period-id") || "");
-            if (periodId) {
-                group.find("[name='periodId']").val(periodId);
-            }
+            group.find("[name='period.id']").val(sourceGroup.data("period-id") || "");
 
             var tagIds = String(sourceGroup.data("tag-ids") || "").split(",").filter(Boolean);
 
@@ -859,6 +844,9 @@
                 account: {
                     id: group.find("[name='account.id']").val()
                 },
+                period: {
+                    id: group.find("[name='period.id']").val()
+                },
                 items: items
             };
 
@@ -876,31 +864,7 @@
             })
                 .then(() => {
                     group.find("input,select").prop("disabled", true);
-
-                    // El periodo va por su propio endpoint: saveWithAudit conserva el que ya tenia y no
-                    // permite dejarlo sin asignar
-                    const selectedPeriodId = group.find("[name='periodId']").val() || "";
-                    const originalPeriodId = String(group.data("original-period-id") || "");
-                    if (!expenseId || selectedPeriodId === originalPeriodId) return null;
-
-                    return fetch(expensePeriodBaseUrl + "/" + expenseId + "/period-ajax", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ periodId: selectedPeriodId === "" ? null : Number(selectedPeriodId) })
-                    }).then(function(response){
-                        if (!response.ok){
-                            return response.text().then(function(message){
-                                throw new Error(message || "Error " + response.status);
-                            });
-                        }
-                    });
-                })
-                .then(() => {
                     $("#expenseSearchForm").submit();
-                })
-                .catch(function(error){
-                    alert("No se pudo guardar: " + error.message);
-                    $button.prop("disabled", false).html('<i class="bi bi-save"></i>');
                 });
         }
 

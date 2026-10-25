@@ -7,12 +7,11 @@ import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.ExpenseItemRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
 import ar.com.personalfinances.repository.TagRepository;
-import ar.com.personalfinances.service.AlertEventService;
-import ar.com.personalfinances.service.CardPeriodService;
-import ar.com.personalfinances.service.ExpenseService;
-import ar.com.personalfinances.service.ScanService;
-import ar.com.personalfinances.service.SpecificationsService;
-import ar.com.personalfinances.util.*;
+import ar.com.personalfinances.service.*;
+import ar.com.personalfinances.util.AccountSearch;
+import ar.com.personalfinances.util.ApplicationUtils;
+import ar.com.personalfinances.util.ExpensePage;
+import ar.com.personalfinances.util.ExpenseSearch;
 import ar.com.personalfinances.web.model.BulkExpenseUpdateRequest;
 import ar.com.personalfinances.web.model.FilterChip;
 import ar.com.personalfinances.web.model.FilterOperator;
@@ -31,7 +30,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Map;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -215,12 +213,6 @@ public class ExpensesController {
     public void bulkUpdateExpenses(@RequestBody BulkExpenseUpdateRequest request) {
         User user = ApplicationUtils.getUserFromSession();
         expenseService.bulkUpdateExpenses(request, user);
-    }
-
-    @PostMapping("/expenses/{id}/period-ajax")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updateExpensePeriodAjax(@PathVariable("id") long id, @RequestBody Map<String, Long> body) {
-        expenseService.updateExpensePeriod(id, body.get("periodId"), ApplicationUtils.getUserFromSession());
     }
 
     @PostMapping("/expenses/delete-ajax/{id}")
