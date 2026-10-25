@@ -203,7 +203,7 @@
             <thead class="text-center">
             <tr>
                 <th class="bulk-edit-column d-none" style="width:35px"><input type="checkbox" id="bulkSelectAll" checked></th>
-                <th th:if="${showPeriodColumn}">Per&iacute;odo</th>
+                <th th:if="${showPeriodColumn}" class="text-nowrap">Per&iacute;odo</th>
                 <th>Fecha</th>
                 <th>Descripci&oacute;n</th>
                 <th class="original-description-column d-none">Origen</th>
@@ -277,7 +277,7 @@
                     <td class="bulk-edit-column text-center d-none">
                         <input type="checkbox" class="bulk-expense-selector" th:value="${expense.id}" checked>
                     </td>
-                    <td th:if="${showPeriodColumn}" class="text-center period-column">
+                    <td th:if="${showPeriodColumn}" class="text-center text-nowrap">
                         <span class="period-label" th:text="${expense.period != null ? expense.period.periodMonthLabel : ''}"></span>
                     </td>
                     <td class="text-center filterable" data-field="date" style="width:100px" th:attr="data-value=${#temporals.format(expense.date,'yyyy-MM-dd')}">
@@ -393,7 +393,7 @@
         <template id="expenseEditGroupTemplate">
             <tbody class="editing-group table-warning">
                 <tr>
-                    <td th:if="${showPeriodColumn}" class="text-center period-column">
+                    <td th:if="${showPeriodColumn}" class="text-center text-nowrap">
                         <select class="form-select form-select-sm" name="periodId">
                             <option value="">Sin per&iacute;odo</option>
                             <option th:each="cardPeriod : ${cardPeriods}"
