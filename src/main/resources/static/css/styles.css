@@ -44,6 +44,13 @@
     --bs-table-bg-type: var(--bs-table-striped-bg);
 }
 
+.expense-items-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .modal-item-label {
     display: none;
 }

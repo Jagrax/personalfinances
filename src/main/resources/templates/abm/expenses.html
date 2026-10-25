@@ -311,12 +311,14 @@
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
                     <td class="text-start filterable" data-field="details">
-                        <th:block th:if="${!#strings.isEmpty(expense.details)}">
-                            <span th:text="${expense.details}"></span><th:block th:if="${!#lists.isEmpty(expense.items)}"> - </th:block>
-                        </th:block>
-                        <th:block th:each="item, iterStat : ${expense.items}">
-                            <span th:text="${item.description + ' ($' + #numbers.formatDecimal(item.amount, 1, 'POINT', 2, 'COMMA') + ')'}"></span><th:block th:if="${!iterStat.last}"> + </th:block>
-                        </th:block>
+                        <div th:classappend="${!#lists.isEmpty(expense.items)} ? 'expense-items-clamp'">
+                            <th:block th:if="${!#strings.isEmpty(expense.details)}">
+                                <span th:text="${expense.details}"></span><th:block th:if="${!#lists.isEmpty(expense.items)}"> - </th:block>
+                            </th:block>
+                            <th:block th:each="item, iterStat : ${expense.items}">
+                                <span th:text="${item.description + ' ($' + #numbers.formatDecimal(item.amount, 1, 'POINT', 2, 'COMMA') + ')'}"></span><th:block th:if="${!iterStat.last}"> + </th:block>
+                            </th:block>
+                        </div>
                         <i class="bi bi-funnel filter-icon"></i>
                     </td>
                     <td class="text-center" data-field="tagId">
