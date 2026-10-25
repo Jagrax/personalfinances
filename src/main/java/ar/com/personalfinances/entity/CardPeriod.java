@@ -44,8 +44,7 @@ public class CardPeriod {
     private boolean installmentsGenerated = false;
 
     private static final String[] SPANISH_MONTHS = {
-            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
     };
 
     @Transient
