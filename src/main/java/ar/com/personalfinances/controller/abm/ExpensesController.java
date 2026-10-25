@@ -105,6 +105,20 @@ public class ExpensesController {
                 ? AccountType.CREDIT_CARD.equals(selectedAccount.get().getType())
                 : userAccounts.size() == 1 && AccountType.CREDIT_CARD.equals(userAccounts.getFirst().getType());
 
+        // Para tarjetas de credito muestro en cabecera el total del periodo abierto (sin el pago del resumen anterior)
+        // en vez del total de todos los registros
+        BigDecimal openPeriodTotal = BigDecimal.ZERO;
+        BigDecimal openPeriodManualTotal = BigDecimal.ZERO;
+        if (selectedAccount.isPresent() && AccountType.CREDIT_CARD.equals(selectedAccount.get().getType())) {
+            CardPeriod openPeriod = cardPeriodService.findOpenPeriod(selectedAccount.get());
+            if (openPeriod != null) {
+                openPeriodTotal = expenseRepository.sumAmountByAccountAndPeriodExcludingPayment(selectedAccount.get(), openPeriod);
+                openPeriodManualTotal = expenseRepository.sumAmountByAccountAndPeriodWithoutOriginalDescription(selectedAccount.get(), openPeriod);
+            }
+        }
+        model.addAttribute("openPeriodTotal", openPeriodTotal);
+        model.addAttribute("openPeriodManualTotal", openPeriodManualTotal);
+
         // Me traigo las expenses ordenadas por fecha y id desc y las paso por el paginador
         List<Expense> expenses = new ArrayList<>(expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
         // En tarjetas de credito primero ordeno por periodo (fecha de cierre del resumen) y despues por fecha

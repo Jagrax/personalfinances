@@ -32,12 +32,30 @@
                     <span class="small" th:if="${selectedAccount.lastSyncAt != null}" th:text="${#temporals.format(selectedAccount.lastSyncAt, 'dd/MM/yyyy HH:mm:ss')}"></span>
                     <span class="small" th:unless="${selectedAccount.lastSyncAt != null}">Pendiente</span>
                 </div>
-                <div class="lh-sm">
+                <div class="lh-sm" th:if="${selectedAccount.type.name() != 'CREDIT_CARD'}">
                     <small class="d-block text-body-secondary">Total de todos los registros</small>
                     <div class="d-flex flex-wrap gap-2">
                         <span class="fw-semibold" th:each="totalAmount : ${expensesPage.getTotalAmountsAcumByCurrency()}">
                             <span th:text="${#numbers.formatDecimal(totalAmount.value, 1, 'POINT', 2, 'COMMA')}"></span>
                             <span th:text="${totalAmount.key}"></span>
+                        </span>
+                    </div>
+                </div>
+                <div class="lh-sm" th:if="${selectedAccount.type.name() == 'CREDIT_CARD'}">
+                    <small class="d-block text-body-secondary">Total del per&iacute;odo actual</small>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="fw-semibold">
+                            <span th:text="${#numbers.formatDecimal(openPeriodTotal, 1, 'POINT', 2, 'COMMA')}"></span>
+                            <span th:text="${selectedAccount.currency}"></span>
+                        </span>
+                    </div>
+                </div>
+                <div class="lh-sm" th:if="${selectedAccount.type.name() == 'CREDIT_CARD'}">
+                    <small class="d-block text-body-secondary" title="Gastos sin descripci&oacute;n original">Cargados manualmente</small>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="fw-semibold">
+                            <span th:text="${#numbers.formatDecimal(openPeriodManualTotal, 1, 'POINT', 2, 'COMMA')}"></span>
+                            <span th:text="${selectedAccount.currency}"></span>
                         </span>
                     </div>
                 </div>
@@ -325,6 +343,17 @@
                 </tr>
             </tbody>
             <tfoot>
+            <tr th:if="${selectedAccount != null and selectedAccount.type.name() == 'CREDIT_CARD'}"
+                th:each="totalAmount : ${expensesPage.getTotalAmountsAcumByCurrency()}">
+                <td class="text-end" th:colspan="${showPeriodColumn} ? 4 : 3">Total de todos los registros</td>
+                <td class="text-end">
+                    <div class="d-flex flex-nowrap">
+                        <span class="col text-end" th:text="${#numbers.formatDecimal(totalAmount.value, 1, 'POINT', 2, 'COMMA')}"></span>
+                        <span class="col-auto px-2" th:text="${totalAmount.key}"></span>
+                    </div>
+                </td>
+                <td th:colspan="${showPeriodColumn} ? 6 : 7"></td>
+            </tr>
             <tr th:each="onPageTotalAmountsAcumByCurrency : ${expensesPage.getOnPageTotalAmountsAcumByCurrency()}">
                 <td id="onPageTotalLabel" class="text-end" th:colspan="${showPeriodColumn} ? 4 : 3">Total en pantalla</td>
                 <td class="text-end">

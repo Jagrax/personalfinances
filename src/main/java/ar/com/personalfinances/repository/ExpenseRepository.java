@@ -52,4 +52,16 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpec
     List<Expense> findByAccountAndPeriodIsNull(Account account);
 
     List<Expense> findByAccountAndPeriod(Account account, CardPeriod period);
+
+    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e " +
+            "WHERE e.account.id = :#{#account.id} AND e.period.id = :#{#period.id} " +
+            "AND NOT EXISTS (SELECT 1 FROM Expense e2 JOIN e2.tags t WHERE e2.id = e.id AND t.name = 'Pago de tarjeta') " +
+            "AND NOT (e.amount < 0 AND EXISTS (SELECT 1 FROM Expense e3 JOIN e3.tags t2 WHERE e3.id = e.id AND t2.name = 'Impuestos'))")
+    BigDecimal sumAmountByAccountAndPeriodExcludingPayment(Account account, CardPeriod period);
+
+    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e " +
+            "WHERE e.account.id = :#{#account.id} AND e.period.id = :#{#period.id} " +
+            "AND (e.originalDescription IS NULL OR TRIM(e.originalDescription) = '') " +
+            "AND NOT EXISTS (SELECT 1 FROM Expense e2 JOIN e2.tags t WHERE e2.id = e.id AND t.name = 'Pago de tarjeta')")
+    BigDecimal sumAmountByAccountAndPeriodWithoutOriginalDescription(Account account, CardPeriod period);
 }
