@@ -458,7 +458,7 @@
                 </tr>
                 <tr>
                     <td class="text-end" colspan="2">Comentario</td>
-                    <td colspan="3"><input class="form-control form-control-sm" name="comments"></td>
+                    <td th:colspan="${showPeriodColumn} ? 2 : 1"><input class="form-control form-control-sm" name="comments"></td>
                     <td class="text-end">Cuenta</td>
                     <td>
                         <select class="form-select form-select-sm" name="account.id">
@@ -653,6 +653,10 @@
             });
         });
 
+        function getEditingCommentsColspan(originalDescriptionVisible) {
+            return (originalDescriptionVisible ? 2 : 1) + (showPeriodColumn ? 1 : 0);
+        }
+
         function addExpenseRow() {
             if ($(".editing-group").length) return;
 
@@ -676,9 +680,9 @@
 
             if ($("#showOriginalDescriptionSwitch").is(":checked")) {
                 group.find(".original-description-column").removeClass("d-none");
-                group.find("[name=comments]").closest("td").attr("colspan", 3);
+                group.find("[name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(true));
             } else {
-                group.find("[name=comments]").closest("td").attr("colspan", 2);
+                group.find("[name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(false));
             }
             initTagTomSelect(group.find("[name='tagIds']")[0]);
             group.find("[name=description]").focus();
@@ -712,9 +716,9 @@
                 $(".expense-group").first().before(group);
                 if ($("#showOriginalDescriptionSwitch").is(":checked")) {
                     group.find(".original-description-column").removeClass("d-none");
-                    group.find("[name=comments]").closest("td").attr("colspan", 3);
+                    group.find("[name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(true));
                 } else {
-                    group.find("[name=comments]").closest("td").attr("colspan", 2);
+                    group.find("[name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(false));
                 }
                 var ts = initTagTomSelect(group.find("[name='tagIds']")[0]);
                 if (tagIds.length) ts.setValue(tagIds);
@@ -787,9 +791,9 @@
             sourceGroup.replaceWith(group);
             if ($("#showOriginalDescriptionSwitch").is(":checked")) {
                 group.find(".original-description-column").removeClass("d-none");
-                group.find("[name=comments]").closest("td").attr("colspan", 3);
+                group.find("[name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(true));
             } else {
-                group.find("[name=comments]").closest("td").attr("colspan", 2);
+                group.find("[name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(false));
             }
             var ts = initTagTomSelect(group.find("[name='tagIds']")[0]);
             if (tagIds.length) ts.setValue(tagIds);
@@ -1021,7 +1025,7 @@
             $(".original-description-column").toggleClass("d-none", !visible);
             $("#showOriginalDescriptionSwitch").prop("checked", visible);
             $("#onPageTotalLabel").attr("colspan", (visible ? 5 : 4) - (showPeriodColumn ? 0 : 1));
-            $(".editing-group [name=comments]").closest("td").attr("colspan", visible ? 3 : 2);
+            $(".editing-group [name=comments]").closest("td").attr("colspan", getEditingCommentsColspan(visible));
             localStorage.setItem("expenses.showOriginalDescription", visible ? "true" : "false");
         }
         function toggleStringFilterInput(field){
