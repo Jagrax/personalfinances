@@ -1190,6 +1190,7 @@
                 comments: row.data("comments"),
                 tags: String(row.data("tag-ids") || "").split(",").filter(Boolean).map(function(id) { return { id: Number(id) }; }),
                 account: { id: row.data("account-id") },
+                period: { id: row.data("period-id") || null },
                 items: items
             };
 
