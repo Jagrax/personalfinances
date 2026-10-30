@@ -1,6 +1,7 @@
 package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
+import ar.com.personalfinances.api.galicia.model.CardSettlements;
 import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.repository.AccountRepository;
@@ -335,7 +336,10 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             final String galiciaAccountNumber = creditCardAccount.getExternalAccountId();
             log.info("[syncCreditCardAccountMovements] Por sincronizar movimientos de la tarjeta de credito {} con externalAccountId {}", creditCardAccount.getName(), galiciaAccountNumber);
             cardPeriodService.syncFromGalicia(creditCardAccount, cookies);
-            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(cookies, creditCardBrand, galiciaAccountNumber);
+            final LocalDate movementsDateTo = null;
+            final LocalDate movementsDateFrom = null;
+            log.info("[syncCreditCardAccountMovements] Por consultar movimientos de la tarjeta {} SIN fechas", creditCardAccount.getName());
+            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(cookies, creditCardBrand, galiciaAccountNumber, movementsDateFrom, movementsDateTo);
             if (getCardMovementsResult.isError()) {
                 return getCardMovementsResult;
             }
