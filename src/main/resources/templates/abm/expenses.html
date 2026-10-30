@@ -223,9 +223,9 @@
                 <th class="bulk-edit-column d-none" style="width:35px"><input type="checkbox" id="bulkSelectAll" checked></th>
                 <th th:if="${showPeriodColumn}" class="text-nowrap">Per&iacute;odo</th>
                 <th>Fecha</th>
-                <th>Descripci&oacute;n</th>
+                <th style="min-width:20vw">Descripci&oacute;n</th>
                 <th class="original-description-column d-none">Origen</th>
-                <th>Detalle</th>
+                <th style="min-width:20vw">Detalle</th>
                 <th>Tags</th>
                 <th>Importe</th>
                 <th colspan="5">Acciones</th>
@@ -557,6 +557,7 @@
         const tagCreateUrl = [[@{/tags}]];
         const defaultTagIds = [];
         const showPeriodColumn = [[${showPeriodColumn}]];
+        const openPeriodId = [[${openPeriodId}]];
 
         function createTagOption(input, callback) {
             fetch(tagCreateUrl, {
@@ -670,6 +671,7 @@
             const today = new Date().toISOString().split("T")[0];
 
             group.find("[name=date]").val(today);
+            group.find("[name='period.id']").val(openPeriodId || "");
 
             const firstGroup = $(".expense-group").first();
             if (firstGroup.length) {
