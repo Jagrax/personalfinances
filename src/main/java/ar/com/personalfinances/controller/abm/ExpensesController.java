@@ -107,13 +107,16 @@ public class ExpensesController {
         // en vez del total de todos los registros
         BigDecimal openPeriodTotal = BigDecimal.ZERO;
         BigDecimal openPeriodManualTotal = BigDecimal.ZERO;
+        Long openPeriodId = null;
         if (selectedAccount.isPresent() && AccountType.CREDIT_CARD.equals(selectedAccount.get().getType())) {
             CardPeriod openPeriod = cardPeriodService.findOpenPeriod(selectedAccount.get());
             if (openPeriod != null) {
+                openPeriodId = openPeriod.getId();
                 openPeriodTotal = expenseRepository.sumAmountByAccountAndPeriodExcludingPayment(selectedAccount.get(), openPeriod);
                 openPeriodManualTotal = expenseRepository.sumAmountByAccountAndPeriodWithoutOriginalDescription(selectedAccount.get(), openPeriod);
             }
         }
+        model.addAttribute("openPeriodId", openPeriodId);
         model.addAttribute("openPeriodTotal", openPeriodTotal);
         model.addAttribute("openPeriodManualTotal", openPeriodManualTotal);
 
