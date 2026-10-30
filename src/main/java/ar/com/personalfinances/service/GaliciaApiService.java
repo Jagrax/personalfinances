@@ -27,7 +27,7 @@ public interface GaliciaApiService {
 
     CommonResult getMovimientosCuenta(String cuentasCookies, LocalDate from, LocalDate to);
 
-    CommonResult getCardMovements(String cookies, CreditCardBrand creditCardBrand, String creditAccountNumber);
+    CommonResult getCardMovements(String cookies, CreditCardBrand creditCardBrand, String creditAccountNumber, LocalDate dateFrom, LocalDate dateTo);
 
     CommonResult getCardsOverview(String cookies);
 

@@ -34,9 +34,11 @@ public class PostCardsMovementsRequest implements Serializable {
     public PostCardsMovementsRequest() {
     }
 
-    public PostCardsMovementsRequest(String creditAccountNumber, String brand) {
+    public PostCardsMovementsRequest(String creditAccountNumber, String brand, LocalDate dateFrom, LocalDate dateTo) {
         this.creditAccountNumber = creditAccountNumber;
         this.brand = brand;
+        this.dateFrom = dateFrom;
+        this.dateTo = dateTo;
     }
 
     @Override

@@ -54,10 +54,10 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
     }
 
     @Override
-    public CommonResult getCardMovements(String cookies, CreditCardBrand creditCardBrand, String creditAccountNumber) {
+    public CommonResult getCardMovements(String cookies, CreditCardBrand creditCardBrand, String creditAccountNumber, LocalDate dateFrom, LocalDate dateTo) {
         PostCardsMovementsResponse postCardsMovementsResponse;
         try {
-            postCardsMovementsResponse = new GaliciaApiConnector().postCardsMovements(new PostCardsMovementsRequest(creditAccountNumber, creditCardBrand.name()), cookies);
+            postCardsMovementsResponse = new GaliciaApiConnector().postCardsMovements(new PostCardsMovementsRequest(creditAccountNumber, creditCardBrand.name(), dateFrom, dateTo), cookies);
         } catch (RestConnectorException e) {
             return logAndReturnError("getCardMovements", e);
         }

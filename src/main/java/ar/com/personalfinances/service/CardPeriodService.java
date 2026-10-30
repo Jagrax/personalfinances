@@ -33,23 +33,23 @@ public class CardPeriodService {
      * (settlement_closing_dates y settlement_due_dates del overview) y mantiene sincronizado account.closingDay.
      * Si Galicia falla o no trae datos, no bloquea el sync de movimientos: solo quedan los periodos tal como estaban.
      */
-    public void syncFromGalicia(Account creditCardAccount, String cookies) {
+    public CardSettlements syncFromGalicia(Account creditCardAccount, String cookies) {
         final CommonResult settlementsResult = galiciaApiService.getCardSettlements(cookies);
         if (settlementsResult.isError()) {
             log.warn("[syncFromGalicia] No se pudo obtener los periodos de la tarjeta {}: {}", creditCardAccount.getName(), settlementsResult.getMessage());
-            return;
+            return null;
         }
 
         final Map<String, CardSettlements> settlementsByAccountNumber = (Map<String, CardSettlements>) settlementsResult.getPayload();
         if (CollectionUtils.isEmpty(settlementsByAccountNumber)) {
             log.warn("[syncFromGalicia] Galicia no devolvio periodos para ninguna tarjeta");
-            return;
+            return null;
         }
 
         final CardSettlements settlements = settlementsByAccountNumber.get(creditCardAccount.getExternalAccountId());
         if (settlements == null) {
             log.warn("[syncFromGalicia] Galicia no devolvio periodos para la tarjeta {} con externalAccountId {}", creditCardAccount.getName(), creditCardAccount.getExternalAccountId());
-            return;
+            return null;
         }
 
         upsertPeriod(creditCardAccount, settlements.getPrevious(), null, settlements.getPreviousDue());
@@ -61,6 +61,8 @@ public class CardPeriodService {
 
         // Mantengo el fallback del dashboard (account.closingDay) sincronizado con el ultimo cierre cerrado
         updateClosingDay(creditCardAccount, settlements.getCurrent());
+
+        return settlements;
     }
 
     private void upsertPeriod(Account account, LocalDate closingDate, LocalDate periodStart, LocalDate dueDate) {
