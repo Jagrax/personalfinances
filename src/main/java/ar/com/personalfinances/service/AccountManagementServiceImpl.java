@@ -447,13 +447,11 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             } else {
                 expensesCreated = consumptionsToCreate.stream().map(consumption -> {
                     final CardPeriod period = resolvePeriodForConsumption(creditCardAccount, consumption);
-                    final boolean isQuota = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0;
-                    final String details = isQuota && consumption.getInstallmentNumber() != null
+                    final String details = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0 && consumption.getInstallmentNumber() != null
                             ? "Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan()
                             : null;
-                    final LocalDate date = resolveExpenseDate(period, consumption, isQuota);
-                    return createExpense(creditCardAccount.getOwner(), date, creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details);
-                }).collect(Collectors.toList());
+                    return createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details);
+                }).toList();
                 // Agrego los gastos recien creados al listado de IDs de gastos encontrados
                 expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
             }
@@ -585,18 +583,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         }
 
         return merchantName.equalsIgnoreCase(expense.getDescription()) || merchantName.equalsIgnoreCase(expense.getOriginalDescription());
-    }
-
-    private LocalDate resolveExpenseDate(CardPeriod period, Consumption consumption, boolean isQuota) {
-        final LocalDate transactionDate = consumption.getTransactionDate();
-        if (!isQuota || period == null || period.getPeriodStart() == null || transactionDate == null) {
-            return transactionDate;
-        }
-
-        if (transactionDate.isBefore(period.getPeriodStart()) || transactionDate.isAfter(period.getClosingDate())) {
-            return period.getPeriodStart();
-        }
-        return transactionDate;
     }
 
     private List<Expense> filterByAmount(List<Expense> expenses, BigDecimal amount) {
