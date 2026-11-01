@@ -252,7 +252,7 @@ public class BankSyncController {
     public String postAnalizePdf(Model model,
                                  @RequestParam("accountName") Optional<String> accountName,
                                  @RequestParam("file") MultipartFile file,
-                                 @RequestParam(value = "pathToPdfs", defaultValue = "D:\\Javi\\Credit cards statements\\Master Card") Optional<String> pathToPdfs,
+                                 @RequestParam(value = "pathToPdfs", defaultValue = "") Optional<String> pathToPdfs,
                                  @RequestParam(value = "visaFormat", required = false, defaultValue = "VISA_GALICIA") CreditCardStatementFormat visaFormat,
                                  HttpServletRequest request) {
         final String backUrl = ApplicationUtils.getBackUrl(request, false, "/dashboard");
