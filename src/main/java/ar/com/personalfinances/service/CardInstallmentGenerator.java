@@ -102,7 +102,7 @@ public class CardInstallmentGenerator {
 
         Expense nextInstallment = new Expense();
         nextInstallment.setUser(installment.getUser());
-        nextInstallment.setDate(nextPeriod.getPeriodStart() != null ? nextPeriod.getPeriodStart() : installment.getDate());
+        nextInstallment.setDate(installment.getDate());
         nextInstallment.setAccount(installment.getAccount());
         nextInstallment.setAmount(installment.getAmount());
         nextInstallment.setDescription(installment.getDescription());

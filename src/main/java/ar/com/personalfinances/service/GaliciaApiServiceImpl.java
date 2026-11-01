@@ -68,8 +68,6 @@ public class GaliciaApiServiceImpl implements GaliciaApiService {
 
         DataTc data = postCardsMovementsResponse.getData().get(0);
         List<Consumption> consumptions = data.getConsumptions();
-        log.info("[getCardMovements] Consumptions crudas de Galicia ({}): {}", consumptions != null ? consumptions.size() : 0, consumptions);
-        log.info("[getCardMovements] Payments crudos de Galicia ({}): {}", data.getPayments() != null ? data.getPayments().size() : 0, data.getPayments());
         if (!data.getPayments().isEmpty()) {
             for (Payment payment : data.getPayments()) {
                 Consumption consumption = new Consumption();

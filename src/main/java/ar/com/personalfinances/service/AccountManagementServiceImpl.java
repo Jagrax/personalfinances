@@ -1,7 +1,6 @@
 package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.api.galicia.model.BankAccountMovement;
-import ar.com.personalfinances.api.galicia.model.CardSettlements;
 import ar.com.personalfinances.api.galicia.model.Consumption;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.repository.AccountRepository;
@@ -336,10 +335,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             final String galiciaAccountNumber = creditCardAccount.getExternalAccountId();
             log.info("[syncCreditCardAccountMovements] Por sincronizar movimientos de la tarjeta de credito {} con externalAccountId {}", creditCardAccount.getName(), galiciaAccountNumber);
             cardPeriodService.syncFromGalicia(creditCardAccount, cookies);
-            final LocalDate movementsDateTo = null;
-            final LocalDate movementsDateFrom = null;
-            log.info("[syncCreditCardAccountMovements] Por consultar movimientos de la tarjeta {} SIN fechas", creditCardAccount.getName());
-            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(cookies, creditCardBrand, galiciaAccountNumber, movementsDateFrom, movementsDateTo);
+            log.info("[syncCreditCardAccountMovements] Por consultar movimientos de la tarjeta {}", creditCardAccount.getName());
+            CommonResult getCardMovementsResult = galiciaApiService.getCardMovements(cookies, creditCardBrand, galiciaAccountNumber, null, null);
             if (getCardMovementsResult.isError()) {
                 return getCardMovementsResult;
             }
@@ -545,15 +542,22 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     private CardPeriod resolvePeriodForConsumption(Account creditCardAccount, Consumption consumption) {
+        if (consumption.getSubmissionDate() != null) {
+            return cardPeriodService.findPeriodForDate(creditCardAccount, consumption.getSubmissionDate());
+        }
+
         if (consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0) {
+            log.warn("[resolvePeriodForConsumption] La cuota {} de {} de {} vino sin submissionDate. Se intenta deducir el periodo desde la cuota anterior", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getMerchantName());
             final CardPeriod periodFromPreviousInstallment = resolvePeriodFromPreviousInstallment(creditCardAccount, consumption);
             if (periodFromPreviousInstallment != null) {
                 return periodFromPreviousInstallment;
             }
+
+            log.warn("[resolvePeriodForConsumption] No se pudo deducir el periodo de la cuota {} de {} de {}. El gasto queda sin periodo", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getMerchantName());
+            return null;
         }
 
-        final LocalDate periodDate = consumption.getSubmissionDate() != null ? consumption.getSubmissionDate() : consumption.getTransactionDate();
-        return cardPeriodService.findPeriodForDate(creditCardAccount, periodDate);
+        return cardPeriodService.findPeriodForDate(creditCardAccount, consumption.getTransactionDate());
     }
 
     private CardPeriod resolvePeriodFromPreviousInstallment(Account creditCardAccount, Consumption consumption) {

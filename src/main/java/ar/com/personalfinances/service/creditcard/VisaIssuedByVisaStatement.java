@@ -34,8 +34,6 @@ public class VisaIssuedByVisaStatement extends AbstractCreditCardStatement {
     public CreditCardStatementResult parse(Account account, String pdfName, List<String> pdfLines) {
         final List<CardPeriod> periodsFromPdf = resolveVisaPeriods(account, pdfLines);
         final CardPeriod currentPeriod = resolveCurrentPeriod(account, pdfName, periodsFromPdf);
-        // Las cuotas se imputan al primer dia del periodo del resumen
-        final LocalDate fixedQuotaDate = currentPeriod.getPeriodStart();
 
         final List<Expense> expensesFromPDF = new ArrayList<>();
         boolean startReading = false;
@@ -74,7 +72,6 @@ public class VisaIssuedByVisaStatement extends AbstractCreditCardStatement {
                     String quotaDen = matcher.group(4);
                     if (quotaNum != null && quotaDen != null) {
                         expenseFromPDF.setDetails("Cuota " + Integer.parseInt(quotaNum) + " de " + Integer.parseInt(quotaDen));
-                        if (fixedQuotaDate != null) expenseFromPDF.setDate(fixedQuotaDate);
                     }
                     expenseFromPDF.setPeriod(currentPeriod);
                     expensesFromPDF.add(expenseFromPDF);
