@@ -2,125 +2,23 @@ package ar.com.personalfinances.service;
 
 import ar.com.personalfinances.entity.Account;
 import ar.com.personalfinances.entity.AccountType;
-import ar.com.personalfinances.entity.CardPeriod;
-import ar.com.personalfinances.entity.CardPeriodStatus;
-import ar.com.personalfinances.repository.CardPeriodRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
-import ar.com.personalfinances.util.ChartDataDTO;
-import ar.com.personalfinances.util.ChartDatasetDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class ChartJsServiceImpl implements ChartJsService {
 
     private final ExpenseRepository expenseRepository;
-    private final CardPeriodRepository cardPeriodRepository;
-
-    private final Map<String, String> tagColorMap = new HashMap<>();
-    private static final List<List<String>> MATERIAL_PALETTE = List.of(
-              List.of("#FFEBEE", "#FFCDD2", "#EF9A9A", "#E57373", "#EF5350", "#F44336", "#E53935", "#D32F2F", "#C62828", "#B71C1C") // Red
-            , List.of("#FCE4EC", "#F8BBD0", "#F48FB1", "#F06292", "#EC407A", "#E91E63", "#D81B60", "#C2185B", "#AD1457", "#880E4F") // Pink
-            , List.of("#F3E5F5", "#E1BEE7", "#CE93D8", "#BA68C8", "#AB47BC", "#9C27B0", "#8E24AA", "#7B1FA2", "#6A1B9A", "#4A148C") // Purple
-            , List.of("#EDE7F6", "#D1C4E9", "#B39DDB", "#9575CD", "#7E57C2", "#673AB7", "#5E35B1", "#512DA8", "#4527A0", "#311B92") // Deep
-            , List.of("#E8EAF6", "#C5CAE9", "#9FA8DA", "#7986CB", "#5C6BC0", "#3F51B5", "#3949AB", "#303F9F", "#283593", "#1A237E") // Indigo
-            , List.of("#E3F2FD", "#BBDEFB", "#90CAF9", "#64B5F6", "#42A5F5", "#2196F3", "#1E88E5", "#1976D2", "#1565C0", "#0D47A1") // Blue
-            , List.of("#E1F5FE", "#B3E5FC", "#81D4FA", "#4FC3F7", "#29B6F6", "#03A9F4", "#039BE5", "#0288D1", "#0277BD", "#01579B") // Light
-            , List.of("#E0F7FA", "#B2EBF2", "#80DEEA", "#4DD0E1", "#26C6DA", "#00BCD4", "#00ACC1", "#0097A7", "#00838F", "#006064") // Cyan
-            , List.of("#E0F2F1", "#B2DFDB", "#80CBC4", "#4DB6AC", "#26A69A", "#009688", "#00897B", "#00796B", "#00695C", "#004D40") // Teal
-            , List.of("#E8F5E9", "#C8E6C9", "#A5D6A7", "#81C784", "#66BB6A", "#4CAF50", "#43A047", "#388E3C", "#2E7D32", "#1B5E20") // Green
-            , List.of("#F1F8E9", "#DCEDC8", "#C5E1A5", "#AED581", "#9CCC65", "#8BC34A", "#7CB342", "#689F38", "#558B2F", "#33691E") // Light
-            , List.of("#F9FBE7", "#F0F4C3", "#E6EE9C", "#DCE775", "#D4E157", "#CDDC39", "#C0CA33", "#AFB42B", "#9E9D24", "#827717") // Lime
-            , List.of("#FFFDE7", "#FFF9C4", "#FFF59D", "#FFF176", "#FFEE58", "#FFEB3B", "#FDD835", "#FBC02D", "#F9A825", "#F57F17") // Yellow
-            , List.of("#FFF8E1", "#FFECB3", "#FFE082", "#FFD54F", "#FFCA28", "#FFC107", "#FFB300", "#FFA000", "#FF8F00", "#FF6F00") // Amber
-            , List.of("#FFF3E0", "#FFE0B2", "#FFCC80", "#FFB74D", "#FFA726", "#FF9800", "#FB8C00", "#F57C00", "#EF6C00", "#E65100") // Orange
-            , List.of("#FBE9E7", "#FFCCBC", "#FFAB91", "#FF8A65", "#FF7043", "#FF5722", "#F4511E", "#E64A19", "#D84315", "#BF360C") // Deep
-            , List.of("#EFEBE9", "#D7CCC8", "#BCAAA4", "#A1887F", "#8D6E63", "#795548", "#6D4C41", "#5D4037", "#4E342E", "#3E2723") // Brown
-            , List.of("#FAFAFA", "#F5F5F5", "#EEEEEE", "#E0E0E0", "#BDBDBD", "#9E9E9E", "#757575", "#616161", "#424242", "#212121") // Grey
-            , List.of("#ECEFF1", "#CFD8DC", "#B0BEC5", "#90A4AE", "#78909C", "#607D8B", "#546E7A", "#455A64", "#37474F", "#263238") // Blue
-    );
 
     @Autowired
-    public ChartJsServiceImpl(ExpenseRepository expenseRepository, CardPeriodRepository cardPeriodRepository) {
+    public ChartJsServiceImpl(ExpenseRepository expenseRepository) {
         this.expenseRepository = expenseRepository;
-        this.cardPeriodRepository = cardPeriodRepository;
     }
 
-    public ChartDataDTO buildExpensesSumaryByTagChart(Account account) {
-        final List<Object[]> results;
-        final LocalDate periodStart = resolvePeriodStart(account);
-        if (account.getType().equals(AccountType.BANK_ACCOUNT)) {
-            results = expenseRepository.getLast30DaysSummaryForBankAccount(account, List.of("Pago de haberes", "Pago de tarjeta"), "%FIMA%");
-        } else if (account.getType().equals(AccountType.CREDIT_CARD)) {
-            results = expenseRepository.getLastPeriodSummaryForCreditCard(account, periodStart, List.of(13L, -1L));
-        } else if (account.getName().equals("SDD")) {
-            List<Object[]> lastPeriodSummaryForSDD = expenseRepository.getLastPeriodSummaryForSDD(account, periodStart);
-
-            BigDecimal totalPeriodo = lastPeriodSummaryForSDD.stream()
-                    .map(r -> (BigDecimal) r[2])
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal totalHistorico = expenseRepository.sumByAccount(account);
-            if (totalHistorico == null) totalHistorico = BigDecimal.ZERO;
-
-            BigDecimal saldoAnterior = totalHistorico.subtract(totalPeriodo);
-
-            if (saldoAnterior.compareTo(BigDecimal.ZERO) != 0) {
-                lastPeriodSummaryForSDD.add(new Object[]{
-                        saldoAnterior.signum() > 0
-                                ? "Saldo pendiente anterior"
-                                : "Excedente anterior (no se muestra en el grafico por ser negativo)",
-                        saldoAnterior.signum() > 0 ? "#dc3545" : "#198754",
-                        saldoAnterior
-                });
-            }
-            results = lastPeriodSummaryForSDD;
-        } else {
-            results = expenseRepository.getLast30DaysSummary(account, List.of("Pago de tarjeta"));
-        }
-        final List<String> labels = results.stream().map(r -> (String) r[0]).collect(Collectors.toList());
-        final List<String> backgroundColors = new ArrayList<>();
-        for (int i = 0; i < results.size(); i++) {
-            final String dbColor = (String) results.get(i)[1];
-
-            if (StringUtils.hasText(dbColor)) {
-                backgroundColors.add(dbColor);
-            } else {
-                final int familyIndex = (i + 3) % MATERIAL_PALETTE.size();
-                //final int intensityIndex = i % 10; // Intensidad incremental: 50, 100, 200, 300, 400, 500, etc...
-                final int intensityIndex = 5; // Intensidad fija: 500
-
-                final String colorFromMaterialPalette = tagColorMap.computeIfAbsent((String) results.get(i)[0], k -> MATERIAL_PALETTE.get(familyIndex).get(intensityIndex));
-                backgroundColors.add(colorFromMaterialPalette);
-            }
-        }
-        final List<Number> dataValues = results.stream().map(r -> ((BigDecimal) r[2]).doubleValue()).collect(Collectors.toList());
-
-        final String subtitle;
-        if (account.getType().equals(AccountType.CREDIT_CARD)) {
-            final CardPeriod openPeriod = cardPeriodRepository.findByAccountAndStatusOrderByClosingDateDesc(account, CardPeriodStatus.OPEN).stream().findFirst().orElse(null);
-            if (openPeriod != null && openPeriod.getPeriodStart() != null) {
-                final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                subtitle = "Resumen " + openPeriod.getPeriodStart().format(dateFormatter) + " - " + openPeriod.getClosingDate().format(dateFormatter);
-            } else {
-                subtitle = "Desde " + periodStart.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            }
-        } else {
-            subtitle = "Desde " + periodStart.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-        }
-        return new ChartDataDTO(labels, List.of(new ChartDatasetDTO("Total", dataValues, backgroundColors)), subtitle);
-    }
-
+    @Override
     public LocalDate resolvePeriodStart(Account account) {
         if (account.getType().equals(AccountType.CREDIT_CARD)) {
             if (account.getClosingDay() == null) {

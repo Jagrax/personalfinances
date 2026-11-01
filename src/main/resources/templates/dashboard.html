@@ -1,272 +1,466 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:layout="http://ultraq.net.nz/thymeleaf/layout"
-      lang="es"
-      layout:decorate="~{fragments/layout}">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" lang="es"
+	layout:decorate="~{fragments/layout}">
 <head>
-    <title layout:fragment="page-title">Personal Finances App - Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<title layout:fragment="page-title">Dashboard</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
-        <h2>Dashboard</h2>
-        <div class="row">
+	<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
+		<div class="container-fluid mt-3">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h4 class="mb-0">Dashboard</h4>
+				<div class="btn-group">
+					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == null or selectedRange == 'thisMonth'} ? 'active'" th:href="@{/dashboard(range='thisMonth')}">Este mes</a>
+					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == 'last30'} ? 'active'" th:href="@{/dashboard(range='last30')}">30 días</a>
+					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == 'last90'} ? 'active'" th:href="@{/dashboard(range='last90')}">90 días</a>
+					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == 'last12m'} ? 'active'" th:href="@{/dashboard(range='last12m')}">12 meses</a>
+				</div>
+			</div>
 
-            <!-- Bank groups -->
-            <div th:each="bankEntry : ${accountsByBank}" class="col-12">
-                <div class="card mt-3 border-primary">
-                    <div class="card-header d-flex align-items-center justify-content-between py-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <img th:if="${bankEntry.value[0].icon != null and (bankEntry.value[0].icon.endsWith('.svg') or bankEntry.value[0].icon.endsWith('.png'))}"
-                                 th:src="@{/images/{icon}(icon=${bankEntry.value[0].icon})}" height="24">
-                            <i th:if="${bankEntry.value[0].icon == null or (!bankEntry.value[0].icon.endsWith('.svg') and !bankEntry.value[0].icon.endsWith('.png'))}"
-                               class="bi bi-bank fs-4"></i>
-                            <strong th:text="${bankEntry.value[0].bankName}"></strong>
-                        </div>
-                        <div class="d-flex gap-1">
-                             <button type="button" class="btn btn-sm btn-outline-success"
-                                     th:data-bank-id="${bankEntry.key}"
-                                     th:data-bank-sync-url="@{'/bank-sync/bank/' + ${bankEntry.key}}"
-                                     title="Pegar cookies del portapapeles y sincronizar todas las cuentas"
-                                     onclick="galiciaSyncBank(this)">
-                                 <i class="bi bi-arrow-repeat"></i>
-                             </button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-lg-4 col-xl-3" th:each="account : ${bankEntry.value}">
-                                <div class="border rounded p-3 mb-3 h-100 account-card cursor-pointer" th:data-href="@{/expenses(accountName=${account.name})}">
-                                    <div class="row align-items-center">
-                                        <div class="col-4 d-flex">
-                                            <i th:if="${#strings.isEmpty(account.icon)}"
-                                               th:class="${account.type == 'BANK_ACCOUNT' ? 'bi bi-bank fs-1' : 'bi bi-credit-card fs-1'}"></i>
-                                            <i th:if="${!#strings.isEmpty(account.icon) and !account.icon.endsWith('.svg') and !account.icon.endsWith('.png')}"
-                                               th:class="${account.icon + ' fs-1'}"></i>
-                                            <img th:if="${!#strings.isEmpty(account.icon) and (account.icon.endsWith('.svg') or account.icon.endsWith('.png'))}"
-                                                 class="img-fluid align-self-center" style="max-height: 60px"
-                                                 th:src="@{/images/{icon}(icon=${account.icon})}">
-                                        </div>
-                                        <div class="col text-end">
-                                            <small class="d-block text-body-secondary"
-                                                   th:text="${account.type == 'BANK_ACCOUNT' ? 'Saldo actual' : 'Total consumido del período'}"/>
-                                            <h3 th:text="'$ ' + ${#numbers.formatDecimal(account.balance, 1, 'POINT', 2, 'COMMA')}"/>
-                                        </div>
-                                    </div>
+			<div class="row mb-3">
+				<div class="col-lg-4">
+					<div class="card mb-3">
+						<div class="card-body py-2">
+							<div class="d-flex justify-content-between align-items-center">
+								<div class="text-muted small">Resumen de gastos</div>
+								<div th:if="${not #lists.isEmpty(dashboardData.galiciaAccounts)}" th:with="g=${dashboardData.galiciaAccounts[0]}"
+									class="d-flex align-items-center gap-2">
+									<span class="text-muted small"
+										th:text="${g.lastSyncAt != null ? 'Ult. sinc.: ' + #temporals.format(g.lastSyncAt, 'dd/MM/yyyy HH:mm') : 'Ult. sinc.: nunca'}"></span>
+									<button type="button" class="btn btn-sm btn-outline-success"
+										th:if="${g.bankId != null}"
+										th:attr="data-bank-id=${g.bankId},data-bank-sync-url=@{'/bank-sync/bank/' + ${g.bankId}}"
+										title="Pegar cookies del portapapeles y sincronizar todas las cuentas"
+										onclick="galiciaSyncBank(this)">
+										<i class="bi bi-arrow-repeat"></i>
+									</button>
+								</div>
+							</div>
+							<div th:each="g : ${dashboardData.galiciaAccounts}" class="d-flex justify-content-between align-items-center mt-1">
+								<div class="d-flex align-items-center gap-2">
+									<img th:if="${g.icon != null and (g.icon.endsWith('.svg') or g.icon.endsWith('.png'))}"
+										th:src="@{/images/{icon}(icon=${g.icon})}" style="height:18px;width:18px;object-fit:contain;">
+									<i th:if="${g.icon == null or (!g.icon.endsWith('.svg') and !g.icon.endsWith('.png'))}"
+										th:class="${#strings.isEmpty(g.icon) ? 'bi bi-bank' : g.icon}"
+										style="font-size:18px;width:18px;text-align:center;"></i>
+									<a class="small text-decoration-none" th:href="@{/expenses(accountName=${g.accountName})}" th:text="${g.label}">Gastos Galicia ARS</a>
+								</div>
+								<div class="d-flex align-items-center gap-2">
+									<span class="fw-bold">$ <span th:text="${#numbers.formatDecimal(g.total, 1, 'POINT', 2, 'COMMA')}">0</span></span>
+								</div>
+							</div>
+							<hr class="my-2"/>
+							<div class="d-flex justify-content-between align-items-center">
+								<div class="text-muted small">Consumos de Tarjetas de Crédito</div>
+								<div class="d-flex align-items-center gap-2">
+									<span class="fw-bold pe-1">$ <span th:text="${#numbers.formatDecimal(dashboardData.cardOpenPeriodTotal, 1, 'POINT', 2, 'COMMA')}">0</span></span>
+									<span class="small"
+										th:classappend="${dashboardData.momTrend == 'UP'} ? 'text-danger' : (${dashboardData.momTrend == 'DOWN'} ? 'text-success' : 'text-muted')"
+										title="Variación del consumo de tarjetas del período vs el anterior"
+										th:text="${(dashboardData.momPercent.signum() > 0 ? '+' : '') + #numbers.formatDecimal(dashboardData.momPercent, 1, 'POINT', 2, 'COMMA') + '% ' + (selectedRange == null or selectedRange == 'thisMonth' ? 'vs mes ant.' : 'vs período ant.')}">0%</span>
+								</div>
+							</div>
+							<div class="table-responsive mt-1">
+								<table class="table table-sm table-borderless mb-0">
+									<tbody>
+										<tr th:each="c : ${dashboardData.cardOpenPeriodByAccount}">
+											<td>
+												<div class="d-flex align-items-center gap-2">
+													<img th:if="${c.icon != null and (c.icon.endsWith('.svg') or c.icon.endsWith('.png'))}"
+														th:src="@{/images/{icon}(icon=${c.icon})}" style="height:18px;width:18px;object-fit:contain;">
+													<i th:if="${c.icon == null or (!c.icon.endsWith('.svg') and !c.icon.endsWith('.png'))}"
+														th:class="${#strings.isEmpty(c.icon) ? 'bi bi-credit-card' : c.icon}"
+														style="font-size:18px;width:18px;text-align:center;"></i>
+													<a class="text-decoration-none" th:href="@{/expenses(accountName=${c.accountName})}" th:text="${c.accountName}">-</a>
+												</div>
+											</td>
+											<td class="text-muted ps-0" th:text="${c.closingDate != null ? #temporals.format(c.closingDate,'dd/MM/yyyy') : ''}"></td>
+											<td class="text-muted text-end pe-0 small" th:text="${c.dueDate != null ? 'Vto. ' + #temporals.format(c.dueDate,'dd/MM/yyyy') : ''}"></td>
+											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(c.total, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							<div class="small text-muted mt-1" th:if="${#lists.isEmpty(dashboardData.cardOpenPeriodByAccount)}">Sin período abierto con consumos</div>
+							<div th:each="s : ${dashboardData.sddAccounts}" class="mt-2">
+								<hr class="my-2"/>
+								<div class="d-flex justify-content-between align-items-center">
+									<div class="d-flex align-items-center gap-2">
+										<img th:if="${s.icon != null and (s.icon.endsWith('.svg') or s.icon.endsWith('.png'))}"
+											th:src="@{/images/{icon}(icon=${s.icon})}" style="height:18px;width:18px;object-fit:contain;">
+										<i th:if="${s.icon == null or (!s.icon.endsWith('.svg') and !s.icon.endsWith('.png'))}"
+											th:class="${#strings.isEmpty(s.icon) ? 'bi bi-bank' : s.icon}"
+											style="font-size:18px;width:18px;text-align:center;"></i>
+										<a class="small text-decoration-none" th:href="@{/expenses(accountName=${s.accountName})}" th:text="${s.label}">Gastos SDD ARS</a>
+									</div>
+									<span class="fw-bold">$ <span th:text="${#numbers.formatDecimal(s.total, 1, 'POINT', 2, 'COMMA')}">0</span></span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="card">
+						<div class="card-header">Top tags (período)</div>
+						<div class="card-body">
+							<canvas id="chartTags"></canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-8">
+					<div class="card h-100">
+						<div class="card-header">Evolución mensual (12 meses) - Apilado por tipo</div>
+						<div class="card-body">
+							<canvas id="chartMonthly"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
 
-                                    <div class="chart-container position-relative">
-                                        <canvas th:attr="id='chart-' + ${account.id}" height="200"></canvas>
-                                        <div th:attr="id='no-chart-' + ${account.id}" class="text-center text-muted d-none py-4">
-                                            <i class="bi bi-inbox fs-3 d-block mb-1"></i>
-                                            <small>Sin gastos registrados</small>
-                                        </div>
-                                    </div>
+			<div class="row mb-3">
+				<div class="col-lg-4">
+					<div class="card h-100">
+						<div class="card-header d-flex justify-content-between align-items-center">
+							<span>Top 10 comercios/terceros</span>
+							<div class="d-flex align-items-center gap-2">
+								<span class="small text-primary">Repetición</span>
+								<div class="form-check form-switch mb-0">
+									<input class="form-check-input" type="checkbox" role="switch" id="merchantsSortSwitch"
+										title="Alternar orden entre repetición e importe" aria-label="Ordenar por importe">
+								</div>
+								<span class="small text-primary">Importe</span>
+							</div>
+						</div>
+						<div class="card-body p-0">
+							<div class="table-responsive">
+								<table class="table table-sm mb-0">
+									<thead>
+										<tr>
+											<th>Comercio</th>
+											<th class="text-end">Movs.</th>
+											<th class="text-end">Total</th>
+											<th class="text-end" title="Porcentaje sobre el total de movimientos del período">%</th>
+										</tr>
+									</thead>
+									<tbody id="topMerchantsBody">
+										<tr th:each="m : ${dashboardData.topMerchants}">
+											<td class="text-truncate" style="max-width: 200px;" th:text="${m.merchant}">-</td>
+											<td class="text-end fw-bold" th:text="${m.count}">0</td>
+											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(m.total, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											<td class="text-end" th:text="${#numbers.formatDecimal(m.percent, 1, 'POINT', 2, 'COMMA')} + '%'">0%</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-4">
+					<div class="card h-100">
+						<div class="card-header d-flex justify-content-between align-items-center">
+							<span>Top 10 rubros</span>
+							<div class="d-flex align-items-center gap-2">
+								<span class="small text-primary">Repetición</span>
+								<div class="form-check form-switch mb-0">
+									<input class="form-check-input" type="checkbox" role="switch" id="groupsSortSwitch"
+										title="Alternar orden entre repetición e importe" aria-label="Ordenar por importe">
+								</div>
+								<span class="small text-primary">Importe</span>
+							</div>
+						</div>
+						<div class="card-body p-0">
+							<div class="table-responsive">
+								<table class="table table-sm mb-0">
+									<thead>
+										<tr>
+											<th>Rubro</th>
+											<th class="text-end">Movs.</th>
+											<th class="text-end">Total</th>
+											<th class="text-end" title="Porcentaje sobre el total de movimientos del período">%</th>
+										</tr>
+									</thead>
+									<tbody id="topMerchantGroupsBody">
+										<tr th:each="m : ${dashboardData.topMerchantGroups}">
+											<td class="text-truncate" style="max-width: 200px;" th:text="${m.merchant}">-</td>
+											<td class="text-end fw-bold" th:text="${m.count}">0</td>
+											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(m.total, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											<td class="text-end" th:text="${#numbers.formatDecimal(m.percent, 1, 'POINT', 2, 'COMMA')} + '%'">0%</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-4">
+					<div class="card h-100">
+						<div class="card-header">Gastos mensuales (promedio 12 meses)</div>
+						<div class="card-body p-0">
+							<div class="table-responsive">
+								<table class="table table-sm mb-0">
+									<thead>
+										<tr>
+											<th>Concepto</th>
+											<th>Tipo</th>
+											<th class="text-end">Prom. mensual</th>
+											<th class="text-end">Meses</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr th:each="r : ${dashboardData.monthlyExpenses}">
+											<td class="text-truncate" style="max-width: 140px;" th:text="${r.name}">-</td>
+											<td>
+												<span class="badge" th:classappend="${r.type == 'Fijo'} ? 'bg-primary' : 'bg-info text-dark'" th:text="${r.type}">-</span>
+											</td>
+											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(r.average, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											<td class="text-end" th:text="${r.months} + '/12'">0/12</td>
+										</tr>
+									</tbody>
+									<tfoot>
+										<tr class="fw-bold">
+											<td colspan="2">Total</td>
+											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(dashboardData.monthlyExpensesTotal, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											<td></td>
+										</tr>
+									</tfoot>
+								</table>
+							</div>
+							<div class="small text-muted p-2" th:if="${#lists.isEmpty(dashboardData.monthlyExpenses)}">Sin gastos mensuales detectados</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 
-                                    <form th:action="@{/bank-sync}" method="post" class="d-flex justify-content-end gap-1 mt-2" onclick="event.stopPropagation();">
-                                        <input type="hidden" name="accountId" th:value="${account.id}">
-                                        <input type="hidden" name="accountName" th:value="${account.name}">
-                                        <input type="hidden" name="galiciaCookies">
-                                        <button th:if="${account.type == 'BANK_ACCOUNT'}"
-                                                type="button" class="btn btn-sm btn-outline-success"
-                                                title="Sincronizar"
-                                                onclick="galiciaSync(this, 'sync')">
-                                            <i class="bi bi-arrow-repeat"></i>
-                                        </button>
-                                        <button th:if="${account.type == 'BANK_ACCOUNT'}"
-                                                type="button" class="btn btn-sm btn-outline-primary"
-                                                title="Analizar movimientos"
-                                                onclick="galiciaSync(this, 'learn')">
-                                            <i class="bi bi-eyeglasses"></i>
-                                        </button>
-                                        <button th:if="${account.type == 'CREDIT_CARD' and (account.name == 'Master Card' or account.name == 'VISA')}"
-                                                type="button" class="btn btn-sm btn-outline-danger"
-                                                th:data-account-name="${account.name}"
-                                                onclick="event.stopPropagation(); tiggerPdfUpload(this.dataset.accountName)">
-                                            <i class="bi bi-file-earmark-pdf"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+		<div class="modal fade" id="segmentModal" tabindex="-1" aria-hidden="true">
+			<div class="modal-dialog modal-xl modal-dialog-scrollable">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title" id="segmentModalTitle">Movimientos</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+					</div>
+					<div class="modal-body p-0">
+						<div class="table-responsive">
+							<table class="table table-sm table-hover align-middle mb-0">
+								<thead class="table-light">
+									<tr>
+										<th style="width:110px;">Fecha</th>
+										<th>Descripción</th>
+										<th>Detalle</th>
+										<th id="segmentInstallmentHeader" class="d-none" style="width:90px;">Cuota</th>
+										<th style="width:220px;">Tags</th>
+										<th class="text-end" style="width:150px;">Importe</th>
+									</tr>
+								</thead>
+								<tbody id="segmentModalBody"></tbody>
+								<tfoot id="segmentModalFooter"></tfoot>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
 
-            <!-- No-bank accounts -->
-            <div class="col-3" th:each="account : ${noBankAccounts}">
-                <div class="card mt-3 account-card cursor-pointer" th:data-href="@{/expenses(accountName=${account.name})}">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-4 d-flex">
-                                <i th:if="${#strings.isEmpty(account.icon)}"
-                                   th:class="${account.type == 'BANK_ACCOUNT' ? 'bi bi-bank fs-1' : 'bi bi-credit-card fs-1'}"></i>
-                                <i th:if="${!#strings.isEmpty(account.icon) and !account.icon.endsWith('.svg') and !account.icon.endsWith('.png')}"
-                                   th:class="${account.icon + ' fs-1'}"></i>
-                                <img th:if="${!#strings.isEmpty(account.icon) and (account.icon.endsWith('.svg') or account.icon.endsWith('.png'))}"
-                                     class="img-fluid align-self-center" style="max-height: 60px"
-                                     th:src="@{/images/{icon}(icon=${account.icon})}">
-                            </div>
-                            <div class="col text-end">
-                                <small class="d-block text-body-secondary"
-                                       th:text="${account.type == 'BANK_ACCOUNT' ? 'Saldo actual' : 'Total consumido del período'}"/>
-                                <h3 th:text="'$ ' + ${#numbers.formatDecimal(account.balance, 1, 'POINT', 2, 'COMMA')}"/>
-                            </div>
-                        </div>
+		<script th:inline="javascript">
+			const monthly = /*[[${dashboardData.monthlySeries}]]*/ [];
+			const monthlyAccounts = /*[[${dashboardData.monthlyAccounts}]]*/ [];
+			const tags = /*[[${dashboardData.topTags}]]*/ [];
+			const segmentExpensesUrl = /*[[@{/dashboard/segment-expenses}]]*/ '';
+			const topMerchantsUrl = /*[[@{/dashboard/top-merchants}]]*/ '';
+			const topFrom = /*[[${#temporals.format(dateFrom, 'yyyy-MM-dd')}]]*/ '';
+			const topTo = /*[[${#temporals.format(dateTo, 'yyyy-MM-dd')}]]*/ '';
+			let topMerchantsSort = 'count';
+			let topGroupsSort = 'count';
 
-                        <div class="chart-container position-relative">
-                            <canvas th:attr="id='chart-' + ${account.id}" height="200"></canvas>
-                            <div th:attr="id='no-chart-' + ${account.id}" class="text-center text-muted d-none py-4">
-                                <i class="bi bi-inbox fs-3 d-block mb-1"></i>
-                                <small>Sin gastos registrados</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer text-body-secondary d-flex justify-content-around gap-3" th:if="${account.type == 'BANK_ACCOUNT' or account.syncEnabled or account.type == 'CREDIT_CARD'}">
-                        <form th:action="@{/bank-sync}" method="post" class="d-flex justify-content-around gap-3" onclick="event.stopPropagation();">
-                            <input type="hidden" name="accountId" th:value="${account.id}">
-                            <input type="hidden" name="accountName" th:value="${account.name}">
-                            <input type="hidden" name="galiciaCookies">
+			const accountColor = name => {
+				const n = (name || '').toUpperCase();
+								if (n.startsWith('GALICIA')) return '#4E79A7';
+								if (n === 'VISA') return '#59A14F';
+								if (n.startsWith('MASTER')) return '#F28E2B';
+				return '#6c757d';
+			};
 
-                            <div th:if="${account.type == 'BANK_ACCOUNT'}" class="d-flex gap-1">
-                                <button type="button" class="btn btn-sm btn-outline-success" title="Pegar cookies del portapapeles y sincronizar" onclick="galiciaSync(this, 'sync')"><i class="bi bi-arrow-repeat"></i></button>
-                                <button type="button" class="btn btn-sm btn-outline-primary" title="Pegar cookies del portapapeles y analizar" onclick="galiciaSync(this, 'learn')"><i class="bi bi-eyeglasses"></i></button>
-                            </div>
-                            <button th:if="${account.syncProvider != 'GALICIA' and account.syncEnabled}" type="submit" class="btn btn-success btn-sm" title="Sincronizar con el banco"><i class="bi bi-arrow-repeat"></i></button>
-                        </form>
+			const mCtx = document.getElementById('chartMonthly');
+			if (mCtx && monthly.length) {
+				new Chart(mCtx, {
+					type: 'bar',
+					data: {
+						labels: monthly.map(x => x.label),
+						datasets: monthlyAccounts.map(acc => ({
+							label: acc,
+							data: monthly.map(x => (x.totalsByAccount && x.totalsByAccount[acc]) || 0),
+							backgroundColor: accountColor(acc)
+						}))
+					},
+					options: {
+						responsive: true,
+						scales: {
+							x: { stacked: true },
+							y: { stacked: true }
+						},
+						onClick: (evt, elements) => {
+							if (!elements.length) return;
+							const el = elements[0];
+							const point = monthly[el.index];
+							const account = monthlyAccounts[el.datasetIndex];
+							if (!point || !account) return;
+							openSegmentModal(account, point.year, point.month, point.label);
+						},
+						onHover: (evt, elements) => {
+							evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+						}
+					}
+				});
+			}
 
-                        <button th:if="${account.type == 'CREDIT_CARD' and (account.name == 'Master Card' or account.name == 'VISA')}"
-                                type="button" class="btn btn-outline-danger"
-                                th:data-account-name="${account.name}"
-                                onclick="event.stopPropagation(); tiggerPdfUpload(this.dataset.accountName)">
-                            <i class="bi bi-file-earmark-pdf"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+			const tCtx = document.getElementById('chartTags');
+			if (tCtx && tags.length) {
+				new Chart(tCtx, {
+					type: 'bar',
+					data: {
+						labels: tags.map(x => x.tagName),
+						datasets: [{
+							label: 'Total',
+							data: tags.map(x => x.total),
+							backgroundColor: tags.map(x => x.tagColor && x.tagColor.startsWith('#') ? x.tagColor : '#6c757d')
+						}]
+					},
+					options: {
+						indexAxis: 'y',
+						responsive: true
+					}
+				});
+			}
+		</script>
 
-        </div>
+		<script>
+			const segmentCurrency = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        <form id="pdfUploadForm" method="post" enctype="multipart/form-data" th:action="@{/bank-pdf}" class="d-none">
-            <input type="file" id="pdfFileInput" name="file" accept="application/pdf" />
-            <input type="hidden" id="pdfAccountName" name="accountName">
-        </form>
+			function segmentMoney(value) {
+				return '$ ' + segmentCurrency.format(Number(value) || 0);
+			}
 
-        <script>
-            function tiggerPdfUpload(accountName) {
-                const fileInput = document.getElementById('pdfFileInput');
-                const accountInput = document.getElementById('pdfAccountName');
-                const form = document.getElementById('pdfUploadForm');
-                accountInput.value = accountName;
-                fileInput.click();
-                fileInput.onchange = function () {
-                    if (fileInput.files.length > 0) {
-                        form.submit();
-                    }
-                };
-            }
+			function segmentEscape(value) {
+				return String(value == null ? '' : value)
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;')
+					.replace(/'/g, '&#39;');
+			}
 
-            async function galiciaSync(button, mode) {
-                const form = button.closest('form');
-                const cookiesInput = form.querySelector('[name="galiciaCookies"]');
-                try {
-                    const text = await navigator.clipboard.readText();
-                    if (!text || (!text.includes('ASP.NET_SessionId') && !text.includes('Skywalker') && !text.includes('TS'))) {
-                        alert('No se detectaron cookies válidas en el portapapeles.\nCopiá las cookies del Home Banking de Galicia primero.');
-                        return;
-                    }
-                    cookiesInput.value = text;
-                    if (mode === 'learn') {
-                        form.action = form.action.replace('/bank-sync', '/bank-learn');
-                    }
-                    form.submit();
-                } catch (e) {
-                    alert('No se pudo leer el portapapeles.\nCopiá las cookies manualmente y pegá el texto en el campo de cookies.');
-                }
-            }
+			async function openSegmentModal(account, year, month, label) {
+				const body = document.getElementById('segmentModalBody');
+				const footer = document.getElementById('segmentModalFooter');
+				const installmentHeader = document.getElementById('segmentInstallmentHeader');
+				document.getElementById('segmentModalTitle').textContent = account + ' - ' + label;
+				installmentHeader.classList.add('d-none');
+				body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Cargando...</td></tr>';
+				footer.innerHTML = '';
+				bootstrap.Modal.getOrCreateInstance(document.getElementById('segmentModal')).show();
 
-            async function galiciaSyncBank(button) {
-                const syncUrl = button.getAttribute('data-bank-sync-url');
-                try {
-                    const text = await navigator.clipboard.readText();
-                    if (!text || (!text.includes('ASP.NET_SessionId') && !text.includes('Skywalker') && !text.includes('TS'))) {
-                        alert('No se detectaron cookies válidas en el portapapeles.\nCopiá las cookies del Home Banking de Galicia primero.');
-                        return;
-                    }
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = syncUrl;
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'galiciaCookies';
-                    input.value = text;
-                    form.appendChild(input);
-                    document.body.appendChild(form);
-                    form.submit();
-                } catch (e) {
-                    alert('No se pudo leer el portapapeles.\nCopiá las cookies manualmente y pegá el texto en el campo de cookies.');
-                }
-            }
+				try {
+					const params = new URLSearchParams({ account: account, year: year, month: month });
+					const response = await fetch(segmentExpensesUrl + '?' + params.toString());
+					if (!response.ok) {
+						throw new Error('HTTP ' + response.status);
+					}
+					const data = await response.json();
+					const rows = data.expenses || [];
+					const creditCard = !!data.creditCard;
+					const columns = creditCard ? 6 : 5;
+					installmentHeader.classList.toggle('d-none', !creditCard);
 
-            document.querySelectorAll('.account-card').forEach(card => {
-                card.addEventListener('click', function () {
-                    const href = this.dataset.href;
-                    if (href) {
-                        window.location.href = href;
-                    }
-                });
-            });
-        </script>
+					if (!rows.length) {
+						body.innerHTML = '<tr><td colspan="' + columns + '" class="text-center text-muted py-3">Sin movimientos</td></tr>';
+						return;
+					}
+					body.innerHTML = rows.map(r => `
+						<tr>
+							<td class="text-nowrap">${segmentEscape(r.date || '')}</td>
+							<td>${segmentEscape(r.description)}</td>
+							<td class="text-truncate" style="max-width:320px;" title="${segmentEscape(r.details || '')}">${segmentEscape(r.details || '')}</td>
+							<td class="text-nowrap${creditCard ? '' : ' d-none'}">${segmentEscape(r.installment || '')}</td>
+							<td>${r.tags ? '<span class="badge bg-secondary">' + segmentEscape(r.tags) + '</span>' : ''}</td>
+							<td class="text-end text-nowrap">${segmentMoney(r.amount)}</td>
+						</tr>`).join('');
 
-        <script th:inline="javascript">
-            const chartsByAccount = /*[[${chartsByAccount}]]*/ {};
+					const total = rows.reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+					footer.innerHTML = '<tr class="fw-bold"><td colspan="' + (columns - 1) + '">Total (' + rows.length + ' movimientos)</td><td class="text-end">' + segmentMoney(total) + '</td></tr>';
+				} catch (e) {
+					body.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">No se pudieron cargar los movimientos</td></tr>';
+				}
+			}
 
-            Object.entries(chartsByAccount).forEach(([accountId, chart]) => {
-                const canvas = document.getElementById('chart-' + accountId);
-                const noDataPlaceholder = document.getElementById('no-chart-' + accountId);
-                if (!canvas || !noDataPlaceholder) return;
-                if (!chart || !chart.labels || chart.labels.length === 0) {
-                    canvas.classList.add('d-none');
-                    noDataPlaceholder.classList.remove('d-none');
-                    return;
-                }
-                new Chart(canvas, {
-                    type: 'doughnut',
-                    data: {
-                        labels: chart.labels,
-                        datasets: chart.datasets
-                    },
-                    options: {
-                        onClick: function(evt, elements, chart) {
-                            if (!elements.length) return;
-                            const index = elements[0].index;
-                            const label = chart.data.labels[index];
-                            const baseExpensesUrl = /*[[@{/expenses}]]*/ '';
-                            window.location.href = baseExpensesUrl + `?accountId=${accountId}&tagName=${encodeURIComponent(label)}`;
-                        },
-                        plugins: {
-                            subtitle: {
-                                display: !!chart.subtitle,
-                                text: chart.subtitle,
-                                color: '#6c757d',
-                                font: { size: 12 },
-                                padding: { bottom: 8 }
-                            },
-                            legend: { position: 'bottom' },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let value = context.raw;
-                                        let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        let percentage = ((value / total) * 100).toFixed(1);
-                                        return '$ ' + value.toLocaleString('es-AR', { minimumFractionDigits: 2 }) + ' (' + percentage + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-        </script>
-    </div>
+			async function galiciaSyncBank(button) {
+				const syncUrl = button.getAttribute('data-bank-sync-url');
+				try {
+					const text = await navigator.clipboard.readText();
+					if (!text || (!text.includes('ASP.NET_SessionId') && !text.includes('Skywalker') && !text.includes('TS'))) {
+						alert('No se detectaron cookies válidas en el portapapeles.\nCopiá las cookies del Home Banking de Galicia primero.');
+						return;
+					}
+					const form = document.createElement('form');
+					form.method = 'POST';
+					form.action = syncUrl;
+					const input = document.createElement('input');
+					input.type = 'hidden';
+					input.name = 'galiciaCookies';
+					input.value = text;
+					form.appendChild(input);
+					document.body.appendChild(form);
+					form.submit();
+				} catch (e) {
+					alert('No se pudo leer el portapapeles.\nCopiá las cookies manualmente y pegá el texto en el campo de cookies.');
+				}
+			}
+
+			async function reloadTopMerchants() {
+				const params = new URLSearchParams({
+					from: topFrom,
+					to: topTo,
+					merchantsSort: topMerchantsSort,
+					groupsSort: topGroupsSort
+				});
+				try {
+					const response = await fetch(topMerchantsUrl + '?' + params.toString());
+					if (!response.ok) {
+						throw new Error('HTTP ' + response.status);
+					}
+					const data = await response.json();
+					renderTopRows('topMerchantsBody', data.merchants);
+					renderTopRows('topMerchantGroupsBody', data.groups);
+				} catch (e) {
+					console.error('No se pudo actualizar el top de comercios/rubros', e);
+				}
+			}
+
+			function renderTopRows(tbodyId, rows) {
+				const body = document.getElementById(tbodyId);
+				if (!rows || !rows.length) {
+					body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Sin movimientos</td></tr>';
+					return;
+				}
+				body.innerHTML = rows.map(m => `
+					<tr>
+						<td class="text-truncate" style="max-width: 200px;">${segmentEscape(m.merchant)}</td>
+						<td class="text-end fw-bold">${m.count}</td>
+						<td class="text-end">${segmentMoney(m.total)}</td>
+						<td class="text-end">${segmentCurrency.format(Number(m.percent) || 0)}%</td>
+					</tr>`).join('');
+			}
+
+			const merchantsSortSwitch = document.getElementById('merchantsSortSwitch');
+			merchantsSortSwitch.addEventListener('change', () => {
+				topMerchantsSort = merchantsSortSwitch.checked ? 'amount' : 'count';
+				reloadTopMerchants();
+			});
+
+			const groupsSortSwitch = document.getElementById('groupsSortSwitch');
+			groupsSortSwitch.addEventListener('change', () => {
+				topGroupsSort = groupsSortSwitch.checked ? 'amount' : 'count';
+				reloadTopMerchants();
+			});
+		</script>
+	</div>
 </body>
 </html>

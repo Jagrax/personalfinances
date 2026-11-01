@@ -1,21 +1,15 @@
 package ar.com.personalfinances.controller;
 
 import ar.com.personalfinances.entity.Account;
-import ar.com.personalfinances.entity.AccountType;
-import ar.com.personalfinances.entity.CardPeriodStatus;
 import ar.com.personalfinances.entity.Category;
 import ar.com.personalfinances.entity.Expense;
 import ar.com.personalfinances.entity.User;
 import ar.com.personalfinances.exception.ResourceNotFoundException;
 import ar.com.personalfinances.repository.AccountRepository;
-import ar.com.personalfinances.repository.CardPeriodRepository;
 import ar.com.personalfinances.repository.CategoryRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
-import ar.com.personalfinances.repository.ReportsRepository;
 import ar.com.personalfinances.repository.TagRepository;
-import ar.com.personalfinances.service.ChartJsService;
 import ar.com.personalfinances.service.SpecificationsService;
-import ar.com.personalfinances.dto.AccountBalanceDTO;
 import ar.com.personalfinances.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +20,6 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -42,22 +35,16 @@ public class ApplicationController {
     private final ExpenseRepository expenseRepository;
     private final CategoryRepository categoryRepository;
     private final AccountRepository accountRepository;
-    private final ReportsRepository reportsRepository;
     private final SpecificationsService specificationsService;
-    private final ChartJsService chartJsService;
     private final TagRepository tagRepository;
-    private final CardPeriodRepository cardPeriodRepository;
 
     @Autowired
-    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, ReportsRepository reportsRepository, SpecificationsService specificationsService, ChartJsService chartJsService, TagRepository tagRepository, CardPeriodRepository cardPeriodRepository) {
+    public ApplicationController(ExpenseRepository expenseRepository, CategoryRepository categoryRepository, AccountRepository accountRepository, SpecificationsService specificationsService, TagRepository tagRepository) {
         this.expenseRepository = expenseRepository;
         this.categoryRepository = categoryRepository;
         this.accountRepository = accountRepository;
-        this.reportsRepository = reportsRepository;
         this.specificationsService = specificationsService;
-        this.chartJsService = chartJsService;
         this.tagRepository = tagRepository;
-        this.cardPeriodRepository = cardPeriodRepository;
     }
 
     @RequestMapping("/expenses/report")
@@ -186,68 +173,6 @@ public class ApplicationController {
     @GetMapping("/galicia-connect")
     public String getGaliciaConnectPage() {
         return "galicia-connect";
-    }
-
-    @GetMapping({"/dashboard", "/"})
-    public String getDashboardPage(Model model) {
-        List<Object[]> raw = reportsRepository.getSumAmountsByAccount(ApplicationUtils.getUserFromSession().getId());
-        List<AccountBalanceDTO> allAccounts = raw.stream().map(this::toAccountBalanceDTO).toList();
-
-        // Para tarjetas, el "Total consumido del período" se alinea al gasto del resumen abierto cuando ya existen periodos sincronizados
-        for (AccountBalanceDTO account : allAccounts) {
-            if (AccountType.CREDIT_CARD.name().equals(account.getType())
-                    && cardPeriodRepository.existsByAccountIdAndStatus(account.getId(), CardPeriodStatus.OPEN)) {
-                account.setBalance(reportsRepository.getSumAmountsInOpenPeriod(account.getId()));
-            }
-        }
-
-        Map<Long, List<AccountBalanceDTO>> accountsByBank = new LinkedHashMap<>();
-        List<AccountBalanceDTO> noBankAccounts = new ArrayList<>();
-
-        for (AccountBalanceDTO dto : allAccounts) {
-            if (dto.getBankId() != null)
-                accountsByBank.computeIfAbsent(dto.getBankId(), k -> new ArrayList<>()).add(dto);
-            else
-                noBankAccounts.add(dto);
-        }
-
-        model.addAttribute("accountsByBank", accountsByBank);
-        model.addAttribute("noBankAccounts", noBankAccounts);
-
-        final List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
-        final Map<Long, ChartDataDTO> chartsByAccount = userAccounts.stream()
-                .collect(Collectors.toMap(
-                        Account::getId,
-                        chartJsService::buildExpensesSumaryByTagChart
-                ));
-        model.addAttribute("chartsByAccount", chartsByAccount);
-
-        return "dashboard";
-    }
-
-    private AccountBalanceDTO toAccountBalanceDTO(Object[] row) {
-        boolean syncEnabled;
-        Object se = row[5];
-        if (se instanceof Boolean) {
-            syncEnabled = (Boolean) se;
-        } else if (se instanceof Number) {
-            syncEnabled = ((Number) se).intValue() != 0;
-        } else {
-            syncEnabled = false;
-        }
-
-        return new AccountBalanceDTO(
-                (Long) row[0],
-                (String) row[1],
-                (String) row[2],
-                (BigDecimal) row[3],
-                (String) row[4],
-                syncEnabled,
-                (String) row[6],
-                (String) row[7],
-                (Long) row[8],
-                (String) row[9]
-        );
     }
 
     private List<Account> getUserAccounts(AccountSearch accountSearch, Sort sort) {
