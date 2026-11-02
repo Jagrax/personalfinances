@@ -141,11 +141,10 @@ public class ExpensesGroupsController {
     }
 
     private List<ExpensesGroup> getExpensesGroups(ExpensesGroupSearch expensesGroupSearch, Sort sort) {
-        // Obtengo los grupos filtrados en pantalla
         List<Long> expenseGroupSearchUserIds = expensesGroupSearch.getUserIds();
         if (expenseGroupSearchUserIds == null) expenseGroupSearchUserIds = new ArrayList<>();
 
-        // Filtro para ver solamente los grupos a los que pertenezco y los que cree
+        // Solo grupos propios o donde el usuario es miembro
         User user = ApplicationUtils.getUserFromSession();
         expenseGroupSearchUserIds.add(user.getId());
         expensesGroupSearch.setUserIds(expenseGroupSearchUserIds);
@@ -155,7 +154,6 @@ public class ExpensesGroupsController {
     }
 
     private String getExpensesGroupEditPage(Model model, ExpensesGroup expensesGroup, Optional<String> backUrl) {
-        // Me aseguro de que no de NullPo
         if (expensesGroup.getMembers() == null) {
             expensesGroup.setMembers(new ArrayList<>());
         }

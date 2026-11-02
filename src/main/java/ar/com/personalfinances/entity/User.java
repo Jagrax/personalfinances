@@ -69,8 +69,6 @@ public class User implements UserDetails {
     @Column(name = "enabled")
     private Boolean enabled = true;
 
-    // Relation with other entities
-
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Account> accounts;
 
@@ -82,12 +80,6 @@ public class User implements UserDetails {
 
     @OneToMany(mappedBy = "creationUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ExpensesGroup> expensesGroups;
-
-//    @ManyToMany(mappedBy = "members", fetch = FetchType.LAZY)
-//    private List<SharedExpense> sharedExpenses;
-//
-//    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private List<SharedExpenseMember> expensesGroupsMembers;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

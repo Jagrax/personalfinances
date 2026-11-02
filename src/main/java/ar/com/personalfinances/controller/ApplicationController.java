@@ -49,13 +49,11 @@ public class ApplicationController {
 
     @RequestMapping("/expenses/report")
     public String getExpensesReportPage(Model model, @ModelAttribute ExpenseSearch expenseSearch) {
-        // Intento recuperar el Usuario logueado
         User user = ApplicationUtils.getUserFromSession();
 
-        // Por defecto, quiero ver siempre mis gastos
+        // Por defecto solo se ven los gastos propios
         expenseSearch.setUserId(user.getId());
 
-        // Por defecto, quiero ver siempre mis gastos
         List<Expense> expenses = expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by("date", "description"));
         List<String[]> serviciosReport = new ArrayList<>(Collections.singleton(new String[]{
                 "Fecha", "Descripcion", "Origen", "Importe", "Detalles", "Comentarios", "Tags", "Cuenta"
@@ -69,11 +67,8 @@ public class ApplicationController {
         }).collect(Collectors.toList()));
         model.addAttribute("serviciosReport", serviciosReport);
 
-        // Tags que se muestran en el filtro de Tags
         model.addAttribute("tags", tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name")));
-        // Cuentas que se muestran en el filtro Cuentas
         model.addAttribute("accounts", getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name")));
-        // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
         model.addAttribute("expenseSearch", expenseSearch);
         return "reports/report";
     }
@@ -181,7 +176,6 @@ public class ApplicationController {
 
         User user = ApplicationUtils.getUserFromSession(false);
         if (user != null) {
-            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
             accountSearchOwnerIds.add(user.getId());
         }
 
@@ -195,7 +189,6 @@ public class ApplicationController {
 
         User user = ApplicationUtils.getUserFromSession(false);
         if (user != null) {
-            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
             categorySearchOwnerIds.add(user.getId());
         }
 

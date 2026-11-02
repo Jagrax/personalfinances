@@ -77,7 +77,11 @@ public class ExpenseMappingsController {
             model.addAttribute("expenseMapping", expenseMapping);
             model.addAttribute("expenseMappingIdToEdit", expenseMappingIdToEdit);
         } else {
-            model.addAttribute("expenseMapping", newExpenseMapping(user));
+            ExpenseMapping emptyExpenseMapping = new ExpenseMapping();
+            emptyExpenseMapping.setUser(user);
+            emptyExpenseMapping.setCreationDate(LocalDate.now());
+            emptyExpenseMapping.setEnabled(true);
+            model.addAttribute("expenseMapping", emptyExpenseMapping);
         }
 
         model.addAttribute("expenseMappingSearch", expenseMappingSearch);
@@ -142,14 +146,6 @@ public class ExpenseMappingsController {
 
         expenseMappingRepository.delete(expenseMapping);
         return "redirect:/expenseMappings";
-    }
-
-    private ExpenseMapping newExpenseMapping(User user) {
-        ExpenseMapping expenseMapping = new ExpenseMapping();
-        expenseMapping.setUser(user);
-        expenseMapping.setCreationDate(LocalDate.now());
-        expenseMapping.setEnabled(true);
-        return expenseMapping;
     }
 
     private void prepareExpenseMapping(ExpenseMapping expenseMapping, User user, List<Long> tagIds) {

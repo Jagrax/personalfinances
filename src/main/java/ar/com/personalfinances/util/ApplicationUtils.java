@@ -34,10 +34,8 @@ public class ApplicationUtils {
                 Object valorOriginal = field.get(original);
 
                 try {
-                    // Me aseguro de tener el objeto real y no un Hibernate Proxy en la mano
                     valorOriginal = Hibernate.unproxy(valorOriginal);
                     valorNuevo = Hibernate.unproxy(valorNuevo);
-                    // Intento obtener el atributo id si lo tiene
                     Field originalId = valorOriginal != null ? valorOriginal.getClass().getDeclaredField("id") : null;
                     Field nuevoId = valorNuevo != null ? valorNuevo.getClass().getDeclaredField("id") : null;
                     if (originalId != null) {
@@ -52,7 +50,7 @@ public class ApplicationUtils {
                 }
 
                 if (!Objects.equals(valorNuevo, valorOriginal)) {
-                    // Caso particular, si edito los miembros de un grupo o de un gasto, tendria que tener la lista como IDs, pero es medio incomprensible de leer a nivel AlertEvent. Por ahora dejamos anotado como cambio el size de la List
+                    // Comparar listas completas seria ilegible en el AlertEvent: se registra solo el size
                     if (valorOriginal instanceof List && valorNuevo instanceof List) {
                         valorOriginal = "size=" + ((List<?>) valorOriginal).size();
                         valorNuevo = "size=" + ((List<?>) valorNuevo).size();
@@ -102,7 +100,6 @@ public class ApplicationUtils {
     }
 
     public static User getUserFromSession(boolean throwExceptionOnNull) {
-        // Intento recuperar el Usuario logueado
         User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (user == null && throwExceptionOnNull) {
             throw new RuntimeException("No se pudo recuperar el usuario asociado a authentication.principal");
@@ -130,7 +127,6 @@ public class ApplicationUtils {
         String path = uri.getPath(); // incluye /personalfinances
         String contextPath = request.getContextPath();
 
-        // me quedo SOLO con lo relativo a la app
         if (path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
         }

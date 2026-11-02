@@ -57,16 +57,10 @@ public class DateUtils {
 
     private static final HolidayManager holidayManager = HolidayManager.getInstance(ManagerParameters.create(HolidayCalendar.ARGENTINA));
 
-    /**
-     * Verifica si una fecha es feriado en Argentina.
-     */
     public static boolean esFeriado(LocalDate date) {
         return holidayManager.isHoliday(date) || notWorkingDays.contains(date);
     }
 
-    /**
-     * Verifica si una fecha cae en sábado o domingo.
-     */
     public static boolean isWeekend(LocalDate date) {
         DayOfWeek day = date.getDayOfWeek();
         return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;

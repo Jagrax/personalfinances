@@ -96,7 +96,6 @@ public class SpecificationsService {
     }
 
     private void addStringFilter(List<Predicate> predicates, CriteriaBuilder cb, Path<String> path, String fieldName, String value, FilterOperator operator) {
-        // Default operator
         if (operator == null) operator = FilterOperator.CONTAINS;
 
         switch (operator) {

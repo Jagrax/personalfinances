@@ -41,14 +41,13 @@ public class MasterCardIssuedByGaliciaStatement extends AbstractCreditCardStatem
         boolean isConsumptionSection = false;
         for (String line : pdfLines) {
             if (isConsumptionSection) {
-                // Si llegue a la linea que dice "Cuotas a vencer", entonces ya termine de leer los consumos del resumen
+                // "Cuotas a vencer" cierra la seccion de consumos del resumen
                 if (line.startsWith("Cuotas a vencer")) break;
 
                 Matcher matcher = CONSUMPTION_PATTERN.matcher(line);
                 if (matcher.find()) {
                     String description = matcher.group(2).trim();
 
-                    // descartar pagos en moneda extranjera
                     if (isForeignCurrency(description)) continue;
 
                     String amount = matcher.group(6).replace(".", "").replace(",", ".");         // 13.600,00
@@ -112,11 +111,8 @@ public class MasterCardIssuedByGaliciaStatement extends AbstractCreditCardStatem
                     + "\\s+"
                     + "(.+?)"                              // 2 descripción (incluye números)
                     + "(?:\\s+(\\d{2})/(\\d{2}))?"         // 3-4 cuota opcional
-//                      + "(?:\\s+(\\d{3,}))?"                 // referencia opcional (originalmente decia esto)
                     + "(?:\\s+(\\d{5,6}))?"                // 5 nro comprobante (ANTES del importe)
-//                      + "\\s+(-?[0-9.,]+)"                   // monto principal (originalmente decia esto)
                     + "\\s+(-?[0-9.]+,[0-9]{2})"           // 6 importe principal (SIEMPRE último)
-//                      + "(?:\\s+(-?[0-9.,]+))?"              // segundo monto opcional (originalmente decia esto)
                     + "(?:\\s+(-?[0-9.]+,[0-9]{2}))?"      // 7 segundo importe opcional
                     + "$"
     );

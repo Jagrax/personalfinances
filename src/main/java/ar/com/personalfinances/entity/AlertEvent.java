@@ -40,8 +40,6 @@ public class AlertEvent {
     @Column(name = "details", length = 4000)
     private String details;
 
-    // Algunos constructores comodos
-
     public AlertEvent() {
     }
 

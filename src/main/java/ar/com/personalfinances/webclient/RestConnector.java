@@ -47,7 +47,7 @@ public class RestConnector {
         return internalGenericRequest(HttpMethod.POST, path, requestBody, responseType, errorType, postMediaType, MediaType.APPLICATION_JSON);
     }
 
-    //Wrapper para poder hacer el reintento si falla la autorizacion
+    // Wrapper para poder hacer el reintento si falla la autorizacion
     private  <Req, Res, Err> Pair<Res, HttpHeaders> internalGenericRequest(HttpMethod method, String path, Req requestBody, Class<Res> responseType, Class<Err> errorType, String acceptMediaType, MediaType postMediaType) throws RestConnectorException {
         try {
             return internalGenericRequestNoTryOnAuth(method, path, requestBody, responseType, errorType, acceptMediaType, postMediaType);
@@ -62,13 +62,10 @@ public class RestConnector {
     }
 
     public <Req, Res, Err> Pair<Res, HttpHeaders> internalGenericRequestNoTryOnAuth(HttpMethod method, String path, Req requestBody, Class<Res> responseType, Class<Err> errorType, String postMediaType, MediaType acceptMediaType) throws RestConnectorException {
-        // Crear el RestTemplate
         RestTemplate restTemplate = new RestTemplate();
 
-        // Crear los headers para la solicitud
         HttpHeaders httpHeaders = new HttpHeaders();
 
-        // Agregar los headers personalizados
         if (securityManager != null) {
             httpHeaders = securityManager.addHeaders(httpHeaders);
         }
@@ -79,10 +76,8 @@ public class RestConnector {
             httpHeaders.set(HttpHeaders.ACCEPT, acceptMediaType.toString());
         }
 
-        // Crear la entidad con el cuerpo de la solicitud, si existe
         HttpEntity<Req> entity = new HttpEntity<>(requestBody, httpHeaders);
 
-        // Realizar la solicitud (GET, POST, etc.)
         ResponseEntity<String> responseEntity;
         try {
             responseEntity = restTemplate.exchange(getBaseUrl() + path, method, entity, String.class);
@@ -92,9 +87,8 @@ public class RestConnector {
             throw e;
         } catch (HttpStatusCodeException e) {
             processErrorAndThrowRestConnectorException(e.getResponseBodyAsString(), errorType, (HttpStatus) e.getStatusCode());
-            return null;  // Este return nunca se ejecuta porque `convertErrorEntityAsStringToErrorTypeAndThrowRestConnectorException` siempre lanza una excepción.
+            return null;  // Inalcanzable: processErrorAndThrowRestConnectorException siempre lanza una excepcion.
         } catch (Exception e) {
-            // Manejar posibles excepciones, como un error de red
             throw new RestConnectorException("Error realizando la solicitud HTTP: " + e.getMessage(), e);
         }
     }
@@ -111,12 +105,10 @@ public class RestConnector {
 
         if (errorType != null) {
             try {
-                // Usamos ObjectMapper para deserializar el String a un objeto del tipo errorType
                 entityResponseError = objectMapper.readValue(errorEntityAsString, errorType);
                 log.trace("[RestConnector] Entity responseError [{}]", entityResponseError);
             } catch (Exception e) {
-                //Pordria haber tenido un problema de tupos al intentar leer la responde como un objeto
-                //Traro de leerlo de otra forma, pero igual es un error
+                // El error no deserializa al tipo esperado: se propaga el body crudo
                 entityResponseError = errorEntityAsString;
                 log.debug("La consulta no tiene tipo [{}]", errorType.getCanonicalName());
             }

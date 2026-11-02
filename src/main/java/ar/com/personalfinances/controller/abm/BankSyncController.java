@@ -85,7 +85,6 @@ public class BankSyncController {
 
                 User user = ApplicationUtils.getUserFromSession(false);
                 if (user != null) {
-                    // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
                     accountSearchOwnerIds.add(user.getId());
                 }
 
@@ -145,7 +144,6 @@ public class BankSyncController {
 
                 User user = ApplicationUtils.getUserFromSession(false);
                 if (user != null) {
-                    // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
                     accountSearchOwnerIds.add(user.getId());
                 }
 
@@ -271,7 +269,6 @@ public class BankSyncController {
 
         User user = ApplicationUtils.getUserFromSession(false);
         if (user != null) {
-            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
             accountSearchOwnerIds.add(user.getId());
         }
 
@@ -470,7 +467,7 @@ public class BankSyncController {
             return true;
         }
 
-        // Es un gasto normal, descarto si no coincide la fecha
+        // Es un gasto normal: sin fecha no hay match
         return expenseFromPDF.getDate() != null && expenseFromPDF.getDate().equals(expense.getDate());
     }
 

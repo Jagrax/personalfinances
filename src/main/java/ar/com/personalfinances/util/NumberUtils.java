@@ -14,28 +14,21 @@ public class NumberUtils {
             return BigDecimal.ZERO;
         }
 
-        // Eliminar posibles espacios antes y después
+        // El banco manda formato argentino (1.234,56), pero se aceptan ambos ordenes de separadores
         importe = importe.trim();
 
-        // Paso 1: Eliminar separadores de miles
         if (importe.contains(".") && importe.indexOf('.') < importe.lastIndexOf(',')) {
-            // Si tiene punto antes de la coma, entonces es un separador de miles, lo eliminamos
             importe = importe.replace(".", "");
         }
 
-        // Paso 2: Detectar formato de coma y convertir a punto
         if (importe.contains(",")) {
-            // Si el número contiene coma, lo tratamos como separador decimal (formato español)
             if (importe.contains(".")) {
-                // Si tiene punto y coma, reemplazamos el punto (miles) y la coma (decimal) por punto
                 importe = importe.replace(".", "").replace(",", ".");
             } else {
-                // Si tiene solo coma, significa que es el separador decimal
                 importe = importe.replace(",", ".");
             }
         }
 
-        // Paso 3: Si no tiene coma ni punto, es un número entero sin decimales, lo dejamos tal cual
         return new BigDecimal(importe);
     }
 

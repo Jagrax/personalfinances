@@ -45,7 +45,7 @@ public class GaliciaSyncServiceImpl implements GaliciaSyncService {
         try {
             CommonResult cardsResult = galiciaApiService.getCardsOverview(cookies);
 
-            // Try SSO first, then direct session, then original cookies as last resort
+            // Primero SSO, despues sesion directa, y los cookies originales como ultimo recurso
             CommonResult cuentasSessionResult = galiciaApiService.establishCuentasSession(cookies);
             String cuentasCookies;
             if (cuentasSessionResult.isError()) {

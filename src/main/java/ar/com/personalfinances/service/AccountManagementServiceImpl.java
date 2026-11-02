@@ -93,7 +93,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             log.warn("[syncBankAccount] selectAccount failed: {}", selectResult.getMessage());
             return CommonResult.warn("No se pudo seleccionar la cuenta en Galicia Cuentas: " + selectResult.getMessage());
         }
-        // Use updated cookies from selectAccount (may include new cookies from redirect)
+        // El redirect de selectAccount renueva la sesion: los cookies de aca en adelante son otros
         cuentasCookies = (String) selectResult.getPayload();
 
         final LocalDate to = LocalDate.now();
@@ -117,13 +117,11 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         log.info("[syncBankAccount] Se recuperaron {} movimientos de la cuenta entre las fechas {} y {}. Se procede a filtrar los movimientos ya existentes", movements.size(), strFrom, strTo);
         final List<Long> expensesIdFounded = new ArrayList<>();
         movements = movements.stream().filter(movement -> {
+            // Se descartan los que no se pueden sincronizar: moneda distinta de ARS o sin los datos minimos
             if (!movement.getMoneda().equals(GALICIA_CURRENCY_ARS_ID)) {
                 log.info("[syncBankAccount] Se ignora el movimiento [{} {} {}] por moneda invalida: {}", DateUtils.format(movement.getFecha()), getDescription(movement), movement.getAmount(), movement.getMoneda());
                 return false;
-            }
-
-            // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
-            if (movement.getFecha() == null) {
+            } else if (movement.getFecha() == null) {
                 log.info("[isValid] Invalid {}: fecha is null", movement);
                 return false;
             } else if (movement.getDescripcionAMostrar() == null && movement.getDescripcionSide() == null) {
@@ -134,7 +132,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 return false;
             }
 
-            // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+            // Me fijo si alguno de los gastos existentes ya corresponde a este movimiento del Galicia
             String bankDesc = getDescription(movement);
             List<Expense> expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, movement.getFecha(), movement.getAmount());
             for (Expense expense : expensesByDateAndAmount) {
@@ -157,11 +155,10 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 return false;
             }
 
-            // Si llegue a este punto, es que no encontre el gasto por cuenta, fecha e importe exacto, asi me fijo si tengo que buscar dias para atras hasta el proximo dia habil
+            // Si no aparece con la fecha del movimiento, puede estar imputado al dia habil anterior: el banco no postea fines de semana ni feriados
             LocalDate date = movement.getFecha();
             boolean isWorkingDay = false;
             while (!isWorkingDay) {
-                // Retrocedo un dia
                 date = date.minusDays(1);
                 if (DateUtils.isWeekend(date) || DateUtils.esFeriado(date)) {
                     expensesByDateAndAmount = expenseRepository.findByAccountAndDateAndAmountEquals(account, date, movement.getAmount());
@@ -188,7 +185,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                 }
             }
 
-            // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
             return true;
         }).collect(Collectors.toList());
 
@@ -227,8 +223,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         return CommonResult.ok(syncResult, syncResult.toHtmlMessage());
     }
 
-    /*
-     * Metodo para recorrer los movimientos desde hoy hacia atras con un delta de 3 meses hasta que no haya mas movimientos y luego te da un reporte de los que se repitieron mas de una vez
+    /**
+     * Recorre los movimientos hacia atras en bloques de 3 meses y devuelve las descripciones que aparecen
+     * mas de una vez y todavia no tienen un mapeo, para proponer nuevas reglas.
      */
     @Override
     public CommonResult learnFromBankMovements(Account account, String cookies) {
@@ -257,7 +254,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             log.warn("[learnFromMovements] selectAccount failed: {}", selectResult.getMessage());
             return CommonResult.warn("No se pudo seleccionar la cuenta en Galicia Cuentas: " + selectResult.getMessage());
         }
-        // Use updated cookies from selectAccount (may include new cookies from redirect)
+        // El redirect de selectAccount renueva la sesion: los cookies de aca en adelante son otros
         cuentasCookies = (String) selectResult.getPayload();
 
         final int monthsGap = 3;
@@ -266,7 +263,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         CommonResult getMovimientosCuentaResult = CommonResult.ok();
         boolean hasMovements = true;
 
-        // Mapa para contar las descripciones
         Map<String, Integer> descriptionCount = new HashMap<>();
 
         while (!getMovimientosCuentaResult.isError() && hasMovements) {
@@ -296,9 +292,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         }
 
         return CommonResult.ok(descriptionCount.entrySet().stream()
-                    .filter(entry -> entry.getValue() > 1) // Filtramos los que tienen más de 1 aparición
+                    .filter(entry -> entry.getValue() > 1)
                     .filter(entry -> expenseMappingService.matchExpenseMapping(account.getOwner(), entry.getKey()).isEmpty())
-                    .sorted(Comparator.comparing(Map.Entry<String, Integer>::getValue, Comparator.reverseOrder()).thenComparing(Map.Entry::getKey)) // Orden descendente por count y luego por description
+                    .sorted(Comparator.comparing(Map.Entry<String, Integer>::getValue, Comparator.reverseOrder()).thenComparing(Map.Entry::getKey))
                     .collect(Collectors.toList())
         );
     }
@@ -353,10 +349,9 @@ public class AccountManagementServiceImpl implements AccountManagementService {
 
             log.info("[syncCreditCardAccountMovements] Se recuperaron {} movimientos de la tarjeta de credito. Se procede a filtrar los movimientos ya existentes", consumptions.size());
 
-            // Filtro los consumos validos
+            // Se descartan los consumos que no tienen los datos minimos para sincronizar
             consumptions = consumptions.stream()
                     .filter(consumption -> {
-                        // Una minima validacion: el movimiento tiene que tener todos los datos minimos requeridos
                         if (consumption.getTransactionDate() == null) {
                             log.info("[isValid] Invalid {}: transaction date is null", consumption);
                             return false;
@@ -385,7 +380,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             for (Consumption consumption : consumptions) {
                 final boolean isQuota = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0;
                 final List<Expense> foundedExpenses;
-                // Me fijo en los gastos existentes si alguno coincide con el que movimiento del Galicia
+                // Me fijo si el consumo ya existe entre los gastos de la tarjeta
                 if (isQuota) {
                     log.debug("Por buscar gasto con cuota {} de {} por {}", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
                     foundedExpenses = filterByAmount(
@@ -429,7 +424,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     break;
                 }
 
-                // El gasto no existe en la DB y tiene los datos correctos. Lo guardo
+                // No aparece en la DB: se crea despues del loop
                 if (!found) {
                     if (isQuota) {
                         log.info("[syncCreditCardAccountMovements] Cuota {} de {} por {} no encontrada, se crea el Expense", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getFinalAmount());
@@ -454,7 +449,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     final Expense previousInstallment = details != null ? findPreviousInstallment(creditCardAccount, consumption) : null;
                     return createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details, previousInstallment);
                 }).toList();
-                // Agrego los gastos recien creados al listado de IDs de gastos encontrados
                 expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
             }
 
@@ -462,8 +456,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             final List<Expense> creditCardAccountExpensesToCheck = openPeriod != null
                     ? expenseRepository.findByAccountAndPeriod(creditCardAccount, openPeriod)
                     : expenseRepository.findByAccountAndDateBetween(creditCardAccount, minTransactionDate, maxTransactionDate, Sort.by(Sort.Direction.DESC, "date", "id"));
+            // Los pagos de tarjeta no vienen en la API de consumos: no son movimientos faltantes
             List<Expense> expensesNotFoundInConsuptions = creditCardAccountExpensesToCheck.stream()
-                    // Filtro a los no encontrados y además, los que sean pagos de tarjetas (no vienen en la API)
                     .filter(expense -> !expensesIdFounded.contains(expense.getId()) && expense.getTags().stream().noneMatch(tag -> "Pago de tarjeta".equals(tag.getName())))
                     .filter(expense -> BigDecimal.ZERO.compareTo(expense.getAmount()) != 0)
                     .toList();
@@ -624,7 +618,16 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             expense.setTags(previousInstallment.getTags() != null ? new ArrayList<>(previousInstallment.getTags()) : new ArrayList<>());
             expense.setComments(previousInstallment.getComments());
         } else {
-            applyExpenseMapping(expense, user, bankDescription, details);
+            final Optional<ExpenseMapping> mapping = expenseMappingService.matchExpenseMapping(user, bankDescription);
+            if (mapping.isPresent()) {
+                expense.setDescription(expenseMappingService.resolveNormalizedDescription(mapping.get(), bankDescription));
+                expense.setDetails(StringUtils.hasText(details) ? details : mapping.get().getDetails());
+                expense.setTags(mapping.get().getTags() != null ? new ArrayList<>(mapping.get().getTags()) : new ArrayList<>());
+            } else {
+                expense.setDescription(bankDescription);
+                expense.setDetails(StringUtils.hasText(details) ? details : null);
+                expense.setTags(new ArrayList<>());
+            }
         }
 
         expense.setDescription(resolveCompleteDescription(account, expense.getDescription()));
@@ -634,20 +637,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
-    }
-
-    private void applyExpenseMapping(Expense expense, User user, String bankDescription, String details) {
-        Optional<ExpenseMapping> matchOpt = expenseMappingService.matchExpenseMapping(user, bankDescription);
-        if (matchOpt.isPresent()) {
-            ExpenseMapping mapping = matchOpt.get();
-            expense.setDescription(expenseMappingService.resolveNormalizedDescription(mapping, bankDescription));
-            expense.setDetails(StringUtils.hasText(details) ? details : mapping.getDetails());
-            expense.setTags(mapping.getTags() != null ? new ArrayList<>(mapping.getTags()) : new ArrayList<>());
-        } else {
-            expense.setDescription(bankDescription);
-            expense.setDetails(StringUtils.hasText(details) ? details : null);
-            expense.setTags(new ArrayList<>());
-        }
     }
 
     private String resolveInheritedDetails(String previousDetails, String details) {

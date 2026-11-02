@@ -72,17 +72,13 @@ public class ExpensesController {
         int currentPage = page.orElse(ApplicationController.DEFAULT_PAGE_INDEX);
         int pageSize = size.orElse(ApplicationController.DEFAULT_PAGE_SIZE);
 
-        // Intento recuperar el Usuario logueado
         User user = ApplicationUtils.getUserFromSession();
 
-        // Por defecto, quiero ver siempre mis gastos
+        // Por defecto solo se ven los gastos propios
         expenseSearch.setUserId(user.getId());
 
-        // Si me vino el tipo de cuenta, lo uso para filtrar
         accountType.ifPresent(s -> expenseSearch.setAccountType(AccountType.valueOf(s)));
-        // Y si me vino un accountName, lo uso para filtrar
         accountName.ifPresent(expenseSearch::setAccountName);
-        // Y si me vino un accountName, lo uso para filtrar
         accountId.ifPresent(expenseSearch::setAccountId);
 
         List<Tag> allTags = tagRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
@@ -96,7 +92,6 @@ public class ExpensesController {
             }
         });
 
-        // Cuentas disponibles para editar/duplicar registros.
         List<Account> userAccounts = getUserAccounts(new AccountSearch(), Sort.by(Sort.Direction.ASC,"name"));
         Optional<Account> selectedAccount = resolveSelectedAccountFromUrl(userAccounts, accountId, accountType, accountName);
         boolean showPeriodColumn = selectedAccount.isPresent()
@@ -120,7 +115,6 @@ public class ExpensesController {
         model.addAttribute("openPeriodTotal", openPeriodTotal);
         model.addAttribute("openPeriodManualTotal", openPeriodManualTotal);
 
-        // Me traigo las expenses ordenadas por fecha y id desc y las paso por el paginador
         List<Expense> expenses = new ArrayList<>(expenseRepository.findAll(specificationsService.getExpenses(expenseSearch), Sort.by(Sort.Direction.DESC, "date", "id")));
         // En tarjetas de credito primero ordeno por periodo (fecha de cierre del resumen) y despues por fecha
         if (showPeriodColumn) {
@@ -131,7 +125,6 @@ public class ExpensesController {
                     .thenComparing(Expense::getId, Comparator.reverseOrder()));
         }
         ExpensePage expensesPage = getExpensesPaginated(PageRequest.of(currentPage - 1, pageSize), expenses);
-        // Agrego la pagina de expensas que tengo que dibujar en pantalla
         model.addAttribute("expensesPage", expensesPage);
         model.addAttribute("hasPrevious", expensesPage.hasPrevious());
         model.addAttribute("hasNext", expensesPage.hasNext());
@@ -150,7 +143,6 @@ public class ExpensesController {
             model.addAttribute("pageNumbers", pageNumbers);
         }
 
-        // Tags que se muestran en el filtro de Tags
         model.addAttribute("tags", allTags);
         model.addAttribute("accounts", userAccounts);
         model.addAttribute("editableAccounts", getEditableAccounts(userAccounts));
@@ -197,7 +189,6 @@ public class ExpensesController {
         }
         model.addAttribute("filterChips", filterChips);
 
-        // Pojo que contiene los valores de los filtros utilizados para obtener el conjunto de expenses
         model.addAttribute("expenseSearch", expenseSearch);
         model.addAttribute("stringFilterOperators", List.of(FilterOperator.CONTAINS, FilterOperator.EQ, FilterOperator.EMPTY, FilterOperator.NOT_EMPTY));
         return "abm/expenses";
@@ -286,7 +277,6 @@ public class ExpensesController {
 
         User user = ApplicationUtils.getUserFromSession(false);
         if (user != null) {
-            // Si no tengo al usuario, no puedo ver ninguna cuenta mas que la -1
             accountSearchOwnerIds.add(user.getId());
         }
 

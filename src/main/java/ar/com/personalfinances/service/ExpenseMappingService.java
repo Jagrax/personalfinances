@@ -22,7 +22,7 @@ public class ExpenseMappingService {
 
         String desc = rawDescription.trim();
 
-        // 1. Regex match
+        // El regex tiene prioridad sobre el match exacto: es el que permite normalizar descripciones variables
         for (ExpenseMapping mapping : repository.findAllByUserAndRegexPatternIsNotNullAndEnabledTrue(user)) {
             if (!StringUtils.hasText(mapping.getRegexPattern())) continue;
 
@@ -32,12 +32,10 @@ public class ExpenseMappingService {
                     return Optional.of(mapping);
                 }
             } catch (Exception e) {
-                // Log y continuar con los demás
                 System.err.println("Regex inválido para mapping id=" + mapping.getId() + ": " + e.getMessage());
             }
         }
 
-        // 2. Exact match
         return repository.findFirstByUserAndBankDescriptionIgnoreCaseAndEnabledTrue(user, desc);
     }
 

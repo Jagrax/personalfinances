@@ -67,7 +67,7 @@ public class GaliciaApiConnector {
             }
         });
 
-        // Este formatter coincide con el formatter de DateUtils (porque es el formato de AR), pero como es especifico de la API, lo quiero tener declarado aca
+        // Mismo formato que DateUtils, pero se declara aca porque es un contrato de la API
         final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         final MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
@@ -131,7 +131,7 @@ public class GaliciaApiConnector {
             }
         });
 
-        // Step 1: GET showexternal/210 to obtain tokenML
+        // 1. El homebanking devuelve el tokenML en el HTML de showexternal/210
         HttpHeaders obHeaders = new HttpHeaders();
         obHeaders.add(HttpHeaders.COOKIE, onlinebankingCookies);
         obHeaders.add(HttpHeaders.HOST, "onlinebanking.bancogalicia.com.ar");
@@ -161,7 +161,7 @@ public class GaliciaApiConnector {
             throw new RestConnectorException("establishCuentasSession: showexternal returned empty body");
         }
 
-        // Step 2: Extract tokenML from HTML
+        // 2. El tokenML viaja en un input oculto; segun la version de la pagina, el orden de los atributos cambia
         String tokenML = null;
         Pattern tokenPattern = Pattern.compile("name=\"tokenML\"\\s+value=\"([^\"]+)\"");
         Matcher matcher = tokenPattern.matcher(showExternalHtml);
@@ -169,7 +169,7 @@ public class GaliciaApiConnector {
             tokenML = matcher.group(1);
         }
         if (!StringUtils.hasText(tokenML)) {
-            // Try alternative pattern: input with tokenML in a form
+            // Variante: value aparece antes que name
             tokenPattern = Pattern.compile("value=\"([^\"]+)\"[^>]*name=\"tokenML\"");
             matcher = tokenPattern.matcher(showExternalHtml);
             if (matcher.find()) {
@@ -183,7 +183,7 @@ public class GaliciaApiConnector {
         }
         log.trace("[establishCuentasSession] Found tokenML (first 100 chars)=[{}]", tokenML.substring(0, Math.min(100, tokenML.length())));
 
-        // Step 3: POST tokenML to cuentas SSO entry point
+        // 3. El SSO de cuentas autentica canjeando el tokenML
         HttpHeaders ssoHeaders = new HttpHeaders();
         ssoHeaders.set(HttpHeaders.HOST, "cuentas.bancogalicia.com.ar");
         ssoHeaders.set(HttpHeaders.ORIGIN, "https://onlinebanking.bancogalicia.com.ar");
@@ -192,7 +192,7 @@ public class GaliciaApiConnector {
         ssoHeaders.set(HttpHeaders.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
         ssoHeaders.set(HttpHeaders.ACCEPT_LANGUAGE, "en-US,en;q=0.9,es;q=0.8");
         ssoHeaders.set(HttpHeaders.CONTENT_TYPE, "application/x-www-form-urlencoded");
-        // Browser sends NO cookies with this cross-domain SSO POST
+        // El browser no manda cookies en este POST cross-domain
 
         String ssoBody = "tokenML=" + java.net.URLEncoder.encode(tokenML, java.nio.charset.StandardCharsets.UTF_8);
         ResponseEntity<String> ssoResponse;
@@ -216,7 +216,7 @@ public class GaliciaApiConnector {
             throw new RestConnectorException("establishCuentasSession SSO POST did not return a redirect. Status: " + ssoResponse.getStatusCode());
         }
 
-        // Step 4: Follow redirect to MenuLink/210
+        // 4. El SSO redirige a MenuLink, que setea la cookie de la sesion de cuentas
         String menuLinkLocation = ssoResponse.getHeaders().getFirst(HttpHeaders.LOCATION);
         if (!StringUtils.hasText(menuLinkLocation)) {
             throw new RestConnectorException("establishCuentasSession SSO POST missing Location header");
@@ -228,9 +228,8 @@ public class GaliciaApiConnector {
         }
         log.trace("[establishCuentasSession] Following SSO redirect to MenuLink: {}", menuLinkUri);
 
-        // Extract ALL cuentas-domain cookies from SSO POST Set-Cookie.
-        // MenuLink only needs ASP.NET_SessionId, but subsequent API calls (getMovimientosCuenta)
-        // need all cookies (ADRUM_*, TS010dd3b2, etc.) for the load-balanced session.
+        // MenuLink solo necesita ASP.NET_SessionId, pero las llamadas posteriores (getMovimientosCuenta)
+        // necesitan todas las cookies (ADRUM_*, TS010dd3b2, etc.) para mantener la sesion en el balanceador.
         String ssoCookies = ssoResponse.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
             .map(setCookie -> setCookie.split(";", 2)[0])
             .filter(pair -> pair.contains("="))
@@ -240,7 +239,7 @@ public class GaliciaApiConnector {
         }
         log.trace("[establishCuentasSession] ssoCookies=[{}]", ssoCookies);
 
-        // Browser sends only basic headers (NO Origin, NO onlinebanking cookies) for navigation redirects
+        // En los redirects de navegacion el browser manda solo headers basicos: sin Origin y sin cookies de onlinebanking
         HttpHeaders cuentasHeaders = new HttpHeaders();
         cuentasHeaders.set(HttpHeaders.COOKIE, ssoCookies);
         cuentasHeaders.set(HttpHeaders.REFERER, "https://onlinebanking.bancogalicia.com.ar/");
@@ -263,7 +262,7 @@ public class GaliciaApiConnector {
             throw new RestConnectorException("establishCuentasSession MenuLink did not return a redirect. Status: " + menuLinkResponse.getStatusCode());
         }
 
-        // Step 5: Follow redirect to cuentas/inicio
+        // 5. MenuLink redirige a cuentas/inicio, que confirma la sesion
         String cuentasInicioLocation = menuLinkResponse.getHeaders().getFirst(HttpHeaders.LOCATION);
         if (!StringUtils.hasText(cuentasInicioLocation)) {
             throw new RestConnectorException("establishCuentasSession MenuLink missing Location header");
@@ -289,7 +288,7 @@ public class GaliciaApiConnector {
             cuentasHtml != null ? cuentasHtml.length() : 0,
             cuentasHtml != null ? cuentasHtml.substring(0, Math.min(500, cuentasHtml.length())) : "null");
 
-        // Return only cuentas cookies (NOT onlinebanking cookies - browser doesn't send cross-domain)
+        // Solo cuentas: el browser no reenvia las cookies de onlinebanking a otro dominio
         String cuentasSetCookies = cuentasInicioResponse.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
             .map(setCookie -> setCookie.split(";", 2)[0])
             .filter(pair -> pair.contains("="))
@@ -298,7 +297,7 @@ public class GaliciaApiConnector {
             .collect(Collectors.joining("; "));
         log.trace("[establishCuentasSession] cuentas/inicio Set-Cookie headers=[{}]", cuentasSetCookies);
 
-        // Return all cuentas cookies (SSO cookies + any new ones from cuentas/inicio)
+        // Las de cuentas/inicio se agregan a las del SSO para no perder ninguna de las dos etapas
         if (StringUtils.hasText(cuentasSetCookies)) {
             return ssoCookies + "; " + cuentasSetCookies;
         }
@@ -454,13 +453,12 @@ public class GaliciaApiConnector {
                     statusCode, response.getStatusCode(), "Status " + statusCode);
             }
 
-            // Capture any new cookies from the response (including after redirect)
+            // El select puede setear cookies nuevas (redirect incluido)
             String newCookies = response.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE).stream()
                 .map(setCookie -> setCookie.split(";", 2)[0])
                 .filter(pair -> pair.contains("="))
                 .collect(Collectors.joining("; "));
 
-            // Merge original cookies with any new ones
             String mergedCookies = cuentasCookies;
             if (StringUtils.hasText(newCookies)) {
                 mergedCookies = mergeCookies(cuentasCookies, newCookies);
