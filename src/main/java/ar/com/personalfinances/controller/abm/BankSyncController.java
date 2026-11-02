@@ -252,7 +252,6 @@ public class BankSyncController {
     public String postAnalizePdf(Model model,
                                  @RequestParam("accountName") Optional<String> accountName,
                                  @RequestParam("file") MultipartFile file,
-                                 @RequestParam(value = "pathToPdfs", defaultValue = "") Optional<String> pathToPdfs,
                                  @RequestParam(value = "visaFormat", required = false, defaultValue = "VISA_GALICIA") CreditCardStatementFormat visaFormat,
                                  HttpServletRequest request) {
         final String backUrl = ApplicationUtils.getBackUrl(request, false, "/dashboard");
@@ -301,9 +300,10 @@ public class BankSyncController {
             return "redirect:" + backUrl;
         }
 
+        String pathToPdfs = null;
         Map<String, String> linesByPdf;
-        if (pathToPdfs.isPresent()) {
-            try (Stream<Path> paths = Files.list(Path.of(pathToPdfs.get()))) {
+        if (pathToPdfs != null) {
+            try (Stream<Path> paths = Files.list(Path.of(pathToPdfs))) {
                 linesByPdf = paths
                         .filter(Files::isRegularFile)
                         .filter(fileName -> fileName.toString().toLowerCase().endsWith(".pdf"))
