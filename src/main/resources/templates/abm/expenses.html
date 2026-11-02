@@ -215,6 +215,14 @@
                     <i class="bi bi-plus me-2"></i>Nuevo registro
                 </button>
             </div>
+            <div class="col-auto"
+                 th:if="${selectedAccount != null and selectedAccount.type.name() == 'CREDIT_CARD' and (selectedAccount.name == 'Master Card' or selectedAccount.name == 'VISA')}">
+                <button type="button" class="btn btn-sm btn-outline-danger text-nowrap"
+                        th:attr="data-account-name=${selectedAccount.name},title=${'Subir y analizar el resumen en PDF de ' + selectedAccount.name}"
+                        onclick="triggerStatementPdfUpload(this.dataset.accountName)">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Resumen PDF
+                </button>
+            </div>
         </div>
 
         <table class="table table-sm table-bordered align-middle">
@@ -470,7 +478,11 @@
         </template>
     </form>
 
-    <!-- Items Modal -->
+    <form id="statementPdfForm" method="post" enctype="multipart/form-data" th:action="@{/bank-pdf}" class="d-none">
+        <input type="file" id="statementPdfInput" name="file" accept="application/pdf">
+        <input type="hidden" id="statementPdfAccountName" name="accountName">
+    </form>
+
     <div class="modal fade" id="itemsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
@@ -558,6 +570,20 @@
         const defaultTagIds = [];
         const showPeriodColumn = [[${showPeriodColumn}]];
         const openPeriodId = [[${openPeriodId}]];
+
+        function triggerStatementPdfUpload(accountName) {
+            const form = document.getElementById('statementPdfForm');
+            const fileInput = document.getElementById('statementPdfInput');
+            const accountInput = document.getElementById('statementPdfAccountName');
+            if (!form || !fileInput || !accountInput) return;
+
+            fileInput.value = '';
+            accountInput.value = accountName || '';
+            fileInput.onchange = function() {
+                if (fileInput.files.length) form.submit();
+            };
+            fileInput.click();
+        }
 
         function createTagOption(input, callback) {
             fetch(tagCreateUrl, {
