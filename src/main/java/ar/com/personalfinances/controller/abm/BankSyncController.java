@@ -254,7 +254,7 @@ public class BankSyncController {
                                  @RequestParam("file") MultipartFile file,
                                  @RequestParam(value = "visaFormat", required = false, defaultValue = "VISA_GALICIA") CreditCardStatementFormat visaFormat,
                                  HttpServletRequest request) {
-        final String backUrl = ApplicationUtils.getBackUrl(request, false, "/dashboard");
+        final String backUrl = ApplicationUtils.getBackUrl(request, true, "/dashboard");
 
         if (accountName.isEmpty()) {
             applicationMessageService.add(request, ApplicationMessage.error("Account name is null"));
@@ -500,7 +500,7 @@ public class BankSyncController {
             }
         }
 
-        return "redirect:/expenses";
+        return "redirect:/expenses?accountId=" + account.getId();
     }
 
     @InitBinder
