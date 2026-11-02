@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 public class AccountManagementServiceImpl implements AccountManagementService {
 
     private static final BigDecimal AMOUNT_TOLERANCE = new BigDecimal("0.50");
+    private static final Pattern INSTALLMENT_DETAILS_PATTERN = Pattern.compile("Cuota \\d+ de \\d+\\s*$");
 
     private final GaliciaApiService galiciaApiService;
     private final ExpenseRepository expenseRepository;
@@ -34,9 +37,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final ExpenseMappingService expenseMappingService;
     private final ChartJsServiceImpl chartJsServiceImpl;
     private final CardPeriodService cardPeriodService;
-    private final CardInstallmentGenerator cardInstallmentGenerator;
 
-    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, ChartJsServiceImpl chartJsServiceImpl, CardPeriodService cardPeriodService, CardInstallmentGenerator cardInstallmentGenerator) {
+    public AccountManagementServiceImpl(GaliciaApiService galiciaApiService, ExpenseRepository expenseRepository, AccountRepository accountRepository, AlertEventService alertEventService, ExpenseMappingService expenseMappingService, ChartJsServiceImpl chartJsServiceImpl, CardPeriodService cardPeriodService) {
         this.galiciaApiService = galiciaApiService;
         this.expenseRepository = expenseRepository;
         this.accountRepository = accountRepository;
@@ -44,7 +46,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         this.expenseMappingService = expenseMappingService;
         this.chartJsServiceImpl = chartJsServiceImpl;
         this.cardPeriodService = cardPeriodService;
-        this.cardInstallmentGenerator = cardInstallmentGenerator;
     }
 
     private CommonResult validateBankAccountToSync(Account account) {
@@ -344,7 +345,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             List<Consumption> consumptions = (List<Consumption>) getCardMovementsResult.getPayload();
             if (CollectionUtils.isEmpty(consumptions)) {
                 log.info("[syncCreditCardAccountMovements] No se recuperaron movimientos de la tarjeta de credito para sincronizar");
-                cardInstallmentGenerator.generatePendingInstallments(creditCardAccount);
                 markAccountAsSynced(creditCardAccount);
                 SyncResult syncResult = new SyncResult(creditCardAccount.getName());
                 syncResult.setCreatedCount(0);
@@ -451,7 +451,8 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                     final String details = consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0 && consumption.getInstallmentNumber() != null
                             ? "Cuota " + consumption.getInstallmentNumber() + " de " + consumption.getInstallmentPlan()
                             : null;
-                    return createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details);
+                    final Expense previousInstallment = details != null ? findPreviousInstallment(creditCardAccount, consumption) : null;
+                    return createExpense(creditCardAccount.getOwner(), consumption.getTransactionDate(), creditCardAccount, consumption.getMerchantName(), consumption.getFinalAmount(), period, details, previousInstallment);
                 }).toList();
                 // Agrego los gastos recien creados al listado de IDs de gastos encontrados
                 expensesCreated.forEach(expenseCreated -> expensesIdFounded.add(expenseCreated.getId()));
@@ -481,9 +482,6 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             for (Expense expense : expensesNotFoundInConsuptions) {
                 syncResult.getUnmatchedDbExpenses().add(DateUtils.format(expense.getDate()) + " - " + expense.getDescription() + (StringUtils.hasText(expense.getDetails()) ? " (" + expense.getDetails() + ")" : "") + " " + expense.getAmount());
             }
-
-            // Genero las cuotas siguientes de los periodos que hayan cerrado
-            cardInstallmentGenerator.generatePendingInstallments(creditCardAccount);
 
             markAccountAsSynced(creditCardAccount);
             return CommonResult.ok(syncResult, syncResult.toHtmlMessage());
@@ -542,43 +540,52 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     private CardPeriod resolvePeriodForConsumption(Account creditCardAccount, Consumption consumption) {
-        if (consumption.getSubmissionDate() != null) {
-            return cardPeriodService.findPeriodForDate(creditCardAccount, consumption.getSubmissionDate());
-        }
-
         if (consumption.getInstallmentPlan() != null && consumption.getInstallmentPlan() > 0) {
-            log.warn("[resolvePeriodForConsumption] La cuota {} de {} de {} vino sin submissionDate. Se intenta deducir el periodo desde la cuota anterior", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getMerchantName());
             final CardPeriod periodFromPreviousInstallment = resolvePeriodFromPreviousInstallment(creditCardAccount, consumption);
             if (periodFromPreviousInstallment != null) {
                 return periodFromPreviousInstallment;
             }
 
-            log.warn("[resolvePeriodForConsumption] No se pudo deducir el periodo de la cuota {} de {} de {}. El gasto queda sin periodo", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getMerchantName());
+            final CardPeriod openPeriod = cardPeriodService.findOpenPeriod(creditCardAccount);
+            if (openPeriod != null) {
+                log.warn("[resolvePeriodForConsumption] No se pudo deducir el periodo de la cuota {} de {} de {} desde la cuota anterior. Se usa el periodo en curso {}", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getMerchantName(), openPeriod.getClosingDate());
+                return openPeriod;
+            }
+
+            log.warn("[resolvePeriodForConsumption] No se pudo resolver el periodo de la cuota {} de {} de {}. El gasto queda sin periodo", consumption.getInstallmentNumber(), consumption.getInstallmentPlan(), consumption.getMerchantName());
             return null;
         }
 
-        return cardPeriodService.findPeriodForDate(creditCardAccount, consumption.getTransactionDate());
+        final LocalDate periodDate = consumption.getSubmissionDate() != null ? consumption.getSubmissionDate() : consumption.getTransactionDate();
+        return cardPeriodService.findPeriodForDate(creditCardAccount, periodDate);
     }
 
-    private CardPeriod resolvePeriodFromPreviousInstallment(Account creditCardAccount, Consumption consumption) {
+    private Expense findPreviousInstallment(Account creditCardAccount, Consumption consumption) {
+        return findPreviousInstallmentCandidates(creditCardAccount, consumption).stream()
+                .max(Comparator.comparing(Expense::getDate, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElse(null);
+    }
+
+    private List<Expense> findPreviousInstallmentCandidates(Account creditCardAccount, Consumption consumption) {
         if (consumption.getInstallmentNumber() == null || consumption.getInstallmentNumber() <= 1) {
-            return null;
+            return new ArrayList<>();
         }
 
         final String previousDetails = "Cuota " + (consumption.getInstallmentNumber() - 1) + " de " + consumption.getInstallmentPlan();
-        final List<Expense> candidates = expenseRepository.findByAccountAndDetailsLike(creditCardAccount, "%" + previousDetails + "%").stream()
-                .filter(previous -> previous.getPeriod() != null && previous.getPeriod().getClosingDate() != null)
-                .collect(Collectors.toList());
+        final List<Expense> candidates = expenseRepository.findByAccountAndDetailsLike(creditCardAccount, "%" + previousDetails + "%");
         if (candidates.isEmpty()) {
-            return null;
+            return new ArrayList<>();
         }
 
         final List<Expense> sameMerchant = candidates.stream()
                 .filter(previous -> descriptionMatchesConsumption(previous, consumption))
                 .collect(Collectors.toList());
-        final List<Expense> pool = sameMerchant.isEmpty() ? candidates : sameMerchant;
+        return sameMerchant.isEmpty() ? candidates : sameMerchant;
+    }
 
-        return pool.stream()
+    private CardPeriod resolvePeriodFromPreviousInstallment(Account creditCardAccount, Consumption consumption) {
+        return findPreviousInstallmentCandidates(creditCardAccount, consumption).stream()
+                .filter(previous -> previous.getPeriod() != null && previous.getPeriod().getClosingDate() != null)
                 .max(Comparator.comparing((Expense previous) -> previous.getPeriod().getClosingDate()))
                 .map(previous -> cardPeriodService.findNextPeriod(creditCardAccount, previous.getPeriod()))
                 .orElse(null);
@@ -600,16 +607,36 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount) {
-        return createExpense(user, date, account, bankDescription, amount, null, null);
+        return createExpense(user, date, account, bankDescription, amount, null, null, null);
     }
 
-    private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount, CardPeriod period, String details) {
+    private Expense createExpense(User user, LocalDate date, Account account, String bankDescription, BigDecimal amount, CardPeriod period, String details, Expense previousInstallment) {
         Expense expense = new Expense();
         expense.setUser(user);
         expense.setDate(date);
         expense.setAccount(account);
         expense.setAmount(amount);
         expense.setOriginalDescription(bankDescription);
+        if (previousInstallment != null) {
+            log.info("[createExpense] La cuota hereda descripcion, detalle, tags y comentarios de la cuota anterior {}", previousInstallment.getId());
+            expense.setDescription(previousInstallment.getDescription());
+            expense.setDetails(resolveInheritedDetails(previousInstallment.getDetails(), details));
+            expense.setTags(previousInstallment.getTags() != null ? new ArrayList<>(previousInstallment.getTags()) : new ArrayList<>());
+            expense.setComments(previousInstallment.getComments());
+        } else {
+            applyExpenseMapping(expense, user, bankDescription, details);
+        }
+
+        expense.setDescription(resolveCompleteDescription(account, expense.getDescription()));
+        expense.setPeriod(period);
+
+        expense = expenseRepository.save(expense);
+        log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
+        alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
+        return expense;
+    }
+
+    private void applyExpenseMapping(Expense expense, User user, String bankDescription, String details) {
         Optional<ExpenseMapping> matchOpt = expenseMappingService.matchExpenseMapping(user, bankDescription);
         if (matchOpt.isPresent()) {
             ExpenseMapping mapping = matchOpt.get();
@@ -621,14 +648,22 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             expense.setDetails(StringUtils.hasText(details) ? details : null);
             expense.setTags(new ArrayList<>());
         }
+    }
 
-        expense.setDescription(resolveCompleteDescription(account, expense.getDescription()));
-        expense.setPeriod(period);
+    private String resolveInheritedDetails(String previousDetails, String details) {
+        if (!StringUtils.hasText(details)) {
+            return null;
+        }
+        if (!StringUtils.hasText(previousDetails)) {
+            return details;
+        }
 
-        expense = expenseRepository.save(expense);
-        log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
-        alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
-        return expense;
+        final Matcher matcher = INSTALLMENT_DETAILS_PATTERN.matcher(previousDetails.trim());
+        if (!matcher.find()) {
+            return details;
+        }
+
+        return previousDetails.trim().substring(0, matcher.start()) + details;
     }
 
     private String resolveCompleteDescription(Account account, String description) {
