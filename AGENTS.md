@@ -5,7 +5,7 @@
 - **NO compilar con maven ni por consola.** El usuario ejecuta y prueba desde IntelliJ. Tras hacer cambios de código, no correr `mvn compile`/`mvnw` ni verificar builds; el usuario revisa el código y lo prueba él mismo.
 - No crear/editar tablas ni datos en la DB sin avisar y sin que el usuario lo pida.
 - Comunicación en español, terse y directa.
-- No agregar comentarios al código salvo que se pidan (`Code style` del sistema).
+- Comentarios: de intención/motivo, nunca de procedimiento (ver regla global de comentarios). No comentar lo que el código ya dice; sí documentar rarezas del banco, decisiones no obvias, invariantes y workarounds.
 - No tocar credenciales; no escribirlas en archivos versionados.
 
 ## Proyecto
