@@ -43,16 +43,27 @@ public class ExpenseMappingService {
         if (!StringUtils.hasText(mapping.getNormalizedDescription())) {
             return rawDescription;
         }
+        return resolveTemplate(mapping, mapping.getNormalizedDescription(), rawDescription);
+    }
 
+    public String resolveDetails(ExpenseMapping mapping, String rawDescription) {
+        if (!StringUtils.hasText(mapping.getDetails())) {
+            return mapping.getDetails();
+        }
+        return resolveTemplate(mapping, mapping.getDetails(), rawDescription);
+    }
+
+    // Sustituye $1, ${camel:1}, ... en un template (description o details) a partir de los capture groups del regex
+    private String resolveTemplate(ExpenseMapping mapping, String template, String rawDescription) {
         if (!StringUtils.hasText(mapping.getRegexPattern()) || !StringUtils.hasText(rawDescription)) {
-            return mapping.getNormalizedDescription();
+            return template;
         }
 
         try {
             Pattern pattern = Pattern.compile(mapping.getRegexPattern(), Pattern.CASE_INSENSITIVE);
             Matcher matcher = pattern.matcher(rawDescription.trim());
             if (matcher.matches()) {
-                String result = mapping.getNormalizedDescription();
+                String result = template;
                 for (int i = 1; i <= matcher.groupCount(); i++) {
                     String group = matcher.group(i);
                     if (group != null) {
@@ -66,7 +77,7 @@ public class ExpenseMappingService {
             System.err.println("Error al resolver capture groups para mapping id=" + mapping.getId() + ": " + e.getMessage());
         }
 
-        return mapping.getNormalizedDescription();
+        return template;
     }
 
     private String toCamelCase(String input) {

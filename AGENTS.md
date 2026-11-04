@@ -40,7 +40,7 @@ Aplicación web personal de finanzas (MVC server-side, no SPA). Sincroniza movim
 ## Conceptos de dominio clave
 
 - **Expense** (`expenses`): `date` (LocalDate), `description` (normalizada), `originalDescription` (cruda del banco, NO editable desde la app), `amount` (BigDecimal, negativo = débito), `details`, `comments`, `tags` (ManyToMany), `account`, `user`, `items`.
-- **ExpenseMapping** (`expense_mappings`): regla para normalizar una descripción del banco. Campos: `bankDescription` (match exacto, ignorecase), `regexPattern` (match por regex), `normalizedDescription` (admitE capture groups: `$1`, `${camel:1}` — camelCase a Title Case), `details`, `tags`, `enabled`. Match en `ExpenseMappingService`: regex primero, luego exacto.
+- **ExpenseMapping** (`expense_mappings`): regla para normalizar una descripción del banco. Campos: `bankDescription` (match exacto, ignorecase), `regexPattern` (match por regex), `normalizedDescription` y `details` (ambos admiten capture groups: `$1`, `${camel:1}` — camelCase a Title Case), `tags`, `enabled`. Match en `ExpenseMappingService`: regex primero, luego exacto.
 - **Account** (`accounts`): `owner`, `name`, `type` (enum), `subtype` (string libre, ej "BANCO_GALICIA"), `currency`, `syncEnabled`, `syncProvider` (GALICIA), `closingDay` (cierre tarjeta), `lastSyncAt`, `externalAccountId`, `icon`. Unique `(owner_id, type, name)`.
 - Descripción de movimiento: `getDescription()` combina `descripcionSide` + ` | ` + `descripcionAMostrar` si difieren; el amount se toma de débito si no es cero, si no crédito. Montos vienen en formato argentino `1.234,56`.
 
