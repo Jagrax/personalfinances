@@ -18,6 +18,21 @@
 				</div>
 			</div>
 
+			<div class="alert d-flex align-items-center justify-content-between py-2"
+				th:if="${bankSyncSummary != null}"
+				th:classappend="${bankSyncSummary.isError()} ? 'alert-danger' : (${bankSyncSummary.hasWarnings()} ? 'alert-warning' : 'alert-success')">
+				<div class="d-flex align-items-center">
+					<i class="bi me-2"
+						th:classappend="${bankSyncSummary.isError()} ? 'bi-x-circle-fill' : (${bankSyncSummary.hasWarnings()} ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill')"></i>
+					<span th:text="${bankSyncSummary.summaryText}"></span>
+				</div>
+				<button type="button" class="btn btn-sm btn-outline-secondary"
+					th:if="${bankSyncSummary.hasWarnings()}"
+					data-bs-toggle="modal" data-bs-target="#bankSyncModal">
+					Ver detalles
+				</button>
+			</div>
+
 			<div class="row mb-3">
 				<div class="col-lg-4">
 					<div class="card mb-3">
@@ -255,6 +270,35 @@
 								<tfoot id="segmentModalFooter"></tfoot>
 							</table>
 						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="modal fade" id="bankSyncModal" tabindex="-1" aria-hidden="true" th:if="${bankSyncSummary != null}">
+			<div class="modal-dialog modal-lg modal-dialog-scrollable">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">Detalle de la sincronización</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+					</div>
+					<div class="modal-body">
+						<div th:each="r : ${bankSyncSummary.results}" class="mb-3">
+							<div class="fw-bold" th:text="${r.accountName}"></div>
+							<div th:text="${r.createdCount > 0 ? (r.createdCount > 1 ? 'Se sincronizaron ' + r.createdCount + ' gastos' : 'Se sincronizó 1 gasto') : 'No hubo gastos nuevos'}"></div>
+							<th:block th:if="${!#lists.isEmpty(r.unmatchedDbExpenses)}">
+								<div class="text-warning small mt-1">Gastos en la DB que no se encontraron en el banco:</div>
+								<ul class="mb-0 small">
+									<li th:each="u : ${r.unmatchedDbExpenses}" th:text="${u}"></li>
+								</ul>
+							</th:block>
+						</div>
+						<th:block th:if="${!#lists.isEmpty(bankSyncSummary.errors)}">
+							<div class="fw-bold">Errores</div>
+							<ul class="mb-0">
+								<li th:each="e : ${bankSyncSummary.errors}" th:text="${e}" class="text-danger"></li>
+							</ul>
+						</th:block>
 					</div>
 				</div>
 			</div>

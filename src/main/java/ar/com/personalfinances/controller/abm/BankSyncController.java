@@ -1,5 +1,6 @@
 package ar.com.personalfinances.controller.abm;
 
+import ar.com.personalfinances.dto.dashboard.BankSyncSummaryDTO;
 import ar.com.personalfinances.entity.*;
 import ar.com.personalfinances.repository.AccountRepository;
 import ar.com.personalfinances.repository.ExpenseRepository;
@@ -24,6 +25,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -204,7 +206,7 @@ public class BankSyncController {
     @RequestMapping(value = "/bank-sync/bank/{bankId}", method = RequestMethod.POST)
     public String postBankSyncByBank(@PathVariable("bankId") Long bankId,
                                      @RequestParam("galiciaCookies") String galiciaCookies,
-                                     HttpServletRequest request) {
+                                     RedirectAttributes redirectAttributes) {
         List<Account> accounts = accountRepository.findByBank_Id(bankId);
         List<SyncResult> syncResults = new ArrayList<>();
         List<String> errors = new ArrayList<>();
@@ -232,15 +234,10 @@ public class BankSyncController {
             }
         }
 
-        for (SyncResult sr : syncResults) {
-            if (sr.hasUnmatched()) {
-                applicationMessageService.add(request, ApplicationMessage.warn(sr.toHtmlMessage()));
-            } else {
-                applicationMessageService.add(request, ApplicationMessage.success(sr.toHtmlMessage()));
-            }
-        }
-        for (String error : errors) {
-            applicationMessageService.add(request, ApplicationMessage.error(error));
+        if (!syncResults.isEmpty() || !errors.isEmpty()) {
+            int createdCount = syncResults.stream().mapToInt(SyncResult::getCreatedCount).sum();
+            redirectAttributes.addFlashAttribute("bankSyncSummary",
+                    new BankSyncSummaryDTO(createdCount, syncResults, errors));
         }
 
         return "redirect:/dashboard";
