@@ -15,8 +15,8 @@ public class DashboardDataDTO {
 	private List<TopMerchantDTO> topMerchants = new ArrayList<>();
 	private List<TopMerchantDTO> topMerchantGroups = new ArrayList<>();
 	private List<TopTagDTO> topTags = new ArrayList<>();
-	private List<MonthlyExpenseDTO> monthlyExpenses = new ArrayList<>();
-	private BigDecimal monthlyExpensesTotal = BigDecimal.ZERO;
+	private List<RecurringExpensePointDTO> recurringSeries = new ArrayList<>();
+	private List<RecurringExpenseDTO> recurringExpenses = new ArrayList<>();
 	private List<CardOpenPeriodDTO> cardOpenPeriodByAccount = new ArrayList<>();
 	private BigDecimal cardOpenPeriodTotal = BigDecimal.ZERO;
 	private List<AccountExpenseSegmentDTO> galiciaAccounts = new ArrayList<>();

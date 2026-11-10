@@ -1,0 +1,19 @@
+package ar.com.personalfinances.dto.dashboard;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RecurringExpenseDTO {
+	private String concept;
+	private String lastDate;
+	private BigDecimal lastAmount;
+	private List<RecurringExpenseItemDTO> previousExpenses = new ArrayList<>();
+}

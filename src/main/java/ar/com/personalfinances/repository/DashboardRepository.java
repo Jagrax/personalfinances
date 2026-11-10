@@ -76,6 +76,32 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 	String EXCLUSIONS_MAIN_ACCOUNTS = EXCLUSIONS_CARDS + EXCLUDE_GALICIA_INVERSION + EXCLUDE_GALICIA_CARD_PAYMENTS
 			+ EXCLUDE_GALICIA_OFFICE + EXCLUDE_GALICIA_CASH_WITHDRAWAL + EXCLUDE_GALICIA_OWN_TRANSFERS;
 
+	/**
+	 * Importe con el que el gasto suma en los totales. Un gasto en cero con items es plata que se pagó sin un
+	 * movimiento propio en la cuenta (el efectivo que ya se tenía en la mano, por ejemplo): en ese caso el gasto es
+	 * la suma de sus items, que es donde está el desglose de a dónde fue esa plata. Sin esto el retiro de cajero se
+	 * descarta como traspaso y el gasto de cero no suma nada, así que el gasto real se pierde del dashboard.
+	 */
+	String EXPENSE_SPENDING_AMOUNT = """
+			CASE
+				WHEN e.amount = 0 AND EXISTS (SELECT 1 FROM expense_items ei WHERE ei.expense_id = e.id)
+					THEN COALESCE((SELECT SUM(ei.amount) FROM expense_items ei WHERE ei.expense_id = e.id), 0)
+				WHEN a.type = 'BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
+				WHEN a.type = 'CREDIT_CARD' THEN e.amount
+				ELSE 0
+			END
+			""";
+
+	/**
+	 * Cuentas y gastos que entran en los totales. El gasto en cero con items entra aunque no sea negativo: es la
+	 * contrapartida de la convención de EXPENSE_SPENDING_AMOUNT.
+	 */
+	String EXPENSE_SCOPE = """
+			((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%'
+				AND (e.amount < 0 OR (e.amount = 0 AND EXISTS (SELECT 1 FROM expense_items ei WHERE ei.expense_id = e.id))))
+				OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+			""";
+
 	String EFFECTIVE_DATE = """
 			CASE
 				WHEN a.type = 'CREDIT_CARD' AND e.details REGEXP 'Cuota [0-9]+ de [0-9]+'
@@ -86,11 +112,8 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			""";
 
 	@Query(value = """
-			SELECT 
-				COALESCE(SUM(CASE 
-					WHEN a.type = 'BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
-					WHEN a.type = 'CREDIT_CARD' THEN e.amount
-					ELSE 0 END), 0)
+			SELECT COALESCE(SUM(""" + EXPENSE_SPENDING_AMOUNT + """
+			), 0)
 			FROM expenses e
 			JOIN accounts a ON a.id = e.account_id
 			LEFT JOIN card_periods cp ON cp.id = e.period_id
@@ -98,11 +121,7 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			  AND
 			""" + EFFECTIVE_DATE + """
 			  BETWEEN :from AND :to
-			  AND (
-			    (a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0)
-			    OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card'))
-			  )
-			""" + EXCLUSIONS_MAIN_ACCOUNTS, nativeQuery = true)
+			  AND """ + EXPENSE_SCOPE + EXCLUSIONS_MAIN_ACCOUNTS, nativeQuery = true)
 	BigDecimal getTotalForPeriod(@Param("userId") Long userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
 	@Query(value = """
@@ -131,20 +150,13 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 					""" + EFFECTIVE_DATE + """
 					as effective_date,
 					a.name as accountName,
-					CASE
-						WHEN a.type = 'BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
-						WHEN a.type = 'CREDIT_CARD' THEN e.amount
-						ELSE 0
-					END as signedAmount
+					""" + EXPENSE_SPENDING_AMOUNT + """
+					as signedAmount
 				FROM expenses e
 				JOIN accounts a ON a.id = e.account_id
 				LEFT JOIN card_periods cp ON cp.id = e.period_id
 				WHERE a.owner_id = :userId
-				  AND (
-				    (a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0)
-				    OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card'))
-				  )
-				""" + EXCLUSIONS_MAIN_ACCOUNTS + """
+				  AND """ + EXPENSE_SCOPE + EXCLUSIONS_MAIN_ACCOUNTS + """
 			) x
 			WHERE x.effective_date >= :fromDate
 			  AND x.effective_date <= :toDate
@@ -162,21 +174,15 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 				(SELECT GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ')
 				   FROM expense_tags et2 JOIN tags t ON t.id = et2.tag_id
 				  WHERE et2.expense_id = e.id),
-				CASE
-					WHEN a.type = 'BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
-					WHEN a.type = 'CREDIT_CARD' THEN e.amount
-					ELSE 0
-				END as signedAmount,
+				""" + EXPENSE_SPENDING_AMOUNT + """
+				as signedAmount,
 				a.type as accountType
 			FROM expenses e
 			JOIN accounts a ON a.id = e.account_id
 			LEFT JOIN card_periods cp ON cp.id = e.period_id
 			WHERE a.owner_id = :userId
 			  AND a.name = :accountName
-			  AND (
-			    (a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0)
-			    OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card'))
-			  )
+			  AND """ + EXPENSE_SCOPE + """
 			  AND
 			""" + EFFECTIVE_DATE + """
 			  BETWEEN :from AND :to
@@ -189,10 +195,8 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 	@Query(value = """
 			SELECT 
 				TRIM(COALESCE(e.description, e.original_description)) as merchant,
-				COALESCE(SUM(CASE 
-					WHEN a.type = 'BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
-					WHEN a.type = 'CREDIT_CARD' THEN e.amount
-					ELSE 0 END), 0) as total,
+				COALESCE(SUM(""" + EXPENSE_SPENDING_AMOUNT + """
+				), 0) as total,
 				COUNT(*) as count
 			FROM expenses e
 			JOIN accounts a ON a.id = e.account_id
@@ -201,7 +205,7 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			  AND
 			""" + EFFECTIVE_DATE + """
 			  BETWEEN :from AND :to
-			  AND ((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0) OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+			  AND """ + EXPENSE_SCOPE + """
 			  AND TRIM(COALESCE(e.description, e.original_description)) NOT IN (
 			    'Suscripción FIMA', 'Pago de tarjeta Master Card', 'Pago tarjeta VISA', 'Extraccion en autoservicio'
 			  )
@@ -217,10 +221,8 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 	@Query(value = """
 			SELECT 
 				TRIM(SUBSTRING_INDEX(TRIM(COALESCE(e.description, e.original_description)), ' - ', 1)) as merchant,
-				COALESCE(SUM(CASE 
-					WHEN a.type = 'BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
-					WHEN a.type = 'CREDIT_CARD' THEN e.amount
-					ELSE 0 END), 0) as total,
+				COALESCE(SUM(""" + EXPENSE_SPENDING_AMOUNT + """
+				), 0) as total,
 				COUNT(*) as count
 			FROM expenses e
 			JOIN accounts a ON a.id = e.account_id
@@ -229,7 +231,7 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			  AND
 			""" + EFFECTIVE_DATE + """
 			  BETWEEN :from AND :to
-			  AND ((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0) OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+			  AND """ + EXPENSE_SCOPE + """
 			  AND TRIM(COALESCE(e.description, e.original_description)) NOT IN (
 			    'Suscripción FIMA', 'Pago de tarjeta Master Card', 'Pago tarjeta VISA', 'Extraccion en autoservicio'
 			  )
@@ -252,7 +254,7 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			  AND
 			""" + EFFECTIVE_DATE + """
 			  BETWEEN :from AND :to
-			  AND ((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0) OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+			  AND """ + EXPENSE_SCOPE + """
 			  AND TRIM(COALESCE(e.description, e.original_description)) NOT IN (
 			    'Suscripción FIMA', 'Pago de tarjeta Master Card', 'Pago tarjeta VISA', 'Extraccion en autoservicio'
 			  )
@@ -266,10 +268,8 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 	@Query(value = """
 			SELECT 
 				t.id, t.name, t.color,
-				COALESCE(SUM(CASE 
-					WHEN a.type='BANK_ACCOUNT' AND e.amount < 0 THEN -e.amount
-					WHEN a.type='CREDIT_CARD' THEN e.amount
-					ELSE 0 END), 0) as total
+				COALESCE(SUM(""" + EXPENSE_SPENDING_AMOUNT + """
+				), 0) as total
 			FROM expenses e
 			JOIN accounts a ON a.id = e.account_id
 			JOIN expense_tags et ON et.expense_id = e.id
@@ -279,7 +279,7 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			  AND
 			""" + EFFECTIVE_DATE + """
 			  BETWEEN :from AND :to
-			  AND ((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0) OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+			  AND """ + EXPENSE_SCOPE + """
 			""" + EXCLUSIONS_MAIN_ACCOUNTS + """
 			GROUP BY t.id, t.name, t.color
 			ORDER BY total DESC
@@ -287,76 +287,94 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 			""", nativeQuery = true)
 	List<Object[]> getTopTags(@Param("userId") Long userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
-	@Query(value = """
-			SELECT x.name, COALESCE(SUM(x.amount), 0) AS total, COUNT(DISTINCT x.ym) AS months
-			FROM (
-				SELECT t.name AS name,
-				       DATE_FORMAT(e.date, '%Y-%m') AS ym,
-				       CASE WHEN a.type = 'BANK_ACCOUNT' THEN -e.amount ELSE e.amount END AS amount
-				FROM expenses e
-				JOIN accounts a ON a.id = e.account_id
-				JOIN expense_tags et ON et.expense_id = e.id
-				JOIN tags t ON t.id = et.tag_id AND t.name IN ('Alquiler', 'Expensas', 'Servicio', 'Seguro')
-				WHERE a.owner_id = :userId
-				  AND e.date BETWEEN :from AND :to
-				  AND ((a.type = 'BANK_ACCOUNT' AND e.amount < 0) OR a.type = 'CREDIT_CARD')
-				  AND NOT EXISTS (SELECT 1 FROM expense_items ei WHERE ei.expense_id = e.id)
-				  AND (e.details IS NULL OR e.details NOT REGEXP 'Cuota [0-9]+ de [0-9]+')
-			""" + EXCLUSIONS_MAIN_ACCOUNTS + """
-				UNION ALL
-				SELECT t.name AS name,
-				       DATE_FORMAT(e.date, '%Y-%m') AS ym,
-				       i.amount AS amount
-				FROM expenses e
-				JOIN accounts a ON a.id = e.account_id
-				JOIN expense_items i ON i.expense_id = e.id
-				JOIN expense_item_tags eit ON eit.expense_item_id = i.id
-				JOIN tags t ON t.id = eit.tag_id AND t.name IN ('Alquiler', 'Expensas', 'Servicio', 'Seguro')
-				WHERE a.owner_id = :userId
-				  AND e.date BETWEEN :from AND :to
-				  AND ((a.type = 'BANK_ACCOUNT' AND e.amount < 0) OR a.type = 'CREDIT_CARD')
-				  AND (e.details IS NULL OR e.details NOT REGEXP 'Cuota [0-9]+ de [0-9]+')
-			""" + EXCLUSIONS_MAIN_ACCOUNTS + """
-			) x
-			GROUP BY x.name
-			ORDER BY total DESC
-			""", nativeQuery = true)
-	List<Object[]> getMonthlyFixedExpenses(@Param("userId") Long userId, @Param("from") LocalDate from,
-			@Param("to") LocalDate to);
+	String RECURRING_TAGS = "('Alquiler', 'Expensas', 'Servicio', 'Hogar', 'Celular', 'Seguro', 'Deporte/Actividad')";
 
+	/**
+	 * Gastos recurrentes de los últimos 12 meses, una fila por pago individual.
+	 *
+	 * Los pagos en efectivo se anotan como items de un gasto en cero (o de la extracción con la que se sacó la
+	 * plata), así que los items aportan su importe y sus tags con la fecha del gasto padre: sin eso el alquiler
+	 * pagado en efectivo no existe como gasto, porque el retiro de cajero es un traspaso y no un gasto. El tag
+	 * Alquiler también se usa para clasificar otros gastos del hogar (un flete, por ejemplo), por eso solo se
+	 * relabela como "Alquiler" cuando la descripción es una transferencia al dueño; el resto queda con su
+	 * descripción y, si no es recurrente, no entra.
+	 *
+	 * Las transferencias a terceros se excluyen salvo que sean el alquiler: pagarle a alguien la cancha de los
+	 * domingos o una parte de una juntada se repite, pero no es un gasto fijo del hogar.
+	 *
+	 * Además de aparecer en 7 de los 12 meses, entra un concepto con al menos 2 pagos en los últimos 3 meses: los
+	 * servicios dados de alta hace poco (un cambio de ISP) todavía no llegan al corte pero ya son un fijo. El corte
+	 * en 7 deja afuera compras repetidas de supermercado/delivery, y las cuotas (Cuota X de Y) se excluyen porque
+	 * terminan.
+	 */
 	@Query(value = """
-			SELECT x.name, COALESCE(SUM(x.mtotal), 0) AS total, COUNT(*) AS months
-			FROM (
-				SELECT TRIM(COALESCE(e.description, e.original_description)) AS name,
-				       DATE_FORMAT(e.date, '%Y-%m') AS ym,
-				       SUM(CASE WHEN a.type = 'BANK_ACCOUNT' THEN -e.amount ELSE e.amount END) AS mtotal,
-				       COUNT(*) AS mov
+			WITH recurring AS (
+				SELECT CASE WHEN EXISTS (
+						SELECT 1 FROM expense_tags era JOIN tags tra ON tra.id = era.tag_id
+						WHERE era.expense_id = e.id AND tra.name = 'Alquiler'
+					) AND TRIM(COALESCE(e.description, '')) LIKE 'Transferencia%'
+					THEN 'Alquiler'
+					ELSE TRIM(COALESCE(e.description, e.original_description)) END AS concept,
+					e.date AS date,
+					CASE WHEN a.type = 'BANK_ACCOUNT' THEN -e.amount ELSE e.amount END AS amount
 				FROM expenses e
 				JOIN accounts a ON a.id = e.account_id
-				JOIN expense_tags et ON et.expense_id = e.id
-				JOIN tags t ON t.id = et.tag_id AND t.name IN ('Deporte/Actividad', 'Salud', 'Celular', 'Tecnología', 'Tecnología/Celular')
 				WHERE a.owner_id = :userId
 				  AND e.date BETWEEN :from AND :to
-				  AND ((a.type = 'BANK_ACCOUNT' AND e.amount < 0) OR a.type = 'CREDIT_CARD')
-				  AND NOT EXISTS (
-				    SELECT 1 FROM expense_tags etf JOIN tags tf ON tf.id = etf.tag_id
-				    WHERE etf.expense_id = e.id AND tf.name IN ('Alquiler', 'Expensas', 'Servicio', 'Seguro')
+				  AND ((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%' AND e.amount < 0)
+				    OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+				  AND EXISTS (
+				    SELECT 1 FROM expense_tags et JOIN tags t ON t.id = et.tag_id
+				    WHERE et.expense_id = e.id
+				      AND t.name IN """ + RECURRING_TAGS + """
 				  )
+				  AND (TRIM(COALESCE(e.description, '')) NOT LIKE 'Transferencia%'
+				    OR EXISTS (
+				      SELECT 1 FROM expense_tags era JOIN tags tra ON tra.id = era.tag_id
+				      WHERE era.expense_id = e.id AND tra.name = 'Alquiler'
+				    ))
+				  AND (e.details IS NULL OR e.details NOT REGEXP 'Cuota [0-9]+ de [0-9]+')
 				  AND NOT EXISTS (
 				    SELECT 1 FROM expense_tags etx JOIN tags tx ON tx.id = etx.tag_id
-				    WHERE etx.expense_id = e.id AND tx.name IN ('Inversión', 'Pago de tarjeta', 'Gastos de Oficina', 'Gastos de 3ro', 'Impuestos', 'Prestamo')
+				    WHERE etx.expense_id = e.id
+				      AND tx.name IN ('Inversión', 'Pago de tarjeta', 'Gastos de Oficina', 'Gastos de 3ro', 'Impuestos', 'Prestamo')
 				  )
-				  AND (e.details IS NULL OR e.details NOT REGEXP 'Cuota [0-9]+ de [0-9]+')
-				  AND COALESCE(e.description, '') NOT LIKE 'Transferencia%'
-				  AND COALESCE(e.description, '') NOT LIKE 'Extraccion%'
 			""" + EXCLUSIONS_MAIN_ACCOUNTS + """
-				GROUP BY TRIM(COALESCE(e.description, e.original_description)), DATE_FORMAT(e.date, '%Y-%m')
-			) x
-			GROUP BY x.name
-			HAVING COUNT(*) >= 6 AND SUM(x.mov) <= COUNT(*) * 2
-			ORDER BY total DESC
+				UNION ALL
+				SELECT CASE WHEN EXISTS (
+						SELECT 1 FROM expense_item_tags eia JOIN tags tia ON tia.id = eia.tag_id
+						WHERE eia.expense_item_id = i.id AND tia.name = 'Alquiler'
+					) THEN 'Alquiler'
+					ELSE TRIM(i.description) END AS concept,
+					e.date AS date,
+					i.amount AS amount
+				FROM expense_items i
+				JOIN expenses e ON e.id = i.expense_id
+				JOIN accounts a ON a.id = e.account_id
+				WHERE a.owner_id = :userId
+				  AND e.date BETWEEN :from AND :to
+				  AND ((a.type = 'BANK_ACCOUNT' AND UPPER(a.name) LIKE '%GALICIA%')
+				    OR (a.type = 'CREDIT_CARD' AND TRIM(a.name) IN ('VISA', 'Master Card')))
+				  AND i.amount > 0
+				  AND EXISTS (
+				    SELECT 1 FROM expense_item_tags eit JOIN tags t ON t.id = eit.tag_id
+				    WHERE eit.expense_item_id = i.id
+				      AND t.name IN """ + RECURRING_TAGS + """
+				  )
+			""" + EXCLUSIONS_MAIN_ACCOUNTS + """
+			)
+			SELECT r.concept, r.date, r.amount
+			FROM recurring r
+			JOIN (
+				SELECT concept FROM recurring
+				GROUP BY concept
+				HAVING COUNT(DISTINCT DATE_FORMAT(date, '%Y-%m')) >= 7
+				    OR COUNT(DISTINCT CASE WHEN date >= DATE_FORMAT(DATE_SUB(:to, INTERVAL 2 MONTH), '%Y-%m-01')
+				                           THEN DATE_FORMAT(date, '%Y-%m') END) >= 2
+			) c ON c.concept = r.concept
+			ORDER BY r.concept, r.date DESC
 			""", nativeQuery = true)
-	List<Object[]> getDetectedSubscriptions(@Param("userId") Long userId, @Param("from") LocalDate from,
+	List<Object[]> getRecurringExpenses(@Param("userId") Long userId, @Param("from") LocalDate from,
 			@Param("to") LocalDate to);
 
 	@Query(value = """
@@ -382,7 +400,8 @@ public interface DashboardRepository extends JpaRepository<Expense, Long> {
 
 	@Query(value = """
 			SELECT a.id, a.name, a.currency, a.sync_provider, a.icon, a.bank_id, a.last_sync_at,
-			       COALESCE(SUM(CASE WHEN e.amount < 0 THEN -e.amount ELSE 0 END), 0) as total
+			       COALESCE(SUM(""" + EXPENSE_SPENDING_AMOUNT + """
+			       ), 0) as total
 			FROM accounts a
 			LEFT JOIN banks b ON b.id = a.bank_id
 			LEFT JOIN expenses e ON e.account_id = a.id AND e.date BETWEEN :from AND :to

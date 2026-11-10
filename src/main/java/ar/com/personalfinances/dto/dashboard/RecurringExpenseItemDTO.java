@@ -9,9 +9,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class MonthlyExpenseDTO {
-	private String name;
-	private String type;
-	private BigDecimal average;
-	private long months;
+public class RecurringExpenseItemDTO {
+	private String date;
+	private BigDecimal amount;
 }

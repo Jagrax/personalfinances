@@ -8,15 +8,7 @@
 <body>
 	<div class="container-fluid p-4 overflow-y-auto" layout:fragment="content">
 		<div class="container-fluid mt-3">
-			<div class="d-flex justify-content-between align-items-center mb-3">
-				<h4 class="mb-0">Dashboard</h4>
-				<div class="btn-group">
-					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == null or selectedRange == 'thisMonth'} ? 'active'" th:href="@{/dashboard(range='thisMonth')}">Este mes</a>
-					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == 'last30'} ? 'active'" th:href="@{/dashboard(range='last30')}">30 días</a>
-					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == 'last90'} ? 'active'" th:href="@{/dashboard(range='last90')}">90 días</a>
-					<a class="btn btn-sm btn-outline-primary" th:classappend="${selectedRange == 'last12m'} ? 'active'" th:href="@{/dashboard(range='last12m')}">12 meses</a>
-				</div>
-			</div>
+			<h4 class="mb-3">Dashboard</h4>
 
 			<div class="alert d-flex align-items-center justify-content-between py-2"
 				th:if="${bankSyncSummary != null}"
@@ -72,8 +64,8 @@
 									<span class="fw-bold pe-1">$ <span th:text="${#numbers.formatDecimal(dashboardData.cardOpenPeriodTotal, 1, 'POINT', 2, 'COMMA')}">0</span></span>
 									<span class="small"
 										th:classappend="${dashboardData.momTrend == 'UP'} ? 'text-danger' : (${dashboardData.momTrend == 'DOWN'} ? 'text-success' : 'text-muted')"
-										title="Variación del consumo de tarjetas del período vs el anterior"
-										th:text="${(dashboardData.momPercent.signum() > 0 ? '+' : '') + #numbers.formatDecimal(dashboardData.momPercent, 1, 'POINT', 2, 'COMMA') + '% ' + (selectedRange == null or selectedRange == 'thisMonth' ? 'vs mes ant.' : 'vs período ant.')}">0%</span>
+										title="Variación del consumo de tarjetas del mes contra el mes anterior"
+										th:text="${(dashboardData.momPercent.signum() > 0 ? '+' : '') + #numbers.formatDecimal(dashboardData.momPercent, 1, 'POINT', 2, 'COMMA') + '% vs mes ant.'}">0%</span>
 								</div>
 							</div>
 							<div class="table-responsive mt-1">
@@ -115,9 +107,57 @@
 						</div>
 					</div>
 					<div class="card">
-						<div class="card-header">Top tags (período)</div>
-						<div class="card-body">
-							<canvas id="chartTags"></canvas>
+						<div class="card-header d-flex justify-content-between align-items-center">
+							<span>Gastos recurrentes (12 meses)</span>
+							<div class="d-flex align-items-center gap-2" th:if="${!#lists.isEmpty(dashboardData.recurringExpenses)}">
+								<span class="small text-primary">Concepto</span>
+								<div class="form-check form-switch mb-0">
+									<input class="form-check-input" type="checkbox" role="switch" id="recurringSortSwitch"
+										checked title="Alternar orden entre concepto e importe" aria-label="Ordenar por importe">
+								</div>
+								<span class="small text-primary">Importe</span>
+								<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+									data-bs-target="#recurringModal" title="Ver gráfico de los gastos recurrentes">
+									<i class="bi bi-graph-up"></i>
+								</button>
+							</div>
+						</div>
+						<div class="card-body p-0">
+							<div class="table-responsive">
+								<table class="table table-sm mb-0" id="recurringExpensesTable">
+									<thead>
+										<tr>
+											<th style="width:90px;">Fecha</th>
+											<th>Concepto</th>
+											<th class="text-end">Importe</th>
+											<th style="width:32px;"></th>
+										</tr>
+									</thead>
+									<tbody th:each="r, rowStat : ${dashboardData.recurringExpenses}"
+										th:attr="data-concept=${r.concept},data-amount=${r.lastAmount}">
+										<tr>
+											<td class="small text-muted text-nowrap align-middle" th:text="${r.lastDate}">-</td>
+											<td>
+												<div class="text-truncate" style="max-width:180px;" th:text="${r.concept}">-</div>
+											</td>
+											<td class="text-end align-middle">$ <span th:text="${#numbers.formatDecimal(r.lastAmount, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											<td class="text-end align-middle">
+												<button type="button" class="btn btn-sm btn-link p-0" onclick="toggleRecurringDetails(this)"
+													th:attr="data-row=${rowStat.index},aria-label=${'Ver movimientos anteriores de ' + r.concept}">
+													<i class="bi bi-chevron-down"></i>
+												</button>
+											</td>
+										</tr>
+										<tr th:each="p : ${r.previousExpenses}" style="display:none;" th:attr="data-row=${rowStat.index}">
+											<td class="small text-muted ps-4 text-nowrap" th:text="${p.date}">-</td>
+											<td></td>
+											<td class="text-end small">$ <span th:text="${#numbers.formatDecimal(p.amount, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											<td></td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							<div class="small text-muted p-2" th:if="${#lists.isEmpty(dashboardData.recurringExpenses)}">Sin gastos recurrentes detectados</div>
 						</div>
 					</div>
 				</div>
@@ -128,6 +168,16 @@
 							<canvas id="chartMonthly"></canvas>
 						</div>
 					</div>
+				</div>
+			</div>
+
+			<div class="d-flex justify-content-between align-items-center mb-2">
+				<span class="text-muted small">Top del período</span>
+				<div class="btn-group btn-group-sm" role="group" aria-label="Período de los tops">
+					<a class="btn btn-outline-primary" th:classappend="${selectedRange == null or selectedRange == 'thisMonth'} ? 'active'" th:href="@{/dashboard(range='thisMonth')}">Este mes</a>
+					<a class="btn btn-outline-primary" th:classappend="${selectedRange == 'last30'} ? 'active'" th:href="@{/dashboard(range='last30')}">30 días</a>
+					<a class="btn btn-outline-primary" th:classappend="${selectedRange == 'last90'} ? 'active'" th:href="@{/dashboard(range='last90')}">90 días</a>
+					<a class="btn btn-outline-primary" th:classappend="${selectedRange == 'last12m'} ? 'active'" th:href="@{/dashboard(range='last12m')}">12 meses</a>
 				</div>
 			</div>
 
@@ -208,38 +258,9 @@
 				</div>
 				<div class="col-lg-4">
 					<div class="card h-100">
-						<div class="card-header">Gastos mensuales (promedio 12 meses)</div>
-						<div class="card-body p-0">
-							<div class="table-responsive">
-								<table class="table table-sm mb-0">
-									<thead>
-										<tr>
-											<th>Concepto</th>
-											<th>Tipo</th>
-											<th class="text-end">Prom. mensual</th>
-											<th class="text-end">Meses</th>
-										</tr>
-									</thead>
-									<tbody>
-										<tr th:each="r : ${dashboardData.monthlyExpenses}">
-											<td class="text-truncate" style="max-width: 140px;" th:text="${r.name}">-</td>
-											<td>
-												<span class="badge" th:classappend="${r.type == 'Fijo'} ? 'bg-primary' : 'bg-info text-dark'" th:text="${r.type}">-</span>
-											</td>
-											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(r.average, 1, 'POINT', 2, 'COMMA')}">0</span></td>
-											<td class="text-end" th:text="${r.months} + '/12'">0/12</td>
-										</tr>
-									</tbody>
-									<tfoot>
-										<tr class="fw-bold">
-											<td colspan="2">Total</td>
-											<td class="text-end">$ <span th:text="${#numbers.formatDecimal(dashboardData.monthlyExpensesTotal, 1, 'POINT', 2, 'COMMA')}">0</span></td>
-											<td></td>
-										</tr>
-									</tfoot>
-								</table>
-							</div>
-							<div class="small text-muted p-2" th:if="${#lists.isEmpty(dashboardData.monthlyExpenses)}">Sin gastos mensuales detectados</div>
+						<div class="card-header">Top tags (período)</div>
+						<div class="card-body">
+							<canvas id="chartTags"></canvas>
 						</div>
 					</div>
 				</div>
@@ -269,6 +290,54 @@
 								<tbody id="segmentModalBody"></tbody>
 								<tfoot id="segmentModalFooter"></tfoot>
 							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="modal fade" id="recurringModal" tabindex="-1" aria-hidden="true">
+			<div class="modal-dialog modal-fullscreen">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">Gastos recurrentes</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+					</div>
+					<div class="modal-body">
+						<div class="row g-3">
+							<div class="col-lg-4">
+								<div class="table-responsive" style="max-height:calc(100vh - 160px);">
+									<table class="table table-sm table-hover align-middle mb-0">
+										<thead>
+											<tr>
+												<th style="width:32px;"></th>
+												<th style="width:80px;">Fecha</th>
+												<th>Concepto</th>
+												<th class="text-end">Último</th>
+											</tr>
+										</thead>
+										<tbody>
+											<tr th:each="r, rowStat : ${dashboardData.recurringExpenses}">
+												<td>
+													<input class="form-check-input recurring-chart-check" type="checkbox"
+														th:attr="data-concept=${r.concept},data-index=${rowStat.index}">
+												</td>
+												<td class="small text-muted text-nowrap" th:text="${r.lastDate}">-</td>
+												<td>
+													<div class="text-truncate" style="max-width:170px;" th:text="${r.concept}">-</div>
+												</td>
+												<td class="text-end">$ <span th:text="${#numbers.formatDecimal(r.lastAmount, 1, 'POINT', 2, 'COMMA')}">0</span></td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+								<div class="small text-muted mt-2" th:if="${#lists.isEmpty(dashboardData.recurringExpenses)}">Sin gastos recurrentes detectados</div>
+							</div>
+							<div class="col-lg-8">
+								<div style="height:calc(100vh - 160px);">
+									<canvas id="chartRecurring"></canvas>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -308,6 +377,7 @@
 			const monthly = /*[[${dashboardData.monthlySeries}]]*/ [];
 			const monthlyAccounts = /*[[${dashboardData.monthlyAccounts}]]*/ [];
 			const tags = /*[[${dashboardData.topTags}]]*/ [];
+			const recurring = /*[[${dashboardData.recurringSeries}]]*/ [];
 			const segmentExpensesUrl = /*[[@{/dashboard/segment-expenses}]]*/ '';
 			const topMerchantsUrl = /*[[@{/dashboard/top-merchants}]]*/ '';
 			const topFrom = /*[[${#temporals.format(dateFrom, 'yyyy-MM-dd')}]]*/ '';
@@ -374,6 +444,69 @@
 					}
 				});
 			}
+
+			const recurringPalette = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7', '#9C755F', '#BAB0AC'];
+			const recurringAxis = new Intl.NumberFormat('es-AR', { notation: 'compact', maximumFractionDigits: 1 });
+
+			function recurringDataset(concept, index) {
+				const color = recurringPalette[index % recurringPalette.length];
+				return {
+					label: concept,
+					data: recurring.map(x => (x.totalsByConcept && x.totalsByConcept[concept]) || 0),
+					borderColor: color,
+					backgroundColor: color,
+					tension: 0.25,
+					pointRadius: 2
+				};
+			}
+
+			let recurringLineChart = null;
+			const recurringModalEl = document.getElementById('recurringModal');
+			if (recurringModalEl) {
+				recurringModalEl.addEventListener('shown.bs.modal', function() {
+					if (!recurringLineChart) {
+						const initial = Array.from(document.querySelectorAll('.recurring-chart-check:checked'))
+							.map(cb => recurringDataset(cb.dataset.concept, Number(cb.dataset.index)));
+						recurringLineChart = new Chart(document.getElementById('chartRecurring'), {
+							type: 'line',
+							data: { labels: recurring.map(x => x.label), datasets: initial },
+							options: {
+								responsive: true,
+								maintainAspectRatio: false,
+								scales: {
+									y: {
+										beginAtZero: true,
+										ticks: { callback: value => recurringAxis.format(value) }
+									}
+								},
+								plugins: {
+									legend: { position: 'bottom' },
+									tooltip: {
+										callbacks: {
+											label: ctx => ctx.dataset.label + ': ' + segmentMoney(ctx.parsed.y)
+										}
+									}
+								}
+							}
+						});
+					}
+					recurringLineChart.resize();
+				});
+
+				document.querySelectorAll('.recurring-chart-check').forEach(function(input) {
+					input.addEventListener('change', function() {
+						if (!recurringLineChart) return;
+						const concept = input.dataset.concept;
+						if (input.checked) {
+							recurringLineChart.data.datasets.push(recurringDataset(concept, Number(input.dataset.index)));
+						} else {
+							recurringLineChart.data.datasets = recurringLineChart.data.datasets
+								.filter(d => d.label !== concept);
+						}
+						recurringLineChart.update();
+					});
+				});
+			}
 		</script>
 
 		<script>
@@ -390,6 +523,51 @@
 					.replace(/>/g, '&gt;')
 					.replace(/"/g, '&quot;')
 					.replace(/'/g, '&#39;');
+			}
+
+			function toggleRecurringDetails(button) {
+				const details = $('tr[data-row="' + button.dataset.row + '"]');
+				const expand = button.dataset.expanded !== 'true';
+				button.dataset.expanded = expand ? 'true' : 'false';
+				// Las filas se ocultan con display:none inline y no con d-none: el !important de Bootstrap
+				// anularía la animación de apertura.
+				if (expand) {
+					details.stop(true, true).slideDown(160);
+				} else {
+					details.stop(true, true).slideUp(160);
+				}
+				const icon = button.querySelector('i');
+				if (icon) {
+					icon.classList.toggle('bi-chevron-down', !expand);
+					icon.classList.toggle('bi-chevron-up', expand);
+				}
+			}
+
+			function sortRecurringExpenses(mode) {
+				const table = document.getElementById('recurringExpensesTable');
+				if (!table) {
+					return;
+				}
+				const groups = Array.from(table.tBodies);
+				// El importe es el del último mes; el concepto se compara sin distinguir mayúsculas para que
+				// "Alquiler" y "alquiler" no queden en extremos opuestos.
+				groups.sort((a, b) => {
+					if (mode === 'concept') {
+						return (a.dataset.concept || '').localeCompare(b.dataset.concept || '', 'es', { sensitivity: 'base' });
+					}
+					return parseFloat(b.dataset.amount || '0') - parseFloat(a.dataset.amount || '0');
+				});
+				groups.forEach(group => table.appendChild(group));
+			}
+
+			const recurringSortSwitch = document.getElementById('recurringSortSwitch');
+			if (recurringSortSwitch) {
+				// La tabla llega ordenada por la suma de los 12 meses; la vista por defecto ordena por el último
+				// importe, que es la columna que se ve.
+				sortRecurringExpenses('amount');
+				recurringSortSwitch.addEventListener('change', () => {
+					sortRecurringExpenses(recurringSortSwitch.checked ? 'amount' : 'concept');
+				});
 			}
 
 			async function openSegmentModal(account, year, month, label) {

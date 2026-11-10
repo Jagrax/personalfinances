@@ -26,8 +26,10 @@ import ar.com.personalfinances.dto.dashboard.AccountExpenseSegmentDTO;
 import ar.com.personalfinances.dto.dashboard.CardOpenPeriodDTO;
 import ar.com.personalfinances.dto.dashboard.DashboardDataDTO;
 import ar.com.personalfinances.dto.dashboard.ExpenseDetailDTO;
-import ar.com.personalfinances.dto.dashboard.MonthlyExpenseDTO;
 import ar.com.personalfinances.dto.dashboard.MonthlyExpensePointDTO;
+import ar.com.personalfinances.dto.dashboard.RecurringExpenseDTO;
+import ar.com.personalfinances.dto.dashboard.RecurringExpenseItemDTO;
+import ar.com.personalfinances.dto.dashboard.RecurringExpensePointDTO;
 import ar.com.personalfinances.dto.dashboard.SegmentExpensesDTO;
 import ar.com.personalfinances.dto.dashboard.TopMerchantDTO;
 import ar.com.personalfinances.dto.dashboard.TopMerchantsDTO;
@@ -42,7 +44,6 @@ public class DashboardServiceImpl implements DashboardService {
 
 	private final DashboardRepository dashboardRepository;
 
-	private static final BigDecimal MONTHS_IN_YEAR = BigDecimal.valueOf(12);
 	private static final int TOP_SIZE = 10;
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 	private static final Pattern INSTALLMENT_PATTERN = Pattern.compile("Cuota\\s+(\\d+)\\s+de\\s+(\\d+)");
@@ -51,9 +52,14 @@ public class DashboardServiceImpl implements DashboardService {
 	public void loadDashboard(Model model, User user, LocalDate from, LocalDate to, String range) {
 		DashboardDataDTO data = new DashboardDataDTO();
 
+		// El resumen de gastos y la variación de tarjetas miran el mes en curso y no el rango de los tops: el rango
+		// mueve las métricas de abajo, no lo que se gastó este mes.
+		LocalDate monthStart = LocalDate.now().with(TemporalAdjusters.firstDayOfMonth());
+		LocalDate monthEnd = monthStart.with(TemporalAdjusters.lastDayOfMonth());
+
 		buildCardOpenPeriod(data, user);
 		BigDecimal total = nonNull(dashboardRepository.getTotalForPeriod(user.getId(), from, to));
-		BigDecimal momPercent = calculateCardMom(user, from, to);
+		BigDecimal momPercent = calculateCardMom(user, monthStart, monthEnd);
 
 		data.setMomPercent(momPercent);
 		data.setMomTrend(trendOf(momPercent));
@@ -62,8 +68,8 @@ public class DashboardServiceImpl implements DashboardService {
 		data.setTopMerchants(buildTopMerchants(user.getId(), from, to, totalMovements, false));
 		data.setTopMerchantGroups(buildTopMerchantGroups(user.getId(), from, to, totalMovements, false));
 		data.setTopTags(buildTopTags(user, from, to, total));
-		buildMonthlyExpenses(data, user, to);
-		buildAccountSegments(data, user, from, to);
+		buildRecurringExpenses(data, user, to);
+		buildAccountSegments(data, user, monthStart, monthEnd);
 
 		model.addAttribute("dashboardData", data);
 		model.addAttribute("selectedRange", range != null ? range : "thisMonth");
@@ -79,9 +85,9 @@ public class DashboardServiceImpl implements DashboardService {
 				buildTopMerchantGroups(userId, from, to, totalMovements, groupsByAmount));
 	}
 
-	private void buildAccountSegments(DashboardDataDTO data, User user, LocalDate from, LocalDate to) {
+	private void buildAccountSegments(DashboardDataDTO data, User user, LocalDate monthStart, LocalDate monthEnd) {
 		data.setGaliciaAccounts(buildAccountExpenseSegments(
-				dashboardRepository.getGaliciaAccountExpenses(user.getId(), from, to)));
+				dashboardRepository.getGaliciaAccountExpenses(user.getId(), monthStart, monthEnd)));
 		data.setSddAccounts(buildAccountExpenseSegments(
 				dashboardRepository.getSddAccountExpenses(user.getId())));
 	}
@@ -171,10 +177,15 @@ public class DashboardServiceImpl implements DashboardService {
 		return null;
 	}
 
-	private BigDecimal calculateCardMom(User user, LocalDate from, LocalDate to) {
-		BigDecimal current = nonNull(dashboardRepository.getCardTotalForPeriod(user.getId(), from, to));
-		BigDecimal prev = nonNull(dashboardRepository.getCardTotalForPeriod(user.getId(), from.minusMonths(1),
-				to.minusMonths(1)));
+	/**
+	 * Variación del consumo de tarjetas del mes en curso contra el mes anterior. El número que tiene al lado es el
+	 * período abierto actual de las tarjetas; con ventanas de 30 o 90 días la comparación no era contra un período
+	 * equivalente y el porcentaje no se podía leer.
+	 */
+	private BigDecimal calculateCardMom(User user, LocalDate monthStart, LocalDate monthEnd) {
+		BigDecimal current = nonNull(dashboardRepository.getCardTotalForPeriod(user.getId(), monthStart, monthEnd));
+		BigDecimal prev = nonNull(
+				dashboardRepository.getCardTotalForPeriod(user.getId(), monthStart.minusMonths(1), monthEnd.minusMonths(1)));
 		if (prev.signum() == 0) {
 			return BigDecimal.ZERO;
 		}
@@ -300,33 +311,81 @@ public class DashboardServiceImpl implements DashboardService {
 		return list;
 	}
 
-	private void buildMonthlyExpenses(DashboardDataDTO data, User user, LocalDate to) {
+	private void buildRecurringExpenses(DashboardDataDTO data, User user, LocalDate to) {
 		LocalDate from = to.minusMonths(11).with(TemporalAdjusters.firstDayOfMonth());
-		List<MonthlyExpenseDTO> list = new ArrayList<>();
-		BigDecimal total = BigDecimal.ZERO;
 
-		for (Object[] r : dashboardRepository.getMonthlyFixedExpenses(user.getId(), from, to)) {
-			MonthlyExpenseDTO dto = toMonthlyExpense(r, "Fijo");
-			list.add(dto);
-			total = total.add(dto.getAverage());
+		Map<String, List<RecurringPayment>> paymentsByConcept = new LinkedHashMap<>();
+		for (Object[] r : dashboardRepository.getRecurringExpenses(user.getId(), from, to)) {
+			String concept = r[0] != null ? r[0].toString() : "";
+			LocalDate date = toLocalDate(r[1]);
+			if (date == null) continue;
+			BigDecimal amount = r[2] != null ? new BigDecimal(r[2].toString()) : BigDecimal.ZERO;
+			paymentsByConcept.computeIfAbsent(concept, k -> new ArrayList<>())
+					.add(new RecurringPayment(date, amount.setScale(2, RoundingMode.HALF_UP)));
 		}
 
-		for (Object[] r : dashboardRepository.getDetectedSubscriptions(user.getId(), from, to)) {
-			MonthlyExpenseDTO dto = toMonthlyExpense(r, "Suscripción");
-			list.add(dto);
-			total = total.add(dto.getAverage());
+		List<String> concepts = paymentsByConcept.entrySet().stream()
+				.sorted(Comparator.comparing((Map.Entry<String, List<RecurringPayment>> e) -> e.getValue().stream()
+						.map(RecurringPayment::amount).reduce(BigDecimal.ZERO, BigDecimal::add)).reversed())
+				.map(Map.Entry::getKey)
+				.toList();
+
+		Map<String, Map<String, BigDecimal>> totalsByConcept = new LinkedHashMap<>();
+		List<RecurringExpenseDTO> table = new ArrayList<>();
+		for (String concept : concepts) {
+			List<RecurringPayment> payments = paymentsByConcept.get(concept);
+			payments.sort(Comparator.comparing(RecurringPayment::date).reversed());
+
+			String lastPeriod = periodLabel(payments.getFirst().date());
+			BigDecimal lastAmount = payments.stream()
+					.filter(p -> periodLabel(p.date()).equals(lastPeriod))
+					.map(RecurringPayment::amount)
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+			List<RecurringExpenseItemDTO> previous = payments.stream()
+					.filter(p -> !periodLabel(p.date()).equals(lastPeriod))
+					.map(p -> new RecurringExpenseItemDTO(DATE_FORMATTER.format(p.date()), p.amount()))
+					.toList();
+			table.add(new RecurringExpenseDTO(concept, DATE_FORMATTER.format(payments.getFirst().date()), lastAmount,
+					previous));
+
+			Map<String, BigDecimal> monthly = new LinkedHashMap<>();
+			for (RecurringPayment p : payments) {
+				monthly.merge(periodKey(p.date()), p.amount(), BigDecimal::add);
+			}
+			totalsByConcept.put(concept, monthly);
 		}
 
-		list.sort(Comparator.comparing(MonthlyExpenseDTO::getAverage).reversed());
-		data.setMonthlyExpenses(list);
-		data.setMonthlyExpensesTotal(total.setScale(2, RoundingMode.HALF_UP));
+		data.setRecurringExpenses(table);
+		data.setRecurringSeries(buildRecurringSeries(from, to, concepts, totalsByConcept));
 	}
 
-	private MonthlyExpenseDTO toMonthlyExpense(Object[] r, String type) {
-		String name = r[0] != null ? r[0].toString() : "";
-		BigDecimal sum = r[1] != null ? new BigDecimal(r[1].toString()) : BigDecimal.ZERO;
-		long months = r[2] != null ? ((Number) r[2]).longValue() : 0L;
-		BigDecimal average = sum.divide(MONTHS_IN_YEAR, 2, RoundingMode.HALF_UP);
-		return new MonthlyExpenseDTO(name, type, average, months);
+	private List<RecurringExpensePointDTO> buildRecurringSeries(LocalDate from, LocalDate to, List<String> concepts,
+			Map<String, Map<String, BigDecimal>> totalsByConcept) {
+		List<RecurringExpensePointDTO> series = new ArrayList<>();
+		for (LocalDate d = from; !d.isAfter(to.withDayOfMonth(1)); d = d.plusMonths(1)) {
+			String ym = periodKey(d);
+			Map<String, BigDecimal> values = new LinkedHashMap<>();
+			BigDecimal monthTotal = BigDecimal.ZERO;
+			for (String concept : concepts) {
+				BigDecimal value = totalsByConcept.get(concept).getOrDefault(ym, BigDecimal.ZERO)
+						.setScale(2, RoundingMode.HALF_UP);
+				values.put(concept, value);
+				monthTotal = monthTotal.add(value);
+			}
+			series.add(new RecurringExpensePointDTO(d.getYear(), d.getMonthValue(), periodLabel(d), values,
+					monthTotal.setScale(2, RoundingMode.HALF_UP)));
+		}
+		return series;
+	}
+
+	private String periodKey(LocalDate date) {
+		return date.getYear() + "-" + date.getMonthValue();
+	}
+
+	private String periodLabel(LocalDate date) {
+		return String.format("%02d/%d", date.getMonthValue(), date.getYear());
+	}
+
+	private record RecurringPayment(LocalDate date, BigDecimal amount) {
 	}
 }
