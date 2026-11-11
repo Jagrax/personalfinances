@@ -7,6 +7,7 @@ import de.focus_shift.jollyday.core.ManagerParameters;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Set;
@@ -25,6 +26,9 @@ public class DateUtils {
                 , LocalDate.of(2026,  2, 17) // Feriado por carnaval
                 , LocalDate.of(2026,  3, 23) // Feriado turístico (por feriado del Martes 24 - Día Nacional de la Memoria por la Verdad y la Justicia)
                 , LocalDate.of(2026,  7, 10) // Feriado turístico (por feriado del Jueves 09 - Día de la Independencia
+                , LocalDate.of(2026,  Month.NOVEMBER, 6) // Día del bancario (si bien se trabajó, para el banco fue feriado)
+                , LocalDate.of(2026,  Month.NOVEMBER, 9) // Feriado inamovible — Visita de Su Santidad el Papa León XIV
+                , LocalDate.of(2026,  Month.NOVEMBER, 10) // Feriado especial — Visita de Su Santidad el Papa León XIV feriado en Córdoba y Ciudad Autónoma de Buenos Aires
     );
     public static final Map<String, String> MONTHS_ES = Map.ofEntries(
             Map.entry("Ene","Jan"),
