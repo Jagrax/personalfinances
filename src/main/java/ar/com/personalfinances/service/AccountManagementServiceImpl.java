@@ -621,7 +621,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
             final Optional<ExpenseMapping> mapping = expenseMappingService.matchExpenseMapping(user, bankDescription);
             if (mapping.isPresent()) {
                 expense.setDescription(expenseMappingService.resolveNormalizedDescription(mapping.get(), bankDescription));
-                expense.setDetails(StringUtils.hasText(details) ? details : expenseMappingService.resolveDetails(mapping.get(), bankDescription));
+                expense.setDetails(StringUtils.hasText(details) ? details : resolveMappingDetails(mapping.get(), user, account, date, bankDescription));
                 expense.setTags(mapping.get().getTags() != null ? new ArrayList<>(mapping.get().getTags()) : new ArrayList<>());
             } else {
                 expense.setDescription(bankDescription);
@@ -637,6 +637,37 @@ public class AccountManagementServiceImpl implements AccountManagementService {
         log.info("[createExpense] Expense created: {} {} {}", DateUtils.format(expense.getDate()), expense.getDescription(), expense.getAmount());
         alertEventService.saveExpenseAlert(EntityEvent.CREATED, expense.getId(), "", user.getId());
         return expense;
+    }
+
+    /**
+     * Resuelve el detalle del mapping incluyendo el mes de un periodo de tarjeta, que no viene en la descripcion
+     * del banco: se deduce del periodo que cancela el pago (ver {@link CardPeriodService#findPaidPeriod}).
+     */
+    private String resolveMappingDetails(ExpenseMapping mapping, User user, Account account, LocalDate date, String bankDescription) {
+        final String resolvedDetails = expenseMappingService.resolveDetails(mapping, bankDescription);
+        if (!StringUtils.hasText(resolvedDetails) || !resolvedDetails.contains(ExpenseMappingService.PERIOD_MONTH_PLACEHOLDER)) {
+            return resolvedDetails;
+        }
+
+        // En la cuenta del banco el movimiento solo dice la marca de la tarjeta (PAGO TARJETA VISA / MASTER)
+        Account cardAccount = account;
+        if (!AccountType.CREDIT_CARD.equals(account.getType())) {
+            final String upperDescription = bankDescription.toUpperCase();
+            final String brand = upperDescription.contains("MASTER") ? "MASTER" : upperDescription.contains("VISA") ? "VISA" : null;
+            cardAccount = brand == null ? null : accountRepository.findByOwnerAndType(user, AccountType.CREDIT_CARD).stream()
+                    .filter(candidate -> candidate.getName() != null && candidate.getName().toUpperCase().contains(brand))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        final CardPeriod paidPeriod = cardPeriodService.findPaidPeriod(cardAccount, date);
+        if (paidPeriod != null && paidPeriod.getPeriodMonthName() != null) {
+            return resolvedDetails.replace(ExpenseMappingService.PERIOD_MONTH_PLACEHOLDER, paidPeriod.getPeriodMonthName());
+        }
+
+        // Sin periodos cargados no hay forma de deducirlo: el resumen se debita el mes siguiente al de su cierre
+        log.warn("[resolveMappingDetails] No se pudo deducir el periodo del pago de tarjeta [{} {}]. Se usa el mes anterior", DateUtils.format(date), bankDescription);
+        return resolvedDetails.replace(ExpenseMappingService.PERIOD_MONTH_PLACEHOLDER, DateUtils.getMonthName(date.minusMonths(1)));
     }
 
     private String resolveInheritedDetails(String previousDetails, String details) {

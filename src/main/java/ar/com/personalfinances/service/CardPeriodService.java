@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -125,6 +126,31 @@ public class CardPeriodService {
             if (contains(period, date)) return period;
         }
         return null;
+    }
+
+    /**
+     * Devuelve el periodo que cancela un pago de tarjeta: entre los periodos ya cerrados cuando se pago, el de
+     * vencimiento mas cercano a la fecha de pago. El banco mueve los vencimientos y el usuario puede pagar antes
+     * o despues del vencimiento, por eso no alcanza con suponer que el pago siempre corresponde al mes anterior.
+     */
+    public CardPeriod findPaidPeriod(Account account, LocalDate paymentDate) {
+        if (account == null || account.getId() == null || paymentDate == null) return null;
+
+        CardPeriod paidPeriod = null;
+        long minDistance = Long.MAX_VALUE;
+        for (CardPeriod period : cardPeriodRepository.findByAccountOrderByClosingDateAsc(account)) {
+            // El pago cancela un resumen ya cerrado: descarto el periodo que todavia estaba abierto al pagar
+            if (period.getDueDate() == null || period.getClosingDate() == null || period.getClosingDate().isAfter(paymentDate)) {
+                continue;
+            }
+
+            final long distance = Math.abs(ChronoUnit.DAYS.between(period.getDueDate(), paymentDate));
+            if (distance < minDistance) {
+                minDistance = distance;
+                paidPeriod = period;
+            }
+        }
+        return paidPeriod;
     }
 
     /**

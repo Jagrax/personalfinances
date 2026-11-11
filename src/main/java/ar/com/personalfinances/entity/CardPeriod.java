@@ -1,5 +1,6 @@
 package ar.com.personalfinances.entity;
 
+import ar.com.personalfinances.util.DateUtils;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -46,6 +47,11 @@ public class CardPeriod {
     private static final String[] SPANISH_MONTHS = {
             "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
     };
+
+    @Transient
+    public String getPeriodMonthName() {
+        return DateUtils.getMonthName(resolvePeriodMonth());
+    }
 
     @Transient
     public String getPeriodMonthLabel() {

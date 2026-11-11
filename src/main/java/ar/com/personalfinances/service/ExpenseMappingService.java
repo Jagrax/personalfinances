@@ -15,6 +15,9 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ExpenseMappingService {
 
+    // Lo resuelve el llamador porque necesita datos del banco que el template no tiene (el periodo que cancela un pago de tarjeta)
+    public static final String PERIOD_MONTH_PLACEHOLDER = "${periodMonth}";
+
     private final ExpenseMappingRepository repository;
 
     public Optional<ExpenseMapping> matchExpenseMapping(User user, String rawDescription) {

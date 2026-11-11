@@ -8,6 +8,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +45,18 @@ public class DateUtils {
             Map.entry("Nov","Nov"),
             Map.entry("Dic","Dec")
     );
+    private static final String[] MONTH_NAMES_ES = {
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    };
+
+    public static String getMonthName(YearMonth month) {
+        return month == null ? null : MONTH_NAMES_ES[month.getMonthValue() - 1];
+    }
+
+    public static String getMonthName(LocalDate date) {
+        return date == null ? null : getMonthName(YearMonth.from(date));
+    }
 
     public static String format(LocalDate localDate) {
         return format(localDate, FORMATTER);
