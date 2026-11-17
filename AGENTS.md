@@ -23,7 +23,7 @@ Aplicación web personal de finanzas (MVC server-side, no SPA). Sincroniza movim
 - **BD**: MySQL 8. Existen dos bases: una de desarrollo y una de producción. El cliente `mysql.exe` va en el PATH o se configura con `app.mysql.bin.path` (usar solo si hace falta consultar; preguntar antes de modificar datos).
 - `src/main/resources/application-wildfly.properties`: profile `wildfly`, `ddl-auto=validate` (no altera schema), context-path `/personalfinances`, formatos dd/MM/yyyy. **No hay `application.properties` default**.
 - `src/main/webapp/WEB-INF/jboss-deployment-structure.xml`: excluye módulos JBoss (SLF4J, Hibernate, Jackson) para que el WAR use sus versiones.
-- Perfil maven `release` (se activa con `-DskipTests`): excluye `personalfinances-ds.xml` y copia el WAR al directorio de deployments vía maven-antrun-plugin, solo si se pasa `-Dwildfly.deploy.dir=<ruta>` (con el default vacío no copia a ningún lado).
+- Perfiles maven: `release` (se activa con `-DskipTests`) excluye `personalfinances-ds.xml` del WAR; `deploy-war` (se activa solo si se pasa `-Dwildfly.deploy.dir=<ruta>`) copia el WAR al directorio de deployments vía maven-antrun-plugin. Sin esa propiedad el perfil no se activa y el WAR queda en `target/`.
 - Migraciones SQL en `db/` (raíz) y `src/main/resources/db/`. `db/` y `personalfinances-ds.xml` están gitignored.
 
 ## Arquitectura (paquetes principales)

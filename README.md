@@ -202,7 +202,7 @@ deploy **no está hardcodeado en el repo**: se pasa por línea de comandos con `
    - Escribir: `package -DskipTests -Dwildfly.deploy.dir=<ruta>`
    - Enter
 
-Con cualquiera de las dos, el perfil `release` se activa por el `-DskipTests`, se excluye el `-ds.xml` del WAR, y el `maven-antrun-plugin` copia el WAR a la carpeta de producción si y solo si definiste `wildfly.deploy.dir`.
+Con cualquiera de las dos, el perfil `release` se activa por el `-DskipTests` y excluye el `-ds.xml` del WAR. La copia al directorio de deployments la hace el perfil `deploy-war`, que se activa solo si definís `wildfly.deploy.dir` (si no lo pasás, no se ejecuta antrun y el WAR queda en `target/`).
 
 ---
 
